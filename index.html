@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChoreQuest</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=15">
+    <link rel="stylesheet" href="css/styles.css?v=16">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
 </head>
@@ -113,6 +113,7 @@
                     <div class="settings-group" style="background:transparent; border:1px dashed #444;">
                         <h4>Session</h4>
                         <div id="auth-status-text" style="font-size:0.8rem; opacity:0.7; margin-bottom:10px;">Connecté</div>
+                        <button id="login-modal-btn" class="action-btn hidden" onclick="handleAuthClick()" style="font-size:0.8rem; padding:8px;">Connexion Google</button>
                         <button id="logout-modal-btn" class="action-btn secondary-btn" onclick="handleSignoutClick()" style="font-size:0.8rem; padding:8px;">Déconnexion</button>
                     </div>
 
@@ -120,7 +121,7 @@
                         <button class="action-btn" onclick="app.showModal('dev-modal'); app.renderDevMode();" style="background-color: #6c757d; font-size:0.7rem;">🛠️ Admin</button>
                         <button class="action-btn danger-btn" onclick="app.forceAppReset()" style="font-size:0.7rem;">⚠️ Réparer</button>
                     </div>
-                    <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">v1.8.3</small>
+                    <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">v1.8.4</small>
                 </div>
             </div>
         </div>
@@ -174,7 +175,7 @@
                     <h2>🛠️ Administration</h2>
                     <button onclick="app.checkForUpdates()" style="background:#4a90e2; color:white; border:none; padding:5px 10px; border-radius:4px; font-size:0.7rem;">Vérifier mise à jour</button>
                 </div>
-                <p style="font-size:0.7rem; opacity:0.5; margin-top:-10px;">Version: 1.8.2</p>
+                <p style="font-size:0.7rem; opacity:0.5; margin-top:-10px;">Version: 1.8.4</p>
                 <div class="settings-group">
                     <h4>Inviter un membre</h4>
                     <div style="display:flex; gap:10px;">
@@ -200,17 +201,17 @@
         <button id="update-btn">Installer</button>
     </div>
 
-    <script src="js/config.js?v=15"></script>
+    <script src="js/config.js?v=16"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
-    <script src="js/auth.js?v=15" defer></script>
-    <script src="js/drive.js?v=15" defer></script>
-    <script src="js/app.js?v=15" defer></script>
+    <script src="js/auth.js?v=16" defer></script>
+    <script src="js/drive.js?v=16" defer></script>
+    <script src="js/app.js?v=16" defer></script>
 
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js?v=15').then(reg => {
+                navigator.serviceWorker.register('sw.js?v=16').then(reg => {
                     reg.addEventListener('updatefound', () => {
                         const newWorker = reg.installing;
                         newWorker.addEventListener('statechange', () => {

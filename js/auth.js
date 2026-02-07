@@ -97,17 +97,17 @@ function updateUIForAuth(loggedIn) {
     const userSettings = document.getElementById('user-settings');
 
     if (loggedIn) {
-        statusDot.classList.add('online');
-        statusText.innerText = "Connecté à Google Drive";
-        loginBtn.classList.add('hidden');
-        logoutBtn.classList.remove('hidden');
-        userSettings.classList.remove('hidden');
+        if (statusDot) statusDot.classList.add('online');
+        if (statusText) statusText.innerText = "Connecté à Google Drive";
+        if (loginBtn) loginBtn.classList.add('hidden');
+        if (logoutBtn) logoutBtn.classList.remove('hidden');
+        if (userSettings) userSettings.classList.remove('hidden');
     } else {
-        statusDot.classList.remove('online');
-        statusText.innerText = "Déconnecté";
-        loginBtn.classList.remove('hidden');
-        logoutBtn.classList.add('hidden');
-        userSettings.classList.add('hidden');
+        if (statusDot) statusDot.classList.remove('online');
+        if (statusText) statusText.innerText = "Déconnecté";
+        if (loginBtn) loginBtn.classList.remove('hidden');
+        if (logoutBtn) logoutBtn.classList.add('hidden');
+        if (userSettings) userSettings.classList.add('hidden');
     }
 }
 
