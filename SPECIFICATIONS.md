@@ -1,65 +1,68 @@
-# Specifications: ChoreQuest (formerly Frequence Menage)
+# Spécifications : ChoreQuest
 
 ## 1. Concept
-**Level up your home, one quest at a time.**
-ChoreQuest is a gamified Progressive Web App (PWA) that transforms boring household chores into an epic RPG adventure. Track tasks, earn XP, and level up with your family while keeping your data private and synced via your own Google Drive.
+**"Level up your home, one quest at a time."**
+ChoreQuest est une application web progressive (PWA) gamifiée qui transforme les corvées ménagères en une aventure RPG épique. Suivez vos tâches, gagnez de l'XP et montez en niveau en famille tout en gardant vos données privées et synchronisées via votre propre Google Drive.
 
-## 2. Key Features
+## 2. Fonctionnalités Implémentées
 
-### 2.1. Task Management (The "Quest Log")
-*   **Definition:** Task Name, Description, Difficulty (XP/Points).
-*   **Frequency:**
-    *   Recurring (e.g., "Do the dishes" - Daily).
-    *   Periodic (e.g., "Change sheets" - Every 15 days).
-    *   One-off (e.g., "Fix the shelf").
-*   **Status:** To Do (with urgency/delay indicator), Done.
+### 2.1. Gestion des Tâches (Le "Tableau des Quêtes")
+*   **Création :** Formulaire pour ajouter des quêtes avec titre et difficulté.
+*   **Difficultés :** 
+    *   Petite Tâche (10 XP)
+    *   Quête Moyenne (50 XP)
+    *   Défi Épique (150 XP)
+*   **Validation :** Bouton "Valider" qui supprime la quête et octroie l'XP instantanément.
 
-### 2.2. Collaboration (The "Party")
-*   **Hosted Mode:** One user creates the "House" (JSON file on their Drive).
-*   **Guests:** Other members connect to the shared file.
-*   **Assignment:** Ability to assign a task to oneself ("I take this quest") or to someone else.
+### 2.2. Gamification (RPG)
+*   **Profils :** Création d'un héros avec nom et choix d'avatar (🛡️, 🔮, 🌿, ⚡, 🐱).
+*   **Progression :** 
+    *   Barre d'XP visuelle en temps réel.
+    *   Système de niveaux (Niveau supérieur tous les `Niveau * 100` XP).
+    *   Alertes visuelles lors du passage de niveau.
 
-### 2.3. Gamification (RPG)
-*   **Profiles:** Each member has an avatar and a level.
-*   **XP & Levels:** Completing a task grants XP. Leveling up unlocks titles or rewards (defined by the household, e.g., "Movie night choice").
-*   **Leaderboard:** Weekly/Monthly ranking (optional, for healthy competition).
-*   **History:** "Adventure Log" of completed tasks.
+### 2.3. Infrastructure & Technique
+*   **Architecture :** PWA (Progressive Web App) fonctionnant en mode déconnecté.
+*   **Stockage :** Serverless, utilise l'API Google Drive v3 de l'utilisateur (`chorequest_db.json`).
+*   **Déploiement :** GitHub Pages avec intégration continue via GitHub Actions.
+*   **Mode Dev :** Interface de debug masquée (accessible via un triple-clic sur le titre).
 
-## 3. Technical Architecture
+## 3. Architecture Technique détaillée
 
-*   **Foundation:** Based on `PWA_Drive_Architecture`.
-*   **Frontend:** HTML5, CSS (Modern, Responsive), Vanilla JS.
-*   **Hosting:** GitHub Pages.
-*   **Backend / Storage:** Google Drive API v3 (Serverless).
-*   **Data Model:**
-    *   Single file: `chorequest_db.json`.
+*   **Frontend :** HTML5 / CSS3 (Thème Dark RPG) / Vanilla JS.
+*   **Auth :** Google Identity Services (GSI) avec OAuth 2.0.
+*   **Base de Données :** Fichier JSON unique sur le Drive de l'utilisateur.
 
-### JSON Structure (Draft)
+### Modèle de Données (JSON)
 ```json
 {
   "meta": {
-    "version": 1,
-    "last_updated": "2023-10-27T10:00:00Z",
-    "updated_by": "user_id_1"
+    "version": 2,
+    "created_at": "2026-02-07T..."
   },
   "users": [
-    { "id": "u1", "name": "Dad", "xp": 1200, "level": 5, "avatar": "🛡️" },
-    { "id": "u2", "name": "Mom", "xp": 1450, "level": 6, "avatar": "🔮" }
+    { "id": "u123", "name": "Yohann", "xp": 45, "level": 2, "avatar": "🛡️" }
   ],
   "tasks": [
-    {
-      "id": "t1",
-      "title": "Empty Dishwasher",
-      "xp_reward": 50,
-      "frequency_days": 1,
-      "last_done": "2023-10-26T20:00:00Z",
-      "last_done_by": "u1"
-    }
+    { "id": 123456, "title": "Nettoyer le four", "xp": 150 }
   ]
 }
 ```
 
-## 4. UX / UI (Design)
-*   **Mobile First:** Native app feel.
-*   **Visual:** Clean RPG / Adventure Map style.
-*   **Interactions:** Swipe to complete, sound effects (optional).
+## 4. Roadmap (Prochaines Étapes)
+
+### 4.1. Collaboration (Le "Groupe")
+*   Partager le fichier de quêtes avec d'autres comptes Google.
+*   Gestion des droits d'écriture pour les membres du foyer.
+
+### 4.2. Automatisation (Répétition)
+*   Tâches récurrentes (quotidiennes, hebdomadaires).
+*   Réapparition automatique des quêtes validées après un certain délai.
+
+### 4.3. Boutique & Récompenses
+*   Définir des récompenses réelles (ex: "Choix du film", "Grâce matinée").
+*   Acheter ces récompenses avec les points accumulés.
+
+## 5. Design & UX
+*   **Thème :** Interface sombre, accents bleus électriques et rouges épiques.
+*   **Mobile :** Optimisé pour une utilisation à une main sur smartphone.
