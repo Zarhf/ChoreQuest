@@ -346,20 +346,23 @@ const app = {
         }
     },
 
-    toggleDevMode() {
-        if (this.devTimer) clearTimeout(this.devTimer);
-        this.clickCount++;
+    forceAppReset() {
+        if (!confirm("Attention : Cela va redémarrer l'application et forcer le téléchargement de la dernière version. Continuer ?")) return;
         
-        if (this.clickCount >= 5) {
-            this.clickCount = 0;
-            if (window.navigator && window.navigator.vibrate) window.navigator.vibrate(50);
-            this.renderDevMode();
-            this.showModal('dev-modal');
-        } else {
-            this.devTimer = setTimeout(() => {
-                this.clickCount = 0;
-            }, 1000);
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(registrations => {
+                for (let registration of registrations) { registration.unregister(); }
+            });
         }
+        caches.keys().then(names => {
+            for (let name of names) caches.delete(name);
+        });
+        
+        // Petite pause pour laisser le temps au nettoyage
+        setTimeout(() => {
+            alert('Application nettoyée. Redémarrage...');
+            window.location.reload();
+        }, 500);
     },
 
     renderDevMode() {

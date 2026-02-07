@@ -12,7 +12,7 @@
 <body>
     <div id="app">
         <header>
-            <h1 onclick="app.toggleDevMode()" style="cursor:pointer" title="Cliquez 5 fois pour le mode Administration">🛡️ ChoreQuest</h1>
+            <h1>🛡️ ChoreQuest</h1>
             <div id="auth-container">
                 <button id="account-btn" onclick="app.showModal('account-modal')">
                     <span id="account-status" class="account-status-dot"></span>
@@ -91,6 +91,13 @@
                             <option value="🐱">🐱 Ninja</option>
                         </select>
                     </div>
+
+                    <div class="settings-group">
+                        <h4>Avancé</h4>
+                        <button class="action-btn" onclick="app.showModal('dev-modal'); app.renderDevMode();" style="background-color: #6c757d;">🛠️ Ouvrir l'Administration</button>
+                        <button class="action-btn danger-btn" onclick="app.forceAppReset()">⚠️ Réparer / Vider le Cache</button>
+                        <small style="display:block; text-align:center; margin-top:5px; opacity:0.5;">Version 1.6.0</small>
+                    </div>
                 </div>
 
                 <button class="action-btn" onclick="app.hideModals()">Fermer</button>
@@ -144,7 +151,7 @@
                     <button onclick="app.checkForUpdates()" style="background:#4a90e2; color:white; border:none; padding:5px 10px; border-radius:4px; font-size:0.7rem;">Vérifier mise à jour</button>
                 </div>
                 
-                <p style="font-size:0.7rem; opacity:0.5; margin-top:-10px;">Version: 1.5.0</p>
+                <p style="font-size:0.7rem; opacity:0.5; margin-top:-10px;">Version: 1.6.0</p>
                 
                 <div class="settings-group">
                     <h4>Inviter un membre (Email Google)</h4>
