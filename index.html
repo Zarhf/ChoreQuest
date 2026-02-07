@@ -5,23 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChoreQuest</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=12">
+    <link rel="stylesheet" href="css/styles.css?v=13">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
 </head>
 <body>
     <script>
-        // Emergency Cache Nuke IMPROVED
         async function handleNuke() {
             if (window.location.search.includes('nuke=true')) {
-                console.log("NUKE TRIGGERED");
                 if ('serviceWorker' in navigator) {
                     const registrations = await navigator.serviceWorker.getRegistrations();
                     for (let registration of registrations) { await registration.unregister(); }
                 }
                 const names = await caches.keys();
                 for (let name of names) { await caches.delete(name); }
-                
                 alert('Application réinitialisée !');
                 window.location.href = window.location.pathname + '?v=' + Date.now();
             }
@@ -106,7 +103,7 @@
                         <h4>Avancé</h4>
                         <button class="action-btn" onclick="app.showModal('dev-modal'); app.renderDevMode();" style="background-color: #6c757d;">🛠️ Administration</button>
                         <button class="action-btn danger-btn" onclick="app.forceAppReset()">⚠️ Réparer / Vider le Cache</button>
-                        <small style="display:block; text-align:center; margin-top:5px; opacity:0.5;">Version 1.7.0</small>
+                        <small style="display:block; text-align:center; margin-top:5px; opacity:0.5;">Version 1.7.1</small>
                     </div>
                 </div>
                 <button class="action-btn" onclick="app.hideModals()">Fermer</button>
@@ -154,7 +151,7 @@
                     <h2>🛠️ Administration</h2>
                     <button onclick="app.checkForUpdates()" style="background:#4a90e2; color:white; border:none; padding:5px 10px; border-radius:4px; font-size:0.7rem;">Vérifier mise à jour</button>
                 </div>
-                <p style="font-size:0.7rem; opacity:0.5; margin-top:-10px;">Version: 1.7.0</p>
+                <p style="font-size:0.7rem; opacity:0.5; margin-top:-10px;">Version: 1.7.1</p>
                 <div class="settings-group">
                     <h4>Inviter un membre</h4>
                     <div style="display:flex; gap:10px;">
@@ -180,30 +177,49 @@
         <button id="update-btn">Installer</button>
     </div>
 
-    <script src="js/config.js?v=12"></script>
+    <script src="js/config.js?v=13"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
-    <script src="js/auth.js?v=12" defer></script>
-    <script src="js/drive.js?v=12" defer></script>
-    <script src="js/app.js?v=12" defer></script>
+    <script src="js/auth.js?v=13" defer></script>
+    <script src="js/drive.js?v=13" defer></script>
+    <script src="js/app.js?v=13" defer></script>
 
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js?v=12').then(reg => {
+                navigator.serviceWorker.register('sw.js?v=13').then(reg => {
+                    // 1. Détection initiale au chargement
                     reg.addEventListener('updatefound', () => {
                         const newWorker = reg.installing;
                         newWorker.addEventListener('statechange', () => {
                             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                document.getElementById('update-toast').classList.remove('hidden');
-                                document.getElementById('update-btn').onclick = () => {
-                                    newWorker.postMessage({ action: 'skipWaiting' });
-                                };
+                                showUpdateToast(newWorker);
                             }
                         });
                     });
+
+                    // 2. Vérification périodique toutes les 15 minutes
+                    setInterval(() => {
+                        console.log("Checking for updates...");
+                        reg.update();
+                    }, 1000 * 60 * 15);
+
+                    // 3. Vérification quand l'app revient au premier plan
+                    document.addEventListener('visibilitychange', () => {
+                        if (document.visibilityState === 'visible') {
+                            reg.update();
+                        }
+                    });
                 });
             });
+
+            function showUpdateToast(worker) {
+                document.getElementById('update-toast').classList.remove('hidden');
+                document.getElementById('update-btn').onclick = () => {
+                    worker.postMessage({ action: 'skipWaiting' });
+                };
+            }
+
             let refreshing = false;
             navigator.serviceWorker.addEventListener('controllerchange', () => {
                 if (!refreshing) { window.location.reload(); refreshing = true; }
