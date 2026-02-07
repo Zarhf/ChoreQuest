@@ -158,7 +158,7 @@ const app = {
         if (this.currentUser.xp >= xpNeeded) {
             this.currentUser.level++;
             this.currentUser.xp -= xpNeeded;
-            alert(`🎊 LEVEL UP! ${this.currentUser.name} passe niveau ${this.currentUser.level} !`);
+            alert(`🎊 NIVEAU SUPÉRIEUR ! ${this.currentUser.name} passe niveau ${this.currentUser.level} !`);
         }
 
         // 2. Add to History (Log)
@@ -257,7 +257,7 @@ const app = {
 
         // Render Main Content based on View
         const board = document.getElementById('quest-board');
-        const history = document.getElementById('history-board'); // New container needed
+        const history = document.getElementById('history-board');
 
         if (this.currentView === 'board') {
             board.classList.remove('hidden');
@@ -275,7 +275,6 @@ const app = {
         const visibleTasks = this.data.activeQuests.filter(t => !t.dueDate || t.dueDate <= now);
         const list = document.getElementById('task-list');
         
-        // Find definition to get frequency info
         list.innerHTML = visibleTasks.length === 0 ? 
             '<p style="text-align:center; opacity:0.5;">Tout est calme... trop calme.</p>' : 
             visibleTasks.map(t => {
@@ -319,16 +318,70 @@ const app = {
             if (r) { await r.update(); location.reload(); }
         }
     },
-    async inviteMember() { /* ... existing code ... */ },
+
+    async inviteMember() {
+        const email = document.getElementById('invite-email').value;
+        if (!email || !email.includes('@')) return alert("Veuillez saisir un email valide.");
+
+        this.showLoading(true);
+        try {
+            await DriveAPI.shareFile(this.dbFileId, email);
+            alert(`Succès ! Le fichier a été partagé avec ${email}.`);
+            document.getElementById('invite-email').value = '';
+        } catch (err) {
+            alert("Erreur lors du partage.");
+        } finally {
+            this.showLoading(false);
+        }
+    },
+
     async saveAndRender() {
         this.render();
-        if (this.dbFileId) await DriveAPI.updateFile(this.dbFileId, this.data);
+        if (this.dbFileId) {
+            try {
+                await DriveAPI.updateFile(this.dbFileId, this.data);
+            } catch (err) {
+                console.error("Save failed:", err);
+            }
+        }
     },
-    toggleDevMode() { /* ... existing code ... */ },
-    renderDevMode() { /* ... existing code ... */ },
+
+    toggleDevMode() {
+        if (this.devTimer) clearTimeout(this.devTimer);
+        this.clickCount++;
+        
+        if (this.clickCount >= 5) {
+            this.clickCount = 0;
+            if (window.navigator && window.navigator.vibrate) window.navigator.vibrate(50);
+            this.renderDevMode();
+            this.showModal('dev-modal');
+        } else {
+            this.devTimer = setTimeout(() => {
+                this.clickCount = 0;
+            }, 1000);
+        }
+    },
+
+    renderDevMode() {
+        if (!this.data) return;
+        const userHTML = this.data.users.map(u => `
+            <div style="display:flex; justify-content:space-between; align-items:center; background:#0f3460; padding:5px; margin-bottom:5px; border-radius:4px;">
+                <span>${u.avatar} <b>${u.name}</b> (Lvl ${u.level})</span>
+                <div>
+                    <button onclick="app.switchUser('${u.id}')" style="background:#27ae60; color:white; border:none; padding:2px 5px; cursor:pointer">Incarner</button>
+                    <button onclick="app.deleteUser('${u.id}')" style="background:#e94560; color:white; border:none; padding:2px 5px; cursor:pointer">Supprimer</button>
+                </div>
+            </div>
+        `).join('');
+        document.getElementById('debug-users').innerHTML = userHTML || 'Aucun utilisateur';
+        document.getElementById('debug-meta').textContent = JSON.stringify(this.data.meta, null, 2);
+    },
+
     showLoading(s) { document.getElementById('loading').classList.toggle('hidden', !s); },
     showModal(id) { document.getElementById(id).classList.remove('hidden'); },
     hideModals() { document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')); }
 };
 
-document.addEventListener('DOMContentLoaded', () => { /* ... */ });
+document.addEventListener('DOMContentLoaded', () => {
+    // Initial UI Setup handled by auth.js checkAuthStatus
+});
