@@ -1,12 +1,12 @@
-const CACHE_NAME = 'chorequest-v11'; 
+const CACHE_NAME = 'chorequest-v12'; 
 const ASSETS = [
     './',
     './index.html',
-    './css/styles.css?v=10',
-    './js/app.js?v=10',
-    './js/auth.js?v=10',
-    './js/drive.js?v=10',
-    './js/config.js?v=10',
+    './css/styles.css?v=12',
+    './js/app.js?v=12',
+    './js/auth.js?v=12',
+    './js/drive.js?v=12',
+    './js/config.js?v=12',
     './manifest.json'
 ];
 
@@ -36,7 +36,6 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (e) => {
     const url = new URL(e.request.url);
     if (url.origin !== location.origin) return;
-
     e.respondWith(
         caches.match(e.request).then((response) => {
             return response || fetch(e.request);
