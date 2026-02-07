@@ -86,14 +86,21 @@
         <!-- Dev Mode Modal -->
         <div id="dev-modal" class="modal hidden">
             <div class="modal-content" style="max-width: 800px; max-height: 80vh; overflow-y: auto;">
-                <h2>🛠️ Mode Debug</h2>
-                <h3>Utilisateurs</h3>
+                <h2>🛠️ Administration & Partage</h2>
+                
+                <h3>Inviter un membre (Email Google)</h3>
+                <div style="display:flex; gap:10px; margin-bottom:20px;">
+                    <input type="email" id="invite-email" placeholder="email@gmail.com" style="margin:0; flex-grow:1;">
+                    <button class="action-btn" onclick="app.inviteMember()" style="margin:0; width:auto;">Inviter</button>
+                </div>
+
+                <h3>Héros du Foyer</h3>
                 <div id="debug-users" class="debug-table"></div>
-                <h3>Tâches Brutes</h3>
-                <div id="debug-tasks" class="debug-table"></div>
+                
                 <h3>Métadonnées</h3>
                 <pre id="debug-meta" style="background:#000; padding:10px; border-radius:5px; font-size:0.8rem;"></pre>
-                <button class="action-btn" onclick="app.hideModals()">Fermer</button>
+                
+                <button class="action-btn" onclick="app.hideModals()" style="background:#444; margin-top:20px;">Fermer</button>
             </div>
         </div>
     </div>

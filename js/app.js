@@ -124,6 +124,23 @@ const app = {
         document.getElementById('quest-title').value = '';
     },
 
+    // --- Partage ---
+    async inviteMember() {
+        const email = document.getElementById('invite-email').value;
+        if (!email || !email.includes('@')) return alert("Veuillez saisir un email valide.");
+
+        this.showLoading(true);
+        try {
+            await DriveAPI.shareFile(this.dbFileId, email);
+            alert(`Succès ! Le fichier a été partagé avec ${email}. Cette personne peut maintenant se connecter à ChoreQuest.`);
+            document.getElementById('invite-email').value = '';
+        } catch (err) {
+            alert("Erreur lors du partage. Vérifiez l'adresse email.");
+        } finally {
+            this.showLoading(false);
+        }
+    },
+
     async saveAndRender() {
         this.render();
         if (this.dbFileId) {

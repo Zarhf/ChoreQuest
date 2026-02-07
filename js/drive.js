@@ -1,14 +1,29 @@
 const DriveAPI = {
     
-    // Check if the DB file exists
+    // Check if the DB file exists (in my drive or shared with me)
     async findDBFile() {
         try {
-            const response = await gapi.client.drive.files.list({
+            // Search in owner's drive first
+            let response = await gapi.client.drive.files.list({
                 q: `name = '${CONFIG.DB_FILENAME}' and trashed = false`,
-                fields: 'files(id, name)',
+                fields: 'files(id, name, owners, shared)',
                 spaces: 'drive'
             });
-            const files = response.result.files;
+            
+            let files = response.result.files;
+            
+            // If not found, search specifically in shared files
+            if (!files || files.length === 0) {
+                response = await gapi.client.drive.files.list({
+                    q: `name = '${CONFIG.DB_FILENAME}' and trashed = false`,
+                    fields: 'files(id, name, owners, shared)',
+                    spaces: 'drive',
+                    supportsAllDrives: true,
+                    includeItemsFromAllDrives: true,
+                });
+                files = response.result.files;
+            }
+
             if (files && files.length > 0) {
                 return files[0].id;
             } else {
@@ -17,6 +32,24 @@ const DriveAPI = {
         } catch (err) {
             console.error('Error finding DB file:', err);
             return null;
+        }
+    },
+
+    // Share the file with another Google user
+    async shareFile(fileId, email) {
+        try {
+            await gapi.client.drive.permissions.create({
+                fileId: fileId,
+                resource: {
+                    'type': 'user',
+                    'role': 'writer',
+                    'emailAddress': email
+                }
+            });
+            return true;
+        } catch (err) {
+            console.error('Error sharing file:', err);
+            throw err;
         }
     },
 
