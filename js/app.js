@@ -124,6 +124,17 @@ const app = {
         document.getElementById('quest-title').value = '';
     },
 
+    async checkForUpdates() {
+        if ('serviceWorker' in navigator) {
+            const registration = await navigator.serviceWorker.getRegistration();
+            if (registration) {
+                await registration.update();
+                alert("Vérification terminée. La page va se recharger.");
+                window.location.reload();
+            }
+        }
+    },
+
     // --- Partage ---
     async inviteMember() {
         const email = document.getElementById('invite-email').value;

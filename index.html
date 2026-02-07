@@ -86,8 +86,12 @@
         <!-- Dev Mode Modal -->
         <div id="dev-modal" class="modal hidden">
             <div class="modal-content" style="max-width: 800px; max-height: 80vh; overflow-y: auto;">
-                <h2>🛠️ Administration & Partage</h2>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2>🛠️ Administration</h2>
+                    <button onclick="app.checkForUpdates()" style="background:#4a90e2; color:white; border:none; padding:5px 10px; border-radius:4px; font-size:0.7rem;">Vérifier mise à jour</button>
+                </div>
                 
+                <p style="font-size:0.7rem; opacity:0.5; margin-top:-10px;">Version: 1.2.0</p>
                 <h3>Inviter un membre (Email Google)</h3>
                 <div style="display:flex; gap:10px; margin-bottom:20px;">
                     <input type="email" id="invite-email" placeholder="email@gmail.com" style="margin:0; flex-grow:1;">
