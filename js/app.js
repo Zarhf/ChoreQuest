@@ -367,6 +367,8 @@ const app = {
 
     renderDevMode() {
         if (!this.data) return;
+
+        // Render Users Admin
         const userHTML = this.data.users.map(u => `
             <div style="display:flex; justify-content:space-between; align-items:center; background:#0f3460; padding:5px; margin-bottom:5px; border-radius:4px;">
                 <span>${u.avatar} <b>${u.name}</b> (Lvl ${u.level})</span>
@@ -377,6 +379,27 @@ const app = {
             </div>
         `).join('');
         document.getElementById('debug-users').innerHTML = userHTML || 'Aucun utilisateur';
+
+        // Render Active Quests Admin (Raw)
+        const taskHTML = this.data.activeQuests.map(t => `
+            <div style="font-size:0.8rem; background:#16213e; padding:5px; margin-bottom:2px; border-radius:4px;">
+                - <b>${t.title}</b> (${t.xp} XP) <br> Échéance: ${new Date(t.dueDate).toLocaleString()}
+            </div>
+        `).join('');
+        
+        // On va ajouter un conteneur pour ces tâches dans le HTML (ou le créer dynamiquement)
+        let tasksContainer = document.getElementById('debug-tasks');
+        if (!tasksContainer) {
+            const div = document.createElement('div');
+            div.id = 'debug-tasks';
+            document.getElementById('debug-users').parentElement.insertAdjacentElement('afterend', div);
+            tasksContainer = div;
+            const title = document.createElement('h4');
+            title.innerText = "Quêtes Actives (Système)";
+            tasksContainer.insertAdjacentElement('beforebegin', title);
+        }
+        tasksContainer.innerHTML = taskHTML || 'Aucune tâche active';
+
         document.getElementById('debug-meta').textContent = JSON.stringify(this.data.meta, null, 2);
     },
 

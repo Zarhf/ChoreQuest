@@ -3,28 +3,20 @@ const DriveAPI = {
     // Check if the DB file exists (in my drive or shared with me)
     async findDBFile() {
         try {
-            // Search in owner's drive first
-            let response = await gapi.client.drive.files.list({
+            // Search in both personal drive and shared files in one go
+            const response = await gapi.client.drive.files.list({
                 q: `name = '${CONFIG.DB_FILENAME}' and trashed = false`,
                 fields: 'files(id, name, owners, shared)',
-                spaces: 'drive'
+                spaces: 'drive',
+                supportsAllDrives: true,
+                includeItemsFromAllDrives: true,
             });
             
-            let files = response.result.files;
-            
-            // If not found, search specifically in shared files
-            if (!files || files.length === 0) {
-                response = await gapi.client.drive.files.list({
-                    q: `name = '${CONFIG.DB_FILENAME}' and trashed = false`,
-                    fields: 'files(id, name, owners, shared)',
-                    spaces: 'drive',
-                    supportsAllDrives: true,
-                    includeItemsFromAllDrives: true,
-                });
-                files = response.result.files;
-            }
+            const files = response.result.files;
+            console.log("Fichiers trouvés:", files);
 
             if (files && files.length > 0) {
+                // Return the most recently modified if multiple exist (unlikely but safer)
                 return files[0].id;
             } else {
                 return null;
