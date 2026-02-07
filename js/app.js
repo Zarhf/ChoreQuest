@@ -100,8 +100,11 @@ const app = {
         if (taskIndex === -1) return;
 
         const task = this.data.tasks[taskIndex];
+        
+        // Update XP
         this.currentUser.xp += parseInt(task.xp);
         
+        // Level up logic
         const xpNeeded = this.currentUser.level * 100;
         if (this.currentUser.xp >= xpNeeded) {
             this.currentUser.level++;
@@ -109,22 +112,91 @@ const app = {
             alert(`🎊 NIVEAU SUPÉRIEUR ! ${this.currentUser.name} est maintenant Niveau ${this.currentUser.level} !`);
         }
 
-        this.data.tasks.splice(taskIndex, 1);
+        // Handle Recurrence
+        if (task.frequency && task.frequency !== 'none') {
+            const now = new Date();
+            let nextDate = new Date();
+
+            switch(task.frequency) {
+                case 'daily': nextDate.setDate(now.getDate() + 1); break;
+                case 'weekly': nextDate.setDate(now.getDate() + 7); break;
+                case 'monthly': nextDate.setMonth(now.getMonth() + 1); break;
+            }
+            
+            // Set hour to 4 AM to ensure it's available next morning
+            nextDate.setHours(4, 0, 0, 0);
+            
+            task.nextDueDate = nextDate.toISOString();
+            console.log(`Tâche récurrente reportée au : ${task.nextDueDate}`);
+        } else {
+            // Remove one-off task
+            this.data.tasks.splice(taskIndex, 1);
+        }
+
         await this.saveAndRender();
     },
 
     addQuest() {
         const title = document.getElementById('quest-title').value;
         const xp = document.getElementById('quest-difficulty').value;
+        const freq = document.getElementById('quest-frequency').value;
+
         if (!title) return alert("Une quête a besoin d'un titre !");
 
-        this.data.tasks.push({ id: Date.now(), title, xp: parseInt(xp) });
+        const newTask = {
+            id: Date.now(),
+            title: title,
+            xp: parseInt(xp),
+            frequency: freq,
+            nextDueDate: new Date().toISOString() // Available immediately
+        };
+
+        this.data.tasks.push(newTask);
         this.saveAndRender();
         this.hideModals();
+        
+        // Clear form
         document.getElementById('quest-title').value = '';
+        document.getElementById('quest-frequency').value = 'none';
     },
 
-    async checkForUpdates() {
+    // --- UI Rendering ---
+    render() {
+        if (!this.currentUser) return;
+
+        document.getElementById('content').classList.remove('hidden');
+        document.getElementById('welcome-screen').classList.add('hidden');
+        
+        // Profile
+        document.getElementById('user-name').innerText = this.currentUser.name;
+        document.getElementById('user-avatar').innerText = this.currentUser.avatar;
+        document.getElementById('user-level').innerText = this.currentUser.level;
+        document.getElementById('user-xp').innerText = this.currentUser.xp;
+        
+        const xpNeeded = this.currentUser.level * 100;
+        document.getElementById('next-level-xp').innerText = xpNeeded;
+        document.getElementById('xp-progress').style.width = `${(this.currentUser.xp / xpNeeded) * 100}%`;
+
+        // Quests Filtering (Show only tasks that are due)
+        const now = new Date().toISOString();
+        const visibleTasks = this.data.tasks.filter(t => !t.nextDueDate || t.nextDueDate <= now);
+
+        const list = document.getElementById('task-list');
+        list.innerHTML = visibleTasks.length === 0 ? 
+            '<p style="text-align:center; opacity:0.5;">Aucune quête active pour le moment. Revenez demain !</p>' : 
+            visibleTasks.map(t => {
+                const isRecurring = t.frequency && t.frequency !== 'none';
+                const icon = isRecurring ? '🔄' : '';
+                return `
+                <div class="quest-card">
+                    <div class="quest-info">
+                        <h4>${icon} ${t.title}</h4>
+                        <span>💰 ${t.xp} XP</span>
+                    </div>
+                    <button class="complete-btn" onclick="app.completeTask(${t.id})">Valider</button>
+                </div>
+            `}).join('');
+    },
         if ('serviceWorker' in navigator) {
             const registration = await navigator.serviceWorker.getRegistration();
             if (registration) {
