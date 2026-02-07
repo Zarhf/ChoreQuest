@@ -2,26 +2,55 @@ let tokenClient;
 let gapiInited = false;
 let gisInited = false;
 
-// 1. Load GAPI (Google API Client)
+/**
+ * Wait for an object to be defined on the window
+ */
+function waitForObject(objectName, callback, timeout = 5000) {
+    const start = Date.now();
+    const interval = setInterval(() => {
+        if (window[objectName] || (objectName.includes('.') && getDescendantProp(window, objectName))) {
+            clearInterval(interval);
+            callback();
+        } else if (Date.now() - start > timeout) {
+            clearInterval(interval);
+            console.error(`Timeout waiting for ${objectName}`);
+        }
+    }, 100);
+}
+
+function getDescendantProp(obj, desc) {
+    const arr = desc.split(".");
+    while(arr.length && (obj = obj[arr.shift()]));
+    return obj;
+}
+
+// 1. Initialize GAPI
 function gapiLoaded() {
+    if (typeof gapi === 'undefined') {
+        waitForObject('gapi', gapiLoaded);
+        return;
+    }
     gapi.load('client', initializeGapiClient);
 }
 
 async function initializeGapiClient() {
     await gapi.client.init({
-        // apiKey: CONFIG.API_KEY, // Optional for this flow
         discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"],
     });
     gapiInited = true;
     checkAuthStatus();
 }
 
-// 2. Load GIS (Google Identity Services)
+// 2. Initialize GIS
 function gisLoaded() {
+    if (typeof google === 'undefined' || !google.accounts) {
+        waitForObject('google.accounts.oauth2', gisLoaded);
+        return;
+    }
     tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CONFIG.CLIENT_ID,
         scope: CONFIG.SCOPES,
-        callback: '', // defined later
+        callback: '', // defined in handleAuthClick
     });
     gisInited = true;
     checkAuthStatus();
@@ -30,13 +59,18 @@ function gisLoaded() {
 // 3. Check if both are ready
 function checkAuthStatus() {
     if (gapiInited && gisInited) {
-        document.getElementById('authorize_button').style.display = 'block';
-        document.getElementById('welcome-screen').style.display = 'block';
+        const authBtn = document.getElementById('authorize_button');
+        if (authBtn) authBtn.style.display = 'block';
     }
 }
 
 // 4. Handle Login
 function handleAuthClick() {
+    if (!tokenClient) {
+        console.error("Token client not initialized");
+        return;
+    }
+
     tokenClient.callback = async (resp) => {
         if (resp.error !== undefined) {
             throw (resp);
@@ -45,16 +79,12 @@ function handleAuthClick() {
         document.getElementById('signout_button').style.display = 'block';
         document.getElementById('welcome-screen').style.display = 'none';
         
-        // Start App Logic
         await app.init();
     };
 
     if (gapi.client.getToken() === null) {
-        // Prompt the user to select a Google Account and ask for consent to share their data
-        // when establishing a new session.
         tokenClient.requestAccessToken({prompt: 'consent'});
     } else {
-        // Skip display of account chooser and consent dialog for an existing session.
         tokenClient.requestAccessToken({prompt: ''});
     }
 }
@@ -72,8 +102,12 @@ function handleSignoutClick() {
     }
 }
 
-// Expose functions to global scope for script callbacks and button clicks
-window.gapiLoaded = gapiLoaded;
-window.gisLoaded = gisLoaded;
+// Start checking for libraries immediately
+window.addEventListener('load', () => {
+    gapiLoaded();
+    gisLoaded();
+});
+
+// Expose functions
 window.handleAuthClick = handleAuthClick;
 window.handleSignoutClick = handleSignoutClick;
