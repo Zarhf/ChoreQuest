@@ -125,6 +125,35 @@ h2 {
     background: #f0f0f0;
 }
 
+/* Auth / Account Header */
+#auth-container button {
+    background: rgba(255,255,255,0.1);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 0.5rem 0.8rem;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+#auth-container button:hover {
+    background-color: rgba(255,255,255,0.2);
+}
+
+.account-status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #e94560; /* Red - Offline */
+}
+
+.account-status-dot.online {
+    background: #27ae60; /* Green - Online */
+}
+
 /* Modals / Forms */
 .modal {
     position: fixed;
@@ -142,12 +171,13 @@ h2 {
     border-radius: 12px;
     width: 90%;
     max-width: 400px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
 
 input, select {
     width: 100%;
     padding: 0.8rem;
-    margin: 1rem 0;
+    margin: 0.5rem 0 1rem 0;
     background: #0f3460;
     border: 1px solid #4a90e2;
     color: white;
@@ -164,6 +194,28 @@ input, select {
     border-radius: 4px;
     font-weight: bold;
     cursor: pointer;
+    margin-bottom: 5px;
+}
+
+.action-btn:hover {
+    background: #357abd;
+}
+
+.secondary-btn {
+    background: transparent;
+    border: 1px solid #4a90e2;
+    color: #4a90e2;
+}
+
+.danger-btn {
+    background: transparent;
+    border: 1px solid #e94560;
+    color: #e94560;
+}
+
+.danger-btn:hover {
+    background: #e94560;
+    color: white;
 }
 
 #add-quest-btn {
@@ -173,8 +225,20 @@ input, select {
     margin-top: 1rem;
 }
 
-#add-quest-btn:hover {
-    background: rgba(74, 144, 226, 0.1);
+.settings-group {
+    background: #0f3460;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    border: 1px solid rgba(74, 144, 226, 0.2);
+}
+
+.settings-group h4 {
+    margin: 0 0 10px 0;
+    color: #4a90e2;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .hidden { display: none !important; }

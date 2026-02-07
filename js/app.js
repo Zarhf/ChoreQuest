@@ -18,14 +18,17 @@ const app = {
             if (this.data.users.length === 0) {
                 this.showModal('onboarding-modal');
             } else {
-                // Load last used user or first one
                 const lastUserId = localStorage.getItem('lastUserId');
                 this.currentUser = this.data.users.find(u => u.id === lastUserId) || this.data.users[0];
+                this.syncSettingsUI();
                 this.render();
             }
         } catch (err) {
             console.error("Initialization failed:", err);
-            alert("Erreur de connexion. Veuillez rafraîchir la page.");
+            // Si erreur 401/403, on force la déconnexion
+            if (err.status === 401 || err.status === 403) {
+                handleSignoutClick();
+            }
         } finally {
             this.showLoading(false);
         }
@@ -36,7 +39,7 @@ const app = {
             meta: { version: 2, created_at: new Date().toISOString() },
             users: [],
             tasks: [
-                { id: Date.now(), title: 'Première Quête : Configurer ChoreQuest', xp: 50 }
+                { id: Date.now(), title: 'Première Quête : Configurer ChoreQuest', xp: 50, frequency: 'none' }
             ]
         };
     },
@@ -62,6 +65,20 @@ const app = {
         this.data.users.push(newUser);
         this.currentUser = newUser;
         localStorage.setItem('lastUserId', newUser.id);
+        this.syncSettingsUI();
+        this.saveAndRender();
+    },
+
+    syncSettingsUI() {
+        if (!this.currentUser) return;
+        document.getElementById('edit-user-name').value = this.currentUser.name;
+        document.getElementById('edit-user-avatar').value = this.currentUser.avatar;
+    },
+
+    updateCurrentUserInfo() {
+        if (!this.currentUser) return;
+        this.currentUser.name = document.getElementById('edit-user-name').value;
+        this.currentUser.avatar = document.getElementById('edit-user-avatar').value;
         this.saveAndRender();
     },
 
@@ -70,6 +87,7 @@ const app = {
         if (user) {
             this.currentUser = user;
             localStorage.setItem('lastUserId', user.id);
+            this.syncSettingsUI();
             this.render();
             this.hideModals();
         }
@@ -77,21 +95,18 @@ const app = {
 
     deleteUser(userId) {
         if (!confirm("Supprimer ce héros ? Toute sa progression sera perdue.")) return;
-        
         this.data.users = this.data.users.filter(u => u.id !== userId);
-        
         if (this.currentUser.id === userId) {
             this.currentUser = this.data.users[0] || null;
         }
-
         if (!this.currentUser) {
             this.showModal('onboarding-modal');
         } else {
             localStorage.setItem('lastUserId', this.currentUser.id);
+            this.syncSettingsUI();
         }
-        
         this.saveAndRender();
-        this.renderDevMode(); // Refresh dev view
+        this.renderDevMode();
     },
 
     // --- Game Logic ---
@@ -100,11 +115,8 @@ const app = {
         if (taskIndex === -1) return;
 
         const task = this.data.tasks[taskIndex];
-        
-        // Update XP
         this.currentUser.xp += parseInt(task.xp);
         
-        // Level up logic
         const xpNeeded = this.currentUser.level * 100;
         if (this.currentUser.xp >= xpNeeded) {
             this.currentUser.level++;
@@ -112,24 +124,17 @@ const app = {
             alert(`🎊 NIVEAU SUPÉRIEUR ! ${this.currentUser.name} est maintenant Niveau ${this.currentUser.level} !`);
         }
 
-        // Handle Recurrence
         if (task.frequency && task.frequency !== 'none') {
             const now = new Date();
             let nextDate = new Date();
-
             switch(task.frequency) {
                 case 'daily': nextDate.setDate(now.getDate() + 1); break;
                 case 'weekly': nextDate.setDate(now.getDate() + 7); break;
                 case 'monthly': nextDate.setMonth(now.getMonth() + 1); break;
             }
-            
-            // Set hour to 4 AM to ensure it's available next morning
             nextDate.setHours(4, 0, 0, 0);
-            
             task.nextDueDate = nextDate.toISOString();
-            console.log(`Tâche récurrente reportée au : ${task.nextDueDate}`);
         } else {
-            // Remove one-off task
             this.data.tasks.splice(taskIndex, 1);
         }
 
@@ -143,60 +148,21 @@ const app = {
 
         if (!title) return alert("Une quête a besoin d'un titre !");
 
-        const newTask = {
+        this.data.tasks.push({
             id: Date.now(),
             title: title,
             xp: parseInt(xp),
             frequency: freq,
-            nextDueDate: new Date().toISOString() // Available immediately
-        };
+            nextDueDate: new Date().toISOString()
+        });
 
-        this.data.tasks.push(newTask);
         this.saveAndRender();
         this.hideModals();
-        
-        // Clear form
         document.getElementById('quest-title').value = '';
         document.getElementById('quest-frequency').value = 'none';
     },
 
-    // --- UI Rendering ---
-    render() {
-        if (!this.currentUser) return;
-
-        document.getElementById('content').classList.remove('hidden');
-        document.getElementById('welcome-screen').classList.add('hidden');
-        
-        // Profile
-        document.getElementById('user-name').innerText = this.currentUser.name;
-        document.getElementById('user-avatar').innerText = this.currentUser.avatar;
-        document.getElementById('user-level').innerText = this.currentUser.level;
-        document.getElementById('user-xp').innerText = this.currentUser.xp;
-        
-        const xpNeeded = this.currentUser.level * 100;
-        document.getElementById('next-level-xp').innerText = xpNeeded;
-        document.getElementById('xp-progress').style.width = `${(this.currentUser.xp / xpNeeded) * 100}%`;
-
-        // Quests Filtering (Show only tasks that are due)
-        const now = new Date().toISOString();
-        const visibleTasks = this.data.tasks.filter(t => !t.nextDueDate || t.nextDueDate <= now);
-
-        const list = document.getElementById('task-list');
-        list.innerHTML = visibleTasks.length === 0 ? 
-            '<p style="text-align:center; opacity:0.5;">Aucune quête active pour le moment. Revenez demain !</p>' : 
-            visibleTasks.map(t => {
-                const isRecurring = t.frequency && t.frequency !== 'none';
-                const icon = isRecurring ? '🔄' : '';
-                return `
-                <div class="quest-card">
-                    <div class="quest-info">
-                        <h4>${icon} ${t.title}</h4>
-                        <span>💰 ${t.xp} XP</span>
-                    </div>
-                    <button class="complete-btn" onclick="app.completeTask(${t.id})">Valider</button>
-                </div>
-            `}).join('');
-    },
+    async checkForUpdates() {
         if ('serviceWorker' in navigator) {
             const registration = await navigator.serviceWorker.getRegistration();
             if (registration) {
@@ -215,10 +181,10 @@ const app = {
         this.showLoading(true);
         try {
             await DriveAPI.shareFile(this.dbFileId, email);
-            alert(`Succès ! Le fichier a été partagé avec ${email}. Cette personne peut maintenant se connecter à ChoreQuest.`);
+            alert(`Succès ! Le fichier a été partagé avec ${email}.`);
             document.getElementById('invite-email').value = '';
         } catch (err) {
-            alert("Erreur lors du partage. Vérifiez l'adresse email.");
+            alert("Erreur lors du partage.");
         } finally {
             this.showLoading(false);
         }
@@ -227,7 +193,11 @@ const app = {
     async saveAndRender() {
         this.render();
         if (this.dbFileId) {
-            await DriveAPI.updateFile(this.dbFileId, this.data);
+            try {
+                await DriveAPI.updateFile(this.dbFileId, this.data);
+            } catch (err) {
+                console.error("Save failed:", err);
+            }
         }
     },
 
@@ -235,23 +205,18 @@ const app = {
     toggleDevMode() {
         if (this.devTimer) clearTimeout(this.devTimer);
         this.clickCount++;
-        
         if (this.clickCount >= 5) {
             this.clickCount = 0;
             if (window.navigator && window.navigator.vibrate) window.navigator.vibrate(50);
             this.renderDevMode();
             this.showModal('dev-modal');
         } else {
-            this.devTimer = setTimeout(() => {
-                this.clickCount = 0;
-            }, 1000);
+            this.devTimer = setTimeout(() => { this.clickCount = 0; }, 1000);
         }
     },
 
     renderDevMode() {
         if (!this.data) return;
-
-        // Render Users Admin
         const userHTML = this.data.users.map(u => `
             <div style="display:flex; justify-content:space-between; align-items:center; background:#0f3460; padding:5px; margin-bottom:5px; border-radius:4px;">
                 <span>${u.avatar} <b>${u.name}</b> (Lvl ${u.level})</span>
@@ -261,7 +226,6 @@ const app = {
                 </div>
             </div>
         `).join('');
-        
         document.getElementById('debug-users').innerHTML = userHTML || 'Aucun utilisateur';
         document.getElementById('debug-meta').textContent = JSON.stringify(this.data.meta, null, 2);
     },
@@ -269,11 +233,9 @@ const app = {
     // --- UI Rendering ---
     render() {
         if (!this.currentUser) return;
-
         document.getElementById('content').classList.remove('hidden');
         document.getElementById('welcome-screen').classList.add('hidden');
         
-        // Profile
         document.getElementById('user-name').innerText = this.currentUser.name;
         document.getElementById('user-avatar').innerText = this.currentUser.avatar;
         document.getElementById('user-level').innerText = this.currentUser.level;
@@ -283,14 +245,15 @@ const app = {
         document.getElementById('next-level-xp').innerText = xpNeeded;
         document.getElementById('xp-progress').style.width = `${(this.currentUser.xp / xpNeeded) * 100}%`;
 
-        // Quests
+        const now = new Date().toISOString();
+        const visibleTasks = this.data.tasks.filter(t => !t.nextDueDate || t.nextDueDate <= now);
         const list = document.getElementById('task-list');
-        list.innerHTML = this.data.tasks.length === 0 ? 
+        list.innerHTML = visibleTasks.length === 0 ? 
             '<p style="text-align:center; opacity:0.5;">Le tableau est vide.</p>' : 
-            this.data.tasks.map(t => `
+            visibleTasks.map(t => `
                 <div class="quest-card">
                     <div class="quest-info">
-                        <h4>${t.title}</h4>
+                        <h4>${t.frequency && t.frequency !== 'none' ? '🔄 ' : ''}${t.title}</h4>
                         <span>💰 ${t.xp} XP</span>
                     </div>
                     <button class="complete-btn" onclick="app.completeTask(${t.id})">Valider</button>
@@ -312,8 +275,5 @@ const app = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    const authBtn = document.getElementById('authorize_button');
-    const logoutBtn = document.getElementById('signout_button');
-    if(authBtn) authBtn.onclick = handleAuthClick;
-    if(logoutBtn) logoutBtn.onclick = handleSignoutClick;
+    // Initial UI Setup handled by auth.js checkAuthStatus
 });

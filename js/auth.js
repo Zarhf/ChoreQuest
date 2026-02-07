@@ -3,8 +3,26 @@ let gapiInited = false;
 let gisInited = false;
 
 /**
- * Wait for an object to be defined on the window
+ * Persistance du Token
  */
+function saveToken(tokenResponse) {
+    if (tokenResponse && tokenResponse.access_token) {
+        const expiry = Date.now() + (tokenResponse.expires_in * 1000);
+        localStorage.setItem('google_access_token', tokenResponse.access_token);
+        localStorage.setItem('google_token_expiry', expiry);
+    }
+}
+
+function loadSavedToken() {
+    const token = localStorage.getItem('google_access_token');
+    const expiry = localStorage.getItem('google_token_expiry');
+    
+    if (token && expiry && Date.now() < parseInt(expiry)) {
+        return { access_token: token };
+    }
+    return null;
+}
+
 function waitForObject(objectName, callback, timeout = 5000) {
     const start = Date.now();
     const interval = setInterval(() => {
@@ -50,36 +68,63 @@ function gisLoaded() {
     tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CONFIG.CLIENT_ID,
         scope: CONFIG.SCOPES,
-        callback: '', // defined in handleAuthClick
+        callback: '', 
     });
     gisInited = true;
     checkAuthStatus();
 }
 
 // 3. Check if both are ready
-function checkAuthStatus() {
+async function checkAuthStatus() {
     if (gapiInited && gisInited) {
-        const authBtn = document.getElementById('authorize_button');
-        if (authBtn) authBtn.style.display = 'block';
+        const savedToken = loadSavedToken();
+        if (savedToken) {
+            console.log("Token valide trouvé, reconnexion auto...");
+            gapi.client.setToken(savedToken);
+            onLoginSuccess();
+        } else {
+            document.getElementById('welcome-screen').classList.remove('hidden');
+            updateUIForAuth(false);
+        }
     }
+}
+
+function updateUIForAuth(loggedIn) {
+    const statusDot = document.getElementById('account-status');
+    const statusText = document.getElementById('auth-status-text');
+    const loginBtn = document.getElementById('login-modal-btn');
+    const logoutBtn = document.getElementById('logout-modal-btn');
+    const userSettings = document.getElementById('user-settings');
+
+    if (loggedIn) {
+        statusDot.classList.add('online');
+        statusText.innerText = "Connecté à Google Drive";
+        loginBtn.classList.add('hidden');
+        logoutBtn.classList.remove('hidden');
+        userSettings.classList.remove('hidden');
+    } else {
+        statusDot.classList.remove('online');
+        statusText.innerText = "Déconnecté";
+        loginBtn.classList.remove('hidden');
+        logoutBtn.classList.add('hidden');
+        userSettings.classList.add('hidden');
+    }
+}
+
+async function onLoginSuccess() {
+    updateUIForAuth(true);
+    document.getElementById('welcome-screen').classList.add('hidden');
+    await app.init();
 }
 
 // 4. Handle Login
 function handleAuthClick() {
-    if (!tokenClient) {
-        console.error("Token client not initialized");
-        return;
-    }
+    if (!tokenClient) return;
 
     tokenClient.callback = async (resp) => {
-        if (resp.error !== undefined) {
-            throw (resp);
-        }
-        document.getElementById('authorize_button').style.display = 'none';
-        document.getElementById('signout_button').style.display = 'block';
-        document.getElementById('welcome-screen').style.display = 'none';
-        
-        await app.init();
+        if (resp.error !== undefined) throw (resp);
+        saveToken(resp);
+        onLoginSuccess();
     };
 
     if (gapi.client.getToken() === null) {
@@ -95,19 +140,20 @@ function handleSignoutClick() {
     if (token !== null) {
         google.accounts.oauth2.revoke(token.access_token);
         gapi.client.setToken('');
-        document.getElementById('content').style.display = 'none';
-        document.getElementById('authorize_button').style.display = 'block';
-        document.getElementById('signout_button').style.display = 'none';
-        document.getElementById('welcome-screen').style.display = 'block';
+        localStorage.removeItem('google_access_token');
+        localStorage.removeItem('google_token_expiry');
+        
+        document.getElementById('content').classList.add('hidden');
+        document.getElementById('welcome-screen').classList.remove('hidden');
+        updateUIForAuth(false);
+        app.hideModals();
     }
 }
 
-// Start checking for libraries immediately
 window.addEventListener('load', () => {
     gapiLoaded();
     gisLoaded();
 });
 
-// Expose functions
 window.handleAuthClick = handleAuthClick;
 window.handleSignoutClick = handleSignoutClick;

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChoreQuest</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=6">
+    <link rel="stylesheet" href="css/styles.css?v=7">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
 </head>
@@ -14,8 +14,10 @@
         <header>
             <h1 onclick="app.toggleDevMode()" style="cursor:pointer" title="Cliquez 5 fois pour le mode Administration">🛡️ ChoreQuest</h1>
             <div id="auth-container">
-                <button id="authorize_button" style="display: none;">Connexion</button>
-                <button id="signout_button" style="display: none;">Déconnexion</button>
+                <button id="account-btn" onclick="app.showModal('account-modal')">
+                    <span id="account-status" class="account-status-dot"></span>
+                    Mon Compte
+                </button>
             </div>
         </header>
 
@@ -49,8 +51,41 @@
             <section id="welcome-screen" class="hidden">
                 <p>Bienvenue, brave Héros ! Votre aventure domestique commence ici.</p>
                 <p>Connectez-vous pour synchroniser votre progression avec Google Drive.</p>
+                <button class="action-btn" onclick="handleAuthClick()">Se connecter avec Google</button>
             </section>
         </main>
+
+        <!-- Account Modal -->
+        <div id="account-modal" class="modal hidden">
+            <div class="modal-content">
+                <h2>Mon Compte</h2>
+                
+                <div class="settings-group">
+                    <h4>Statut Connexion</h4>
+                    <div id="auth-status-text" style="margin-bottom:10px;">Déconnecté</div>
+                    <button id="login-modal-btn" class="action-btn hidden" onclick="handleAuthClick()">Connexion Google</button>
+                    <button id="logout-modal-btn" class="action-btn secondary-btn hidden" onclick="handleSignoutClick()">Déconnexion</button>
+                </div>
+
+                <div id="user-settings" class="hidden">
+                    <div class="settings-group">
+                        <h4>Paramètres du Héros</h4>
+                        <label>Nom :</label>
+                        <input type="text" id="edit-user-name" onchange="app.updateCurrentUserInfo()">
+                        <label>Avatar :</label>
+                        <select id="edit-user-avatar" onchange="app.updateCurrentUserInfo()">
+                            <option value="🛡️">🛡️ Guerrier</option>
+                            <option value="🔮">🔮 Mage</option>
+                            <option value="🌿">🌿 Rôdeur</option>
+                            <option value="⚡">⚡ Paladin</option>
+                            <option value="🐱">🐱 Ninja</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button class="action-btn" onclick="app.hideModals()">Fermer</button>
+            </div>
+        </div>
 
         <!-- Onboarding Modal (New User) -->
         <div id="onboarding-modal" class="modal hidden">
@@ -87,7 +122,7 @@
                 </select>
 
                 <button class="action-btn" onclick="app.addQuest()">Afficher au Tableau</button>
-                <button class="action-btn" style="background:transparent; color:#888;" onclick="app.hideModals()">Annuler</button>
+                <button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button>
             </div>
         </div>
 
@@ -99,20 +134,28 @@
                     <button onclick="app.checkForUpdates()" style="background:#4a90e2; color:white; border:none; padding:5px 10px; border-radius:4px; font-size:0.7rem;">Vérifier mise à jour</button>
                 </div>
                 
-                <p style="font-size:0.7rem; opacity:0.5; margin-top:-10px;">Version: 1.3.0</p>
-                <h3>Inviter un membre (Email Google)</h3>
-                <div style="display:flex; gap:10px; margin-bottom:20px;">
-                    <input type="email" id="invite-email" placeholder="email@gmail.com" style="margin:0; flex-grow:1;">
-                    <button class="action-btn" onclick="app.inviteMember()" style="margin:0; width:auto;">Inviter</button>
+                <p style="font-size:0.7rem; opacity:0.5; margin-top:-10px;">Version: 1.4.0</p>
+                
+                <div class="settings-group">
+                    <h4>Inviter un membre (Email Google)</h4>
+                    <div style="display:flex; gap:10px;">
+                        <input type="email" id="invite-email" placeholder="email@gmail.com" style="margin:0; flex-grow:1;">
+                        <button class="action-btn" onclick="app.inviteMember()" style="margin:0; width:auto; padding:0 15px;">Inviter</button>
+                    </div>
                 </div>
 
-                <h3>Héros du Foyer</h3>
-                <div id="debug-users" class="debug-table"></div>
+                <div class="settings-group">
+                    <h4>Héros du Foyer</h4>
+                    <div id="debug-users" class="debug-table"></div>
+                </div>
                 
-                <h3>Métadonnées</h3>
-                <pre id="debug-meta" style="background:#000; padding:10px; border-radius:5px; font-size:0.8rem;"></pre>
+                <div class="settings-group">
+                    <h4>Métadonnées</h4>
+                    <pre id="debug-meta" style="background:#000; padding:10px; border-radius:5px; font-size:0.8rem;"></pre>
+                </div>
                 
-                <button class="action-btn" onclick="app.hideModals()" style="background:#444; margin-top:20px;">Fermer</button>
+                <button class="action-btn secondary-btn" onclick="app.hideModals()">Fermer</button>
+                <button class="action-btn danger-btn" onclick="if(confirm('RAZ CACHE ?')) window.location.href='?nuke=true'">Réinitialisation Forcée (Nuke)</button>
             </div>
         </div>
     </div>
@@ -123,12 +166,12 @@
         <button id="update-btn">Mettre à jour</button>
     </div>
 
-    <script src="js/config.js?v=6"></script>
+    <script src="js/config.js?v=7"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
-    <script src="js/auth.js?v=6" defer></script>
-    <script src="js/drive.js?v=6" defer></script>
-    <script src="js/app.js?v=6" defer></script>
+    <script src="js/auth.js?v=7" defer></script>
+    <script src="js/drive.js?v=7" defer></script>
+    <script src="js/app.js?v=7" defer></script>
 
     <script>
         // Emergency Cache Nuke (?nuke=true)
@@ -146,30 +189,22 @@
         }
 
         let newWorker;
-
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js?v=6').then(reg => {
+                navigator.serviceWorker.register('sw.js?v=7').then(reg => {
                     reg.addEventListener('updatefound', () => {
                         newWorker = reg.installing;
                         newWorker.addEventListener('statechange', () => {
                             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                // Une mise à jour est prête, on affiche le toast
                                 document.getElementById('update-toast').classList.remove('hidden');
                             }
                         });
                     });
                 });
             });
-
-            // Gérer le clic sur le bouton de mise à jour
             document.getElementById('update-btn').addEventListener('click', () => {
-                if (newWorker) {
-                    newWorker.postMessage({ action: 'skipWaiting' });
-                }
+                if (newWorker) newWorker.postMessage({ action: 'skipWaiting' });
             });
-
-            // Recharger la page quand le nouveau SW prend le contrôle
             let refreshing = false;
             navigator.serviceWorker.addEventListener('controllerchange', () => {
                 if (!refreshing) {
