@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChoreQuest</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/styles.css?v=2">
     <meta name="theme-color" content="#4a90e2">
 </head>
 <body>
@@ -22,14 +22,10 @@
             <div id="loading" style="display: none;">Loading Quest Log...</div>
             
             <section id="content" style="display: none;">
-                <div id="user-profile">
-                    <!-- User stats will go here -->
-                </div>
+                <div id="user-profile"></div>
                 <div id="quest-board">
                     <h2>Available Quests</h2>
-                    <ul id="task-list">
-                        <!-- Tasks will be injected here -->
-                    </ul>
+                    <ul id="task-list"></ul>
                     <button id="add-quest-btn" class="action-btn">+ New Quest</button>
                 </div>
             </section>
@@ -40,25 +36,29 @@
         </main>
     </div>
 
-    <!-- App Configuration -->
-    <script src="js/config.js"></script>
-
-    <!-- Google Identity Services & GAPI -->
+    <script src="js/config.js?v=2"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
-
-    <!-- App Logic -->
-    <script src="js/auth.js" defer></script>
-    <script src="js/drive.js" defer></script>
-    <script src="js/app.js" defer></script>
+    <script src="js/auth.js?v=2" defer></script>
+    <script src="js/drive.js?v=2" defer></script>
+    <script src="js/app.js?v=2" defer></script>
 
     <script>
-        // Service Worker with cache busting logic
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js')
-                    .then(reg => console.log('Service Worker registered'))
-                    .catch(err => console.error('SW registration failed', err));
+                navigator.serviceWorker.register('sw.js?v=2')
+                    .then(reg => {
+                        console.log('SW Registered');
+                        // Force update if a new service worker is found
+                        reg.onupdatefound = () => {
+                            const installingWorker = reg.installing;
+                            installingWorker.onstatechange = () => {
+                                if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    window.location.reload();
+                                }
+                            };
+                        };
+                    });
             });
         }
     </script>
