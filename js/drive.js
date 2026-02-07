@@ -37,6 +37,20 @@ const DriveAPI = {
         }
     },
 
+    // Get specific file info by ID (to "capture" a shared file)
+    async getFileMetadata(fileId) {
+        try {
+            const response = await gapi.client.drive.files.get({
+                fileId: fileId,
+                fields: 'id, name, owners, shared'
+            });
+            return response.result;
+        } catch (err) {
+            console.error('Error getting metadata:', err);
+            return null;
+        }
+    },
+
     // Check if the DB file exists (in my drive or shared with me)
     async findDBFile() {
         try {

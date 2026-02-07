@@ -119,9 +119,22 @@ const app = {
         if (fileId === this.dbFileId) return this.hideModals();
         
         localStorage.setItem('currentGuildId', fileId);
-        // Reset user choice for new guild to avoid confusion
         localStorage.removeItem('lastUserId'); 
         window.location.reload();
+    },
+
+    async joinGuildById() {
+        const id = prompt("Saisissez l'ID de la Guilde à rejoindre (donné par le propriétaire) :");
+        if (!id || id.length < 10) return;
+
+        this.showLoading(true);
+        const meta = await DriveAPI.getFileMetadata(id);
+        if (meta) {
+            this.switchGuild(id);
+        } else {
+            alert("Impossible de trouver cette Guilde. Vérifiez l'ID et assurez-vous que le fichier a bien été partagé avec votre email Google.");
+            this.showLoading(false);
+        }
     },
 
     // --- Migration System ---
@@ -486,7 +499,11 @@ const app = {
         }
         tasksContainer.innerHTML = taskHTML || 'Aucune tâche active';
 
-        document.getElementById('debug-meta').textContent = JSON.stringify(this.data.meta, null, 2);
+        // Display Guild ID and Metadata
+        const metaContainer = document.getElementById('debug-meta');
+        if (metaContainer) {
+            metaContainer.innerHTML = `ID Guilde Actuelle : <br><code style="user-select:all; background:#222; padding:5px; display:block; margin:10px 0; word-break:break-all;">${this.dbFileId}</code><br>` + JSON.stringify(this.data.meta, null, 2);
+        }
     },
 
     showLoading(s) { document.getElementById('loading').classList.toggle('hidden', !s); },
