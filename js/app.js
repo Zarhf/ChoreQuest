@@ -2,6 +2,7 @@ const app = {
     dbFileId: null,
     data: null,
     currentUser: null,
+    clickCount: 0, // For dev mode activation
 
     async init() {
         this.showLoading(true);
@@ -20,12 +21,13 @@ const app = {
             if (this.data.users.length === 0) {
                 this.showModal('onboarding-modal');
             } else {
-                this.currentUser = this.data.users[0]; // For now, single user app
+                // TODO: Handle multiple users later, for now pick the first one
+                this.currentUser = this.data.users[0]; 
                 this.render();
             }
         } catch (err) {
             console.error("Initialization failed:", err);
-            alert("Connection error. Please refresh.");
+            alert("Erreur de connexion. Veuillez rafraîchir la page.");
         } finally {
             this.showLoading(false);
         }
@@ -36,7 +38,7 @@ const app = {
             meta: { version: 2, created_at: new Date().toISOString() },
             users: [],
             tasks: [
-                { id: Date.now(), title: 'First Quest: Setup ChoreQuest', xp: 50, difficulty: 50 }
+                { id: Date.now(), title: 'Première Quête : Configurer ChoreQuest', xp: 50 }
             ]
         };
     },
@@ -46,7 +48,7 @@ const app = {
         const name = document.getElementById('new-user-name').value;
         const avatar = document.getElementById('new-user-avatar').value;
 
-        if (!name) return alert("Your hero needs a name!");
+        if (!name) return alert("Votre héros doit avoir un nom !");
 
         this.currentUser = {
             id: 'u' + Date.now(),
@@ -76,7 +78,7 @@ const app = {
         if (this.currentUser.xp >= xpNeeded) {
             this.currentUser.level++;
             this.currentUser.xp -= xpNeeded;
-            alert(`🎊 LEVEL UP! You are now Level ${this.currentUser.level}!`);
+            alert(`🎊 NIVEAU SUPÉRIEUR ! Vous êtes maintenant Niveau ${this.currentUser.level} !`);
         }
 
         // Remove task
@@ -89,7 +91,7 @@ const app = {
         const title = document.getElementById('quest-title').value;
         const xp = document.getElementById('quest-difficulty').value;
 
-        if (!title) return alert("Quests need a title!");
+        if (!title) return alert("Une quête a besoin d'un titre !");
 
         const newTask = {
             id: Date.now(),
@@ -108,6 +110,37 @@ const app = {
     async saveAndRender() {
         this.render();
         await DriveAPI.updateFile(this.dbFileId, this.data);
+    },
+
+    // --- Dev Mode ---
+    toggleDevMode() {
+        this.clickCount++;
+        if (this.clickCount >= 3) { // Triple click on title
+            this.clickCount = 0;
+            this.renderDevMode();
+            this.showModal('dev-modal');
+        }
+        // Reset count after 1s
+        setTimeout(() => this.clickCount = 0, 1000);
+    },
+
+    renderDevMode() {
+        if (!this.data) return;
+
+        // Render Users Table
+        const userHTML = this.data.users.map(u => 
+            `<div>${u.avatar} <b>${u.name}</b> (Lvl ${u.level} - ${u.xp} XP) [ID: ${u.id}]</div>`
+        ).join('');
+        document.getElementById('debug-users').innerHTML = userHTML || 'Aucun utilisateur';
+
+        // Render Tasks Table
+        const taskHTML = this.data.tasks.map(t => 
+            `<div>- <b>${t.title}</b> (${t.xp} XP) [ID: ${t.id}]</div>`
+        ).join('');
+        document.getElementById('debug-tasks').innerHTML = taskHTML || 'Aucune tâche';
+
+        // Render Meta
+        document.getElementById('debug-meta').textContent = JSON.stringify(this.data.meta, null, 2);
     },
 
     // --- UI Rendering ---
@@ -131,7 +164,7 @@ const app = {
         list.innerHTML = '';
         
         if (this.data.tasks.length === 0) {
-            list.innerHTML = '<p style="text-align:center; opacity:0.5;">Quest board is empty. Add a new quest!</p>';
+            list.innerHTML = '<p style="text-align:center; opacity:0.5;">Le tableau de quêtes est vide. Ajoutez une nouvelle quête !</p>';
             return;
         }
 
@@ -141,9 +174,9 @@ const app = {
             card.innerHTML = `
                 <div class="quest-info">
                     <h4>${task.title}</h4>
-                    <span>💰 ${task.xp} XP Reward</span>
+                    <span>💰 ${task.xp} XP</span>
                 </div>
-                <button class="complete-btn" onclick="app.completeTask(${task.id})">Complete</button>
+                <button class="complete-btn" onclick="app.completeTask(${task.id})">Valider</button>
             `;
             list.appendChild(card);
         });
