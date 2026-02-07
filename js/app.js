@@ -161,13 +161,19 @@ const app = {
 
     // --- Dev Mode ---
     toggleDevMode() {
+        if (this.devTimer) clearTimeout(this.devTimer);
         this.clickCount++;
-        if (this.clickCount >= 3) {
+        
+        if (this.clickCount >= 5) {
             this.clickCount = 0;
+            if (window.navigator && window.navigator.vibrate) window.navigator.vibrate(50);
             this.renderDevMode();
             this.showModal('dev-modal');
+        } else {
+            this.devTimer = setTimeout(() => {
+                this.clickCount = 0;
+            }, 1000);
         }
-        setTimeout(() => this.clickCount = 0, 1000);
     },
 
     renderDevMode() {
