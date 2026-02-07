@@ -8,14 +8,38 @@ const app = {
     async init() {
         this.showLoading(true);
         try {
-            this.dbFileId = await DriveAPI.findDBFile();
-            if (this.dbFileId) {
-                this.data = await DriveAPI.readFile(this.dbFileId);
-                await this.checkAndMigrateData(); // Migration V3
-            } else {
-                this.data = this.getInitialData();
-                this.dbFileId = await DriveAPI.createDBFile(this.data);
+            // Check if we have a stored guild preference
+            const preferredGuildId = localStorage.getItem('currentGuildId');
+            
+            if (preferredGuildId) {
+                // Try to load preferred guild directly
+                try {
+                    this.data = await DriveAPI.readFile(preferredGuildId);
+                    this.dbFileId = preferredGuildId;
+                } catch (e) {
+                    console.warn("Preferred guild not found, fallback to discovery");
+                    this.dbFileId = null;
+                }
             }
+
+            if (!this.dbFileId) {
+                // Discovery mode
+                const guilds = await DriveAPI.listAvailableGuilds();
+                if (guilds.length > 0) {
+                    // Pick the first one (or logic to choose later)
+                    this.dbFileId = guilds[0].id;
+                    this.data = await DriveAPI.readFile(this.dbFileId);
+                } else {
+                    // Create new
+                    this.data = this.getInitialData();
+                    this.dbFileId = await DriveAPI.createDBFile(this.data);
+                }
+            }
+            
+            // Save current choice
+            localStorage.setItem('currentGuildId', this.dbFileId);
+
+            await this.checkAndMigrateData(); // Migration V3
 
             if (this.data.users.length === 0) {
                 this.showModal('onboarding-modal');
@@ -35,12 +59,53 @@ const app = {
 
     getInitialData() {
         return {
-            meta: { version: 3, created_at: new Date().toISOString() },
+            meta: { 
+                version: 3, 
+                created_at: new Date().toISOString(),
+                guildName: "Nouvelle Guilde" // Default Name
+            },
             users: [],
-            questDefinitions: [], // Catalog
-            activeQuests: [],     // To Do
-            questLog: []          // History
+            questDefinitions: [], 
+            activeQuests: [],     
+            questLog: []          
         };
+    },
+
+    // --- Guild Management ---
+    renameGuild() {
+        const newName = prompt("Nouveau nom pour cette Guilde :", this.data.meta.guildName || "Ma Guilde");
+        if (newName && newName.trim() !== "") {
+            this.data.meta.guildName = newName.trim();
+            this.saveAndRender();
+            this.syncSettingsUI();
+        }
+    },
+
+    async openGuildSwitcher() {
+        this.showLoading(true);
+        const guilds = await DriveAPI.listAvailableGuilds();
+        this.showLoading(false);
+
+        const listHtml = guilds.map(g => {
+            const isCurrent = g.id === this.dbFileId;
+            return `
+            <div style="background:${isCurrent ? '#4a90e2' : '#0f3460'}; padding:10px; margin-bottom:5px; border-radius:5px; cursor:pointer; border:1px solid #aaa;" onclick="app.switchGuild('${g.id}')">
+                <strong>${g.name}</strong><br>
+                <small>Propriétaire : ${g.owner} ${isCurrent ? '(Actuelle)' : ''}</small>
+            </div>`;
+        }).join('');
+
+        document.getElementById('guild-list-container').innerHTML = listHtml;
+        this.showModal('guild-modal');
+    },
+
+    switchGuild(fileId) {
+        if (fileId === this.dbFileId) return this.hideModals();
+        
+        localStorage.setItem('currentGuildId', fileId);
+        // Reset user choice for new guild to avoid confusion
+        localStorage.removeItem('lastUserId'); 
+        window.location.reload();
     },
 
     // --- Migration System ---
@@ -108,6 +173,7 @@ const app = {
         if (!this.currentUser) return;
         document.getElementById('edit-user-name').value = this.currentUser.name;
         document.getElementById('edit-user-avatar').value = this.currentUser.avatar;
+        document.getElementById('current-guild-name').innerText = this.data.meta.guildName || "Ma Guilde";
     },
 
     updateCurrentUserInfo() {

@@ -1,5 +1,42 @@
 const DriveAPI = {
     
+    // List all accessible guild files (mine + shared)
+    async listAvailableGuilds() {
+        try {
+            const response = await gapi.client.drive.files.list({
+                q: `name = '${CONFIG.DB_FILENAME}' and trashed = false`,
+                fields: 'files(id, name, owners, shared)',
+                spaces: 'drive',
+                supportsAllDrives: true,
+                includeItemsFromAllDrives: true
+            });
+            
+            const files = response.result.files;
+            const guilds = [];
+
+            // Fetch guild name for each file (parallel fetch for speed)
+            await Promise.all(files.map(async (file) => {
+                try {
+                    const data = await this.readFile(file.id);
+                    const guildName = (data.meta && data.meta.guildName) ? data.meta.guildName : `Guilde de ${file.owners[0].displayName}`;
+                    guilds.push({
+                        id: file.id,
+                        name: guildName,
+                        owner: file.owners[0].displayName,
+                        isShared: file.shared
+                    });
+                } catch (e) {
+                    console.warn(`Impossible de lire la guilde ${file.id}`, e);
+                }
+            }));
+
+            return guilds;
+        } catch (err) {
+            console.error('Error listing guilds:', err);
+            return [];
+        }
+    },
+
     // Check if the DB file exists (in my drive or shared with me)
     async findDBFile() {
         try {
