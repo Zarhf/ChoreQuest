@@ -187,9 +187,13 @@ const app = {
 
     syncSettingsUI() {
         if (!this.currentUser) return;
-        document.getElementById('edit-user-name').value = this.currentUser.name;
-        document.getElementById('edit-user-avatar').value = this.currentUser.avatar;
-        document.getElementById('current-guild-name').innerText = this.data.meta.guildName || "Ma Guilde";
+        const elName = document.getElementById('edit-user-name');
+        const elAvatar = document.getElementById('edit-user-avatar');
+        const elGuild = document.getElementById('current-guild-name');
+
+        if (elName) elName.value = this.currentUser.name;
+        if (elAvatar) elAvatar.value = this.currentUser.avatar;
+        if (elGuild) elGuild.innerText = (this.data.meta && this.data.meta.guildName) ? this.data.meta.guildName : "Ma Guilde";
     },
 
     updateCurrentUserInfo() {
