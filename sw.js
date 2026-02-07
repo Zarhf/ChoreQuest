@@ -1,17 +1,16 @@
-const CACHE_NAME = 'chorequest-v6'; 
+const CACHE_NAME = 'chorequest-v10'; 
 const ASSETS = [
     './',
     './index.html',
-    './css/styles.css?v=6',
-    './js/app.js?v=6',
-    './js/auth.js?v=6',
-    './js/drive.js?v=6',
-    './js/config.js?v=6',
+    './css/styles.css?v=10',
+    './js/app.js?v=10',
+    './js/auth.js?v=10',
+    './js/drive.js?v=10',
+    './js/config.js?v=10',
     './manifest.json'
 ];
 
 self.addEventListener('install', (e) => {
-    // On ne fait plus skipWaiting() ici pour permettre la notification
     e.waitUntil(
         caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
     );
@@ -45,7 +44,6 @@ self.addEventListener('fetch', (e) => {
     );
 });
 
-// Écouter le message pour skipWaiting
 self.addEventListener('message', (event) => {
     if (event.data.action === 'skipWaiting') {
         self.skipWaiting();

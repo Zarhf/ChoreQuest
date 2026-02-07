@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChoreQuest</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=7">
+    <link rel="stylesheet" href="css/styles.css?v=10">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
 </head>
@@ -144,7 +144,7 @@
                     <button onclick="app.checkForUpdates()" style="background:#4a90e2; color:white; border:none; padding:5px 10px; border-radius:4px; font-size:0.7rem;">Vérifier mise à jour</button>
                 </div>
                 
-                <p style="font-size:0.7rem; opacity:0.5; margin-top:-10px;">Version: 1.4.0</p>
+                <p style="font-size:0.7rem; opacity:0.5; margin-top:-10px;">Version: 1.5.0</p>
                 
                 <div class="settings-group">
                     <h4>Inviter un membre (Email Google)</h4>
@@ -176,12 +176,12 @@
         <button id="update-btn">Mettre à jour</button>
     </div>
 
-    <script src="js/config.js?v=7"></script>
+    <script src="js/config.js?v=10"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
-    <script src="js/auth.js?v=7" defer></script>
-    <script src="js/drive.js?v=7" defer></script>
-    <script src="js/app.js?v=7" defer></script>
+    <script src="js/auth.js?v=10" defer></script>
+    <script src="js/drive.js?v=10" defer></script>
+    <script src="js/app.js?v=10" defer></script>
 
     <script>
         // Emergency Cache Nuke (?nuke=true)
@@ -201,7 +201,7 @@
         let newWorker;
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js?v=7').then(reg => {
+                navigator.serviceWorker.register('sw.js?v=10').then(reg => {
                     reg.addEventListener('updatefound', () => {
                         newWorker = reg.installing;
                         newWorker.addEventListener('statechange', () => {
