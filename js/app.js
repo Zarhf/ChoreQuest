@@ -12,7 +12,6 @@ const app = {
             const preferredGuildId = localStorage.getItem('currentGuildId');
             
             if (preferredGuildId) {
-                // Try to load preferred guild directly
                 try {
                     this.data = await DriveAPI.readFile(preferredGuildId);
                     this.dbFileId = preferredGuildId;
@@ -26,34 +25,51 @@ const app = {
                 // Discovery mode
                 const guilds = await DriveAPI.listAvailableGuilds();
                 if (guilds.length > 0) {
-                    // Pick the first one (or logic to choose later)
+                    // Pick the first one
                     this.dbFileId = guilds[0].id;
                     this.data = await DriveAPI.readFile(this.dbFileId);
                 } else {
-                    // Create new
+                    // STOP! Don't create silently. Ask user.
+                    // But for first launch, we might want to create.
+                    // Let's check if we really found nothing or if it was an error.
                     this.data = this.getInitialData();
                     this.dbFileId = await DriveAPI.createDBFile(this.data);
+                    console.log("Nouvelle guilde créée par défaut.");
                 }
             }
             
             // Save current choice
-            localStorage.setItem('currentGuildId', this.dbFileId);
+            if(this.dbFileId) localStorage.setItem('currentGuildId', this.dbFileId);
 
-            await this.checkAndMigrateData(); // Migration V3
+            await this.checkAndMigrateData(); 
 
             if (this.data.users.length === 0) {
                 this.showModal('onboarding-modal');
             } else {
+                // IMPORTANT: Reset current user if not found in this guild
                 const lastUserId = localStorage.getItem('lastUserId');
-                this.currentUser = this.data.users.find(u => u.id === lastUserId) || this.data.users[0];
+                this.currentUser = this.data.users.find(u => u.id === lastUserId);
+                
+                // If user not found in this DB (switching guilds), pick the first one or ask to join
+                if (!this.currentUser && this.data.users.length > 0) {
+                     // For now, auto-pick first user to avoid being blocked
+                     this.currentUser = this.data.users[0];
+                }
+                
                 this.syncSettingsUI();
                 this.render();
             }
         } catch (err) {
             console.error("Initialization failed:", err);
-            if (err.status === 401 || err.status === 403) handleSignoutClick();
+            // Show error UI instead of silent fail
+            document.getElementById('loading').innerHTML = `
+                <p>Erreur de connexion à la Guilde.</p>
+                <button class="action-btn" onclick="window.location.reload()">Réessayer</button>
+                <button class="action-btn secondary-btn" onclick="app.openGuildSwitcher()">Changer de Guilde</button>
+            `;
+            return; // Stop here
         } finally {
-            this.showLoading(false);
+            if(this.data) this.showLoading(false);
         }
     },
 
