@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChoreQuest</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=17">
+    <link rel="stylesheet" href="css/styles.css?v=18">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
 </head>
@@ -121,7 +121,7 @@
                         <button class="action-btn" onclick="app.showModal('dev-modal'); app.renderDevMode();" style="background-color: #6c757d; font-size:0.7rem;">🛠️ Admin</button>
                         <button class="action-btn danger-btn" onclick="app.forceAppReset()" style="font-size:0.7rem;">⚠️ Réparer</button>
                     </div>
-                    <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">v1.8.4</small>
+                    <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">v1.8.6</small>
                 </div>
             </div>
         </div>
@@ -133,7 +133,7 @@
                 
                 <button class="action-btn" onclick="app.joinGuildById()" style="background-color:#27ae60; margin-bottom:10px;">➕ Rejoindre via un ID</button>
                 <button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button>
-                <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">v1.8.5</small>
+                <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">v1.8.6</small>
             </div>
         </div>
 
@@ -178,7 +178,7 @@
                     <h2>🛠️ Administration</h2>
                     <button onclick="app.checkForUpdates()" style="background:#4a90e2; color:white; border:none; padding:5px 10px; border-radius:4px; font-size:0.7rem;">Vérifier mise à jour</button>
                 </div>
-                <p style="font-size:0.7rem; opacity:0.5; margin-top:-10px;">Version: 1.8.4</p>
+                <p style="font-size:0.7rem; opacity:0.5; margin-top:-10px;">Version: 1.8.6</p>
                 <div class="settings-group">
                     <h4>Inviter un membre</h4>
                     <div style="display:flex; gap:10px;">
@@ -204,17 +204,17 @@
         <button id="update-btn">Installer</button>
     </div>
 
-    <script src="js/config.js?v=17"></script>
+    <script src="js/config.js?v=18"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
-    <script src="js/auth.js?v=17" defer></script>
-    <script src="js/drive.js?v=17" defer></script>
-    <script src="js/app.js?v=17" defer></script>
+    <script src="js/auth.js?v=18" defer></script>
+    <script src="js/drive.js?v=18" defer></script>
+    <script src="js/app.js?v=18" defer></script>
 
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js?v=17').then(reg => {
+                navigator.serviceWorker.register('sw.js?v=18').then(reg => {
                     reg.addEventListener('updatefound', () => {
                         const newWorker = reg.installing;
                         newWorker.addEventListener('statechange', () => {
@@ -226,6 +226,7 @@
                             }
                         });
                     });
+                    
                     setInterval(() => { reg.update(); }, 1000 * 60 * 15);
                     document.addEventListener('visibilitychange', () => {
                         if (document.visibilityState === 'visible') reg.update();

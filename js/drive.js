@@ -42,12 +42,14 @@ const DriveAPI = {
         try {
             const response = await gapi.client.drive.files.get({
                 fileId: fileId,
-                fields: 'id, name, owners, shared'
+                fields: 'id, name, owners, shared',
+                supportsAllDrives: true
             });
             return response.result;
         } catch (err) {
             console.error('Error getting metadata:', err);
-            return null;
+            // Re-throw to handle in UI
+            throw err;
         }
     },
 
