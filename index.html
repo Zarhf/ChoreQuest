@@ -38,13 +38,23 @@
                     </div>
                 </div>
 
+                <!-- Navigation Tabs -->
+                <div class="nav-tabs">
+                    <button id="tab-board" class="nav-tab active" onclick="app.setView('board')">Quêtes</button>
+                    <button id="tab-history" class="nav-tab" onclick="app.setView('history')">Journal</button>
+                </div>
+
                 <!-- Quest Board -->
                 <div id="quest-board">
                     <h2>Quêtes Actives</h2>
-                    <div id="task-list">
-                        <!-- Quests will be injected here -->
-                    </div>
+                    <div id="task-list"></div>
                     <button id="open-add-quest-modal" class="action-btn" onclick="app.showModal('quest-modal')">+ Nouvelle Quête</button>
+                </div>
+
+                <!-- History Board -->
+                <div id="history-board" class="hidden">
+                    <h2>Journal d'Aventure</h2>
+                    <div id="history-list"></div>
                 </div>
             </section>
             

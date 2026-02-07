@@ -2,67 +2,74 @@
 
 ## 1. Concept
 **"Level up your home, one quest at a time."**
-ChoreQuest est une application web progressive (PWA) gamifiée qui transforme les corvées ménagères en une aventure RPG épique. Suivez vos tâches, gagnez de l'XP et montez en niveau en famille tout en gardant vos données privées et synchronisées via votre propre Google Drive.
+ChoreQuest est une application web progressive (PWA) gamifiée qui transforme les corvées ménagères en une aventure RPG épique. Suivez vos tâches, gagnez de l'XP et montez en niveau en famille tout en gardant vos données privées et synchronisées via Google Drive.
 
-## 2. Fonctionnalités Implémentées
+## 2. Fonctionnalités Implémentées (v1.4)
+*Voir versions précédentes pour détails.*
 
-### 2.1. Gestion des Tâches (Le "Tableau des Quêtes")
-*   **Création :** Formulaire pour ajouter des quêtes avec titre et difficulté.
-*   **Difficultés :** 
-    *   Petite Tâche (10 XP)
-    *   Quête Moyenne (50 XP)
-    *   Défi Épique (150 XP)
-*   **Validation :** Bouton "Valider" qui supprime la quête et octroie l'XP instantanément.
+## 3. Roadmap Priorisée (Technique)
 
-### 2.2. Gamification (RPG)
-*   **Profils :** Création d'un héros avec nom et choix d'avatar (🛡️, 🔮, 🌿, ⚡, 🐱).
-*   **Progression :** 
-    *   Barre d'XP visuelle en temps réel.
-    *   Système de niveaux (Niveau supérieur tous les `Niveau * 100` XP).
-    *   Alertes visuelles lors du passage de niveau.
+### 3.1. Refonte du Modèle de Données (CORE - En cours)
+Objectif : Séparer la définition des quêtes de leur exécution pour permettre l'historique et les statistiques.
 
-### 2.3. Infrastructure & Technique
-*   **Architecture :** PWA (Progressive Web App) fonctionnant en mode déconnecté.
-*   **Stockage :** Serverless, utilise l'API Google Drive v3 de l'utilisateur (`chorequest_db.json`).
-*   **Déploiement :** GitHub Pages avec intégration continue via GitHub Actions.
-*   **Mode Dev :** Interface de debug masquée (accessible via un triple-clic sur le titre).
-
-## 3. Architecture Technique détaillée
-
-*   **Frontend :** HTML5 / CSS3 (Thème Dark RPG) / Vanilla JS.
-*   **Auth :** Google Identity Services (GSI) avec OAuth 2.0.
-*   **Base de Données :** Fichier JSON unique sur le Drive de l'utilisateur.
-
-### Modèle de Données (JSON)
+**Nouveau Modèle JSON :**
 ```json
 {
-  "meta": {
-    "version": 2,
-    "created_at": "2026-02-07T..."
-  },
-  "users": [
-    { "id": "u123", "name": "Yohann", "xp": 45, "level": 2, "avatar": "🛡️" }
+  "meta": { "version": 3 },
+  "users": [ ... ],
+  
+  // Le catalogue des quêtes possibles (Modèles)
+  "questDefinitions": [
+    { 
+      "id": "def_1", 
+      "title": "Vaisselle", 
+      "baseXp": 50, 
+      "frequency": "daily", 
+      "defaultAssignee": null 
+    }
   ],
-  "tasks": [
-    { "id": 123456, "title": "Nettoyer le four", "xp": 150 }
+
+  // Les quêtes actives (Instances à faire)
+  "activeQuests": [
+    { 
+      "id": "inst_101", 
+      "definitionId": "def_1", 
+      "title": "Vaisselle", // Copie pour perf
+      "xp": 50, 
+      "dueDate": "2026-02-07T20:00:00Z",
+      "assignedTo": "u1",
+      "status": "todo" // todo, done
+    }
+  ],
+
+  // L'historique (Archives)
+  "questLog": [
+    {
+      "id": "log_1",
+      "definitionId": "def_1",
+      "completedBy": "u1",
+      "completedAt": "2026-02-06T19:30:00Z",
+      "xpEarned": 50
+    }
   ]
 }
 ```
 
-## 4. Roadmap (Prochaines Étapes)
+### 3.2. Gestion des Rôles & Comptes "Écuyers"
+*   Distinction Identité Google vs Profil Héros.
+*   Un compte Google peut gérer plusieurs Héros (Parents + Enfants).
 
-### 4.1. Collaboration (Le "Groupe")
-*   Partager le fichier de quêtes avec d'autres comptes Google.
-*   Gestion des droits d'écriture pour les membres du foyer.
+### 3.3. Système Économique
+*   Introduction de l'Or (Gold) en plus de l'XP.
+*   Portefeuille par utilisateur.
 
-### 4.2. Automatisation (Répétition)
-*   Tâches récurrentes (quotidiennes, hebdomadaires).
-*   Réapparition automatique des quêtes validées après un certain délai.
+### 3.4. Mécaniques de Gameplay
+*   Vol de quête, Négociation, Quêtes Royales.
 
-### 4.3. Boutique & Récompenses
-*   Définir des récompenses réelles (ex: "Choix du film", "Grâce matinée").
-*   Acheter ces récompenses avec les points accumulés.
+### 3.5. Multi-Guildes
+*   Support de plusieurs fichiers DB.
 
-## 5. Design & UX
-*   **Thème :** Interface sombre, accents bleus électriques et rouges épiques.
-*   **Mobile :** Optimisé pour une utilisation à une main sur smartphone.
+## 4. Architecture Technique
+*   **Frontend :** HTML5 / CSS3 / Vanilla JS.
+*   **Données :** JSON sur Google Drive.
+*   **Sécurité :** OAuth 2.0.
