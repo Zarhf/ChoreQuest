@@ -5,60 +5,95 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChoreQuest</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=2">
-    <meta name="theme-color" content="#4a90e2">
+    <link rel="stylesheet" href="css/styles.css?v=3">
+    <meta name="theme-color" content="#1a1a2e">
 </head>
 <body>
     <div id="app">
         <header>
             <h1>🛡️ ChoreQuest</h1>
             <div id="auth-container">
-                <button id="authorize_button" style="display: none;">Connect to Google Drive</button>
-                <button id="signout_button" style="display: none;">Sign Out</button>
+                <button id="authorize_button" style="display: none;">Login</button>
+                <button id="signout_button" style="display: none;">Logout</button>
             </div>
         </header>
 
         <main>
-            <div id="loading" style="display: none;">Loading Quest Log...</div>
+            <div id="loading" class="hidden">Gathering Party...</div>
             
-            <section id="content" style="display: none;">
-                <div id="user-profile"></div>
+            <section id="content" class="hidden">
+                <!-- Profile Section -->
+                <div id="user-profile">
+                    <div class="avatar-circle" id="user-avatar">👤</div>
+                    <div class="user-stats">
+                        <h3 id="user-name">Hero</h3>
+                        <div>Level <span id="user-level">1</span></div>
+                        <div class="xp-bar-container">
+                            <div id="xp-progress"></div>
+                        </div>
+                        <small><span id="user-xp">0</span> / <span id="next-level-xp">100</span> XP</small>
+                    </div>
+                </div>
+
+                <!-- Quest Board -->
                 <div id="quest-board">
-                    <h2>Available Quests</h2>
-                    <ul id="task-list"></ul>
-                    <button id="add-quest-btn" class="action-btn">+ New Quest</button>
+                    <h2>Active Quests</h2>
+                    <div id="task-list">
+                        <!-- Quests will be injected here -->
+                    </div>
+                    <button id="open-add-quest-modal" class="action-btn" onclick="app.showModal('quest-modal')">+ Add New Quest</button>
                 </div>
             </section>
             
-            <section id="welcome-screen">
-                <p>Welcome, Hero! Connect your Google Drive to start your adventure.</p>
+            <section id="welcome-screen" class="hidden">
+                <p>Welcome, Brave Hero! Your household adventure awaits.</p>
+                <p>Sign in to sync your progress with Google Drive.</p>
             </section>
         </main>
+
+        <!-- Onboarding Modal (New User) -->
+        <div id="onboarding-modal" class="modal hidden">
+            <div class="modal-content">
+                <h2>Create Your Hero</h2>
+                <input type="text" id="new-user-name" placeholder="Hero Name (e.g. Papa, Sarah...)">
+                <select id="new-user-avatar">
+                    <option value="🛡️">🛡️ Warrior</option>
+                    <option value="🔮">🔮 Mage</option>
+                    <option value="🌿">🌿 Ranger</option>
+                    <option value="⚡">⚡ Paladin</option>
+                    <option value="🐱">🐱 Ninja</option>
+                </select>
+                <button class="action-btn" onclick="app.finishOnboarding()">Start Adventure</button>
+            </div>
+        </div>
+
+        <!-- Add Quest Modal -->
+        <div id="quest-modal" class="modal hidden">
+            <div class="modal-content">
+                <h2>New Quest</h2>
+                <input type="text" id="quest-title" placeholder="What needs to be done?">
+                <select id="quest-difficulty">
+                    <option value="10">Small Task (10 XP)</option>
+                    <option value="50">Medium Quest (50 XP)</option>
+                    <option value="150">Epic Challenge (150 XP)</option>
+                </select>
+                <button class="action-btn" onclick="app.addQuest()">Post to Board</button>
+                <button class="action-btn" style="background:transparent; color:#666;" onclick="app.hideModals()">Cancel</button>
+            </div>
+        </div>
     </div>
 
-    <script src="js/config.js?v=2"></script>
+    <script src="js/config.js?v=3"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
-    <script src="js/auth.js?v=2" defer></script>
-    <script src="js/drive.js?v=2" defer></script>
-    <script src="js/app.js?v=2" defer></script>
+    <script src="js/auth.js?v=3" defer></script>
+    <script src="js/drive.js?v=3" defer></script>
+    <script src="js/app.js?v=3" defer></script>
 
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js?v=2')
-                    .then(reg => {
-                        console.log('SW Registered');
-                        // Force update if a new service worker is found
-                        reg.onupdatefound = () => {
-                            const installingWorker = reg.installing;
-                            installingWorker.onstatechange = () => {
-                                if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    window.location.reload();
-                                }
-                            };
-                        };
-                    });
+                navigator.serviceWorker.register('sw.js?v=3');
             });
         }
     </script>

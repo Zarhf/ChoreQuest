@@ -1,96 +1,173 @@
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     margin: 0;
     padding: 0;
-    background-color: #f4f7f6;
-    color: #333;
+    background-color: #1a1a2e; /* Dark RPG background */
+    color: #e0e0e0;
 }
 
 header {
-    background-color: #4a90e2;
-    color: white;
+    background-color: #16213e;
+    color: #4a90e2;
     padding: 1rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-h1 {
-    margin: 0;
-    font-size: 1.5rem;
+    border-bottom: 2px solid #4a90e2;
 }
 
 main {
     padding: 1rem;
-    max-width: 800px;
+    max-width: 600px;
     margin: 0 auto;
 }
 
-button {
-    background-color: #ffffff;
-    border: 1px solid #ddd;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: bold;
-    transition: background-color 0.2s;
+/* User Card */
+#user-profile {
+    background: #0f3460;
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
 }
 
-button:hover {
-    background-color: #f0f0f0;
+.avatar-circle {
+    font-size: 3rem;
+    background: #16213e;
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 3px solid #4a90e2;
 }
 
-#auth-container button {
-    background-color: rgba(255,255,255,0.2);
-    color: white;
-    border: 1px solid rgba(255,255,255,0.4);
+.user-stats {
+    flex-grow: 1;
 }
 
-#auth-container button:hover {
-    background-color: rgba(255,255,255,0.3);
+.user-stats h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.4rem;
 }
 
-.action-btn {
-    background-color: #27ae60;
-    color: white;
-    border: none;
-    padding: 0.8rem 1.5rem;
-    font-size: 1rem;
-    margin-top: 1rem;
+.xp-bar-container {
+    background: #16213e;
+    height: 12px;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-top: 5px;
 }
 
-.action-btn:hover {
-    background-color: #219150;
+#xp-progress {
+    background: linear-gradient(90deg, #4a90e2, #00d2ff);
+    height: 100%;
+    width: 0%;
+    transition: width 0.5s ease-out;
 }
 
-#loading {
-    text-align: center;
-    padding: 2rem;
-    font-style: italic;
-    color: #666;
+/* Quest Board */
+h2 {
+    color: #4a90e2;
+    font-variant: small-caps;
+    border-bottom: 1px solid #4a90e2;
+    padding-bottom: 0.5rem;
 }
 
-#welcome-screen {
-    text-align: center;
-    margin-top: 2rem;
-}
-
-#quest-board {
-    background: white;
+.quest-card {
+    background: #e94560; /* Epic Red */
+    margin-bottom: 1rem;
     border-radius: 8px;
     padding: 1rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-
-.task-item {
-    border-bottom: 1px solid #eee;
-    padding: 0.8rem 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    transition: transform 0.2s;
+    cursor: default;
 }
 
-.task-item:last-child {
-    border-bottom: none;
+.quest-card:hover {
+    transform: scale(1.02);
 }
+
+.quest-info h4 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.quest-info span {
+    font-size: 0.8rem;
+    opacity: 0.8;
+}
+
+.complete-btn {
+    background: #ffffff;
+    color: #e94560;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.complete-btn:hover {
+    background: #f0f0f0;
+}
+
+/* Modals / Forms */
+.modal {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.modal-content {
+    background: #16213e;
+    padding: 2rem;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 400px;
+}
+
+input, select {
+    width: 100%;
+    padding: 0.8rem;
+    margin: 1rem 0;
+    background: #0f3460;
+    border: 1px solid #4a90e2;
+    color: white;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.action-btn {
+    width: 100%;
+    background: #4a90e2;
+    color: white;
+    border: none;
+    padding: 1rem;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+#add-quest-btn {
+    background: transparent;
+    border: 2px dashed #4a90e2;
+    color: #4a90e2;
+    margin-top: 1rem;
+}
+
+#add-quest-btn:hover {
+    background: rgba(74, 144, 226, 0.1);
+}
+
+.hidden { display: none !important; }
