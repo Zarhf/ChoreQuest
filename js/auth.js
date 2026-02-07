@@ -72,10 +72,8 @@ function handleSignoutClick() {
     }
 }
 
-// Expose functions to global scope for button clicks
+// Expose functions to global scope for script callbacks and button clicks
+window.gapiLoaded = gapiLoaded;
+window.gisLoaded = gisLoaded;
 window.handleAuthClick = handleAuthClick;
 window.handleSignoutClick = handleSignoutClick;
-
-// Initialize when scripts load
-gapiLoaded();
-gisLoaded();
