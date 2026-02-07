@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChoreQuest</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="css/styles.css">
+    <meta name="theme-color" content="#4a90e2">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>🛡️ ChoreQuest</h1>
+            <div id="auth-container">
+                <button id="authorize_button" style="display: none;">Connect to Google Drive</button>
+                <button id="signout_button" style="display: none;">Sign Out</button>
+            </div>
+        </header>
+
+        <main>
+            <div id="loading" style="display: none;">Loading Quest Log...</div>
+            
+            <section id="content" style="display: none;">
+                <div id="user-profile">
+                    <!-- User stats will go here -->
+                </div>
+                <div id="quest-board">
+                    <h2>Available Quests</h2>
+                    <ul id="task-list">
+                        <!-- Tasks will be injected here -->
+                    </ul>
+                    <button id="add-quest-btn" class="action-btn">+ New Quest</button>
+                </div>
+            </section>
+            
+            <section id="welcome-screen">
+                <p>Welcome, Hero! Connect your Google Drive to start your adventure.</p>
+            </section>
+        </main>
+    </div>
+
+    <!-- Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+
+    <!-- App Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/drive.js"></script>
+    <script src="js/app.js"></script>
+
+    <script>
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('Service Worker registered', reg))
+                .catch(err => console.error('Service Worker registration failed', err));
+        }
+    </script>
+</body>
+</html>
