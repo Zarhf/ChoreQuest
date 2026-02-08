@@ -316,7 +316,32 @@ const app = {
     },
 
     updateCurrentUserInfo() { this.currentUser.name = document.getElementById('edit-user-name').value; this.currentUser.avatar = document.getElementById('edit-user-avatar').value; this.save(); },
-    renderDevMode() { document.getElementById('debug-guild-id').innerText = this.guildId; document.getElementById('debug-users').innerHTML = this.data.users.map(u => `<div>${u.name} (${u.email})</div>`).join(''); },
+    renderDevMode() { 
+        document.getElementById('debug-guild-id').innerText = this.guildId; 
+        document.getElementById('debug-users').innerHTML = 
+            `<h4>Membres</h4>` + this.data.users.map(u => `<div>${u.name} (${u.email})</div>`).join('') +
+            `<h4>Définitions</h4>` + this.data.questDefinitions.map(d => `<div>${d.title} (${d.frequency})</div>`).join('');
+    },
+
+    renderBoard() {
+        // ... (début inchangé)
+        const questHtml = (q, up) => {
+            const rarity = this.getQuestRarity(q.xp);
+            const def = this.data.questDefinitions.find(d => d.id === q.definitionId);
+            const freq = (def && def.frequency !== 'none') ? '🔄' : '';
+            const time = q.timeSlot ? ` • 🕒 ${q.timeSlot.start}-${q.timeSlot.end}` : '';
+            const virtualIcon = q.isVirtual ? '🔮 ' : ''; // Indicateur visuel pour le debug
+            
+            return `<div class="quest-card ${rarity} ${up ? 'upcoming' : ''}" style="${q.isVirtual ? 'border: 1px dashed rgba(255,255,255,0.3);' : ''}">
+                <div class="quest-info">
+                    <h4>${virtualIcon}${freq} ${q.title}</h4>
+                    <span>💰 ${q.xp} XP${time}</span>
+                </div>
+                ${!up ? `<button class="complete-btn" onclick="app.completeTask('${q.id}')">Valider</button>` : ''}
+            </div>`;
+        };
+        // ... (reste inchangé)
+    },
     setView(v) { this.currentView = v; document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.id === `tab-${v}`)); this.render(); },
     showLoading(s) { const el = document.getElementById('loading'); if (el) el.classList.toggle('hidden', !s); },
     showModal(id) { const el = document.getElementById(id); if (el) el.classList.remove('hidden'); },
