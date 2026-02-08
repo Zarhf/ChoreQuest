@@ -183,24 +183,16 @@ const DriveAPI = {
     // Update the DB file
     async updateFile(fileId, data) {
         try {
-            const fileContent = JSON.stringify(data);
-            const file = new Blob([fileContent], {type: 'application/json'});
-            const metadata = {
-                'mimeType': 'application/json'
-            };
-
-            const accessToken = gapi.client.getToken().access_token;
-            const form = new FormData();
-            form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
-            form.append('file', file);
-
-            const response = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart&supportsAllDrives=true`, {
-                method: 'PATCH',
-                headers: new Headers({'Authorization': 'Bearer ' + accessToken}),
-                body: form
+            const response = await gapi.client.drive.files.update({
+                fileId: fileId,
+                resource: data, // Just send the JSON object
+                media: {
+                    mimeType: 'application/json',
+                    body: JSON.stringify(data)
+                },
+                supportsAllDrives: true
             });
-            
-            return await response.json();
+            return response.result;
         } catch (err) {
             console.error('Error updating file:', err);
             throw err;

@@ -119,6 +119,9 @@ async function getUserProfile() {
         return response.result;
     } catch (err) {
         console.error("Error getting user profile", err);
+        if (err.status === 401) {
+            handleSignoutClick(); // Token expired or invalid scope, clear it
+        }
         return null;
     }
 }
