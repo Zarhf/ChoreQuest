@@ -64,7 +64,7 @@ const app = {
             app.currentUser = null;
             app.showModal('onboarding-modal');
         } else {
-            // --- FORCED MIGRATION: Convert emoji avatars to DiceBear URLs ---
+            // forced migration
             let needsSave = false;
             app.data.users.forEach(u => {
                 if (!u.avatar || !u.avatar.startsWith('http')) {
@@ -87,9 +87,8 @@ const app = {
     // --- Avatar Management ---
     getAvatarHtml(avatarStr, size = "40px") {
         if (!avatarStr || !avatarStr.startsWith('http')) {
-            // Fallback if migration failed or URL invalid
-            const seed = app.currentUser?.name || 'Hero';
-            avatarStr = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`;
+            // For special icons like ? or ⚔️
+            return `<div style="width:${size}; height:${size}; display:flex; align-items:center; justify-content:center; font-size:calc(${size} * 0.5); font-weight:bold; color:rgba(255,255,255,0.5);">${avatarStr || '?'}</div>`;
         }
         return `<img src="${avatarStr}" alt="Avatar" style="width:${size}; height:${size}; border-radius:50%; display:block; object-fit:cover; border: 1px solid rgba(255,255,255,0.1);">`;
     },
@@ -110,7 +109,6 @@ const app = {
         const preview = document.getElementById(`${prefix}-avatar-preview`);
         if (preview) preview.innerHTML = `<img src="${url}" alt="Preview" style="width:100%; height:100%; object-fit:cover;">`;
         
-        // Auto-save for the current context
         if (prefix === 'edit' && app.currentUser) {
             if (forceSave || (seedInput && seedInput.value)) {
                 app.currentUser.avatar = url;
@@ -187,7 +185,7 @@ const app = {
         const xpNeeded = (app.currentUser.level || 1) * 100;
         if (app.currentUser.xp >= xpNeeded) {
             app.currentUser.level = (app.currentUser.level || 1) + 1;
-            app.currentUser.xp -= xpNeeded;
+            app.currentUser.xp -= (app.currentUser.level - 1) * 100;
             alert(`🎊 LEVEL UP! ${app.currentUser.name} est Niveau ${app.currentUser.level} !`);
         }
 
@@ -409,7 +407,7 @@ const app = {
             const time = q.timeSlot ? ` • 🕒 ${q.timeSlot.start}-${q.timeSlot.end}` : '';
             
             const assignee = app.data.users.find(u => u.id === q.assignedTo);
-            const assigneeHtml = `<div class="assignee-badge ${!assignee ? 'empty' : ''}">${app.getAvatarHtml(assignee ? assignee.avatar : '⚔️', "36px")}</div>`;
+            const assigneeHtml = `<div class="assignee-badge ${!assignee ? 'empty' : ''}">${app.getAvatarHtml(assignee ? assignee.avatar : '?', "36px")}</div>`;
             const canClaim = !q.assignedTo && !up;
 
             return `<div class="quest-card ${rarity} ${up ? 'upcoming' : ''}">
@@ -454,7 +452,7 @@ const app = {
             const color = log.type === 'system' ? '#e94560' : '#4a90e2';
             return `<div class="history-item" style="border-left-color: ${color}"><div style="display:flex; justify-content:space-between; align-items:center;">
                 <div style="display:flex; align-items:center; gap:10px;">
-                    ${app.getAvatarHtml(user ? user.avatar : '⚔️', "30px")}
+                    ${app.getAvatarHtml(user ? user.avatar : '?', "30px")}
                     <div><strong>${log.title}</strong><br><small>${user ? user.name : '??'} • ${new Date(log.completedAt).toLocaleString()}</small></div>
                 </div>
                 ${log.type === 'completion' ? `<button class="undo-btn" onclick="app.undoLog('${log.id}')">Annuler</button>` : ''}
@@ -477,7 +475,7 @@ const app = {
         const t = document.getElementById('activity-toast');
         const user = app.data.users.find(u => u.id === log.completedBy || u.email === log.completedBy);
         const elAvatar = document.getElementById('toast-avatar');
-        if (elAvatar) elAvatar.innerHTML = app.getAvatarHtml(user ? user.avatar : '⚔️', "30px");
+        if (elAvatar) elAvatar.innerHTML = app.getAvatarHtml(user ? user.avatar : '?', "30px");
         let verb = log.type === 'system' ? "info :" : "a validé";
         if (log.title.includes('Annulation')) verb = "a annulé";
         document.getElementById('toast-message').innerText = `${user ? user.name : 'Un membre'} ${verb} : "${log.title}"`;
@@ -489,7 +487,7 @@ const app = {
         if (elName) elName.value = app.data.meta.guildName;
         app.renderGuildMembers();
         
-        const memberOptions = `<option value="">⚔️ Pour tous</option>` + app.data.users.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+        const memberOptions = `<option value="">❓ Pour tous</option>` + app.data.users.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
         const elQAssignee = document.getElementById('quest-assignee');
         if (elQAssignee) elQAssignee.innerHTML = memberOptions;
         const elEditQAssignee = document.getElementById('edit-quest-assignee');
