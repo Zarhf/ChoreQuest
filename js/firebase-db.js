@@ -74,11 +74,38 @@ const db = {
 
             // If guild is open, add member
             if (data.meta.isOpen) {
-                data.memberEmails.push(userEmail);
-                await docRef.update({ memberEmails: data.memberEmails });
+                const logEntry = {
+                    id: 'log_' + Date.now(),
+                    type: 'system',
+                    title: 'Nouveau membre',
+                    completedBy: userEmail, // Use email as ID initially
+                    completedAt: new Date().toISOString(),
+                    xpEarned: 0
+                };
+
+                await docRef.update({ 
+                    memberEmails: firebase.firestore.FieldValue.arrayUnion(userEmail),
+                    questLog: firebase.firestore.FieldValue.arrayUnion(logEntry)
+                });
                 return true;
             }
         }
         return false;
+    },
+
+    async leaveGuild(guildId, userEmail) {
+        const docRef = this.firestore.collection('guilds').doc(guildId);
+        const logEntry = {
+            id: 'log_' + Date.now(),
+            type: 'system',
+            title: 'Départ',
+            completedBy: userEmail,
+            completedAt: new Date().toISOString(),
+            xpEarned: 0
+        };
+        await docRef.update({ 
+            memberEmails: firebase.firestore.FieldValue.arrayRemove(userEmail),
+            questLog: firebase.firestore.FieldValue.arrayUnion(logEntry)
+        });
     }
 };

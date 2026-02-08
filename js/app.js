@@ -67,6 +67,9 @@ const app = {
     },
 
     handleDataUpdate() {
+        // Watch for changes before rendering (to detect new logs)
+        this.watchForToasts();
+
         const matchedUser = this.data.users.find(u => u.email === auth.user.email);
         if (!matchedUser) {
             this.currentUser = null;
@@ -260,18 +263,98 @@ const app = {
                 </div>`).join('');
     },
 
+    async leaveGuild() {
+        if (!confirm("Voulez-vous vraiment quitter cette guilde ?")) return;
+        this.showLoading(true);
+        await db.leaveGuild(this.guildId, auth.user.email);
+        localStorage.removeItem('currentGuildId');
+        window.location.reload();
+    },
+
     renderHistory() {
         const list = document.getElementById('history-list');
         list.innerHTML = this.data.questLog.map(log => {
-            const user = this.data.users.find(u => u.id === log.completedBy);
-            return `<div class="history-item">
-                <strong>${log.title}</strong><br>
-                <small>Par ${user ? user.name : '??'} • ${new Date(log.completedAt).toLocaleString()}</small>
+            const isSystem = log.type === 'system';
+            // Try to find user by ID, if not found (e.g. email for new joiner), use raw ID
+            const user = this.data.users.find(u => u.id === log.completedBy || u.email === log.completedBy);
+            const userName = user ? user.name : (log.completedBy || 'Système');
+            const date = new Date(log.completedAt).toLocaleString();
+            
+            let icon = '📜';
+            let color = '#aaa';
+            
+            if (isSystem) {
+                if (log.title === 'Nouveau membre') { icon = '👋'; color = '#27ae60'; }
+                if (log.title === 'Départ') { icon = '🚪'; color = '#e94560'; }
+            } else {
+                icon = '✅'; color = '#4a90e2';
+            }
+
+            return `<div class="history-item" style="border-left-color: ${color}">
+                <strong>${icon} ${log.title}</strong><br>
+                <small>${userName} • ${date} ${log.xpEarned > 0 ? '• +' + log.xpEarned + ' XP' : ''}</small>
             </div>`;
         }).join('');
     },
 
+    // --- Toast Notification System ---
+    lastLogId: null,
+
+    watchForToasts() {
+        if (!this.data || !this.data.questLog || this.data.questLog.length === 0) return;
+        
+        const latestLog = this.data.questLog[0];
+        
+        // First run: just store the ID
+        if (!this.lastLogId) {
+            this.lastLogId = latestLog.id;
+            return;
+        }
+
+        // New log detected!
+        if (latestLog.id !== this.lastLogId) {
+            this.lastLogId = latestLog.id;
+            // Don't toast for my own actions (avoid double feedback)
+            if (latestLog.completedBy === this.currentUser.id || latestLog.completedBy === auth.user.email) return;
+
+            this.showToastNotification(latestLog);
+        }
+    },
+
+    showToastNotification(log) {
+        const toast = document.getElementById('update-toast');
+        const btn = document.getElementById('update-btn');
+        const span = toast.querySelector('span');
+        
+        // Find user name
+        const user = this.data.users.find(u => u.id === log.completedBy || u.email === log.completedBy);
+        const userName = user ? user.name : 'Quelqu\'un';
+
+        span.innerText = `${userName} : ${log.title}`;
+        btn.style.display = 'none'; // No button for info toast
+        
+        toast.classList.remove('hidden');
+        
+        // Hide after 4s
+        setTimeout(() => {
+            toast.classList.add('hidden');
+            btn.style.display = 'inline-block'; // Restore for updates
+        }, 4000);
+    },
+
     syncSettingsUI() {
+        // ... existing syncSettingsUI code ...
+        // Add Quit Button if not owner
+        const isOwner = this.data.meta.owner === auth.user.email;
+        const quitBtn = document.getElementById('quit-guild-btn');
+        if (quitBtn) {
+            if (isOwner) {
+                quitBtn.style.display = 'none';
+            } else {
+                quitBtn.style.display = 'block';
+            }
+        }
+    },
         // Guild Modal
         const elGuildName = document.getElementById('edit-guild-name');
         if (elGuildName) elGuildName.value = this.data.meta.guildName;
