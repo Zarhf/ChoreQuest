@@ -1,12 +1,22 @@
 const admin = require('firebase-admin');
 const version = require('../version.json');
 
-// Get service account from environment variable (Base64 encoded)
-const serviceAccount = JSON.parse(Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT, 'base64').toString('utf8'));
+if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
+  console.error('❌ ERROR: FIREBASE_SERVICE_ACCOUNT environment variable is missing.');
+  console.log('Please add it to GitHub Secrets (Settings > Secrets > Actions).');
+  process.exit(1);
+}
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
+try {
+  const serviceAccount = JSON.parse(Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT, 'base64').toString('utf8'));
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+  });
+} catch (e) {
+  console.error('❌ ERROR: Invalid JSON or Base64 in FIREBASE_SERVICE_ACCOUNT secret.');
+  console.error(e.message);
+  process.exit(1);
+}
 
 const db = admin.firestore();
 
