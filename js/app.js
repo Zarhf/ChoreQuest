@@ -310,9 +310,23 @@ const app = {
         document.getElementById('debug-guild-id').innerText = this.guildId; 
         document.getElementById('debug-users').innerHTML = this.data.users.map(u => `<div>${u.avatar} ${u.name} (${u.email})</div>`).join(''); 
     },
-    showLoading(s) { document.getElementById('loading').classList.toggle('hidden', !s); },
-    showModal(id) { document.getElementById(id).classList.remove('hidden'); },
-    hideModals() { document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')); },
+    showLoading(s) { 
+        const el = document.getElementById('loading');
+        if (el) el.classList.toggle('hidden', !s); 
+    },
+    
+    showModal(id) { 
+        const el = document.getElementById(id);
+        if (el) {
+            el.classList.remove('hidden');
+        } else {
+            console.error(`Modal with ID '${id}' not found!`);
+        }
+    },
+    
+    hideModals() { 
+        document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')); 
+    },
     forceAppReset() { if(confirm('Réinitialiser ?')) { localStorage.clear(); window.location.reload(); } }
 };
 app.init();
