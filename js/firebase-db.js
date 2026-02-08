@@ -22,7 +22,6 @@ const db = {
     },
 
     async searchPublicGuilds(queryText) {
-        // Recherche simple par nom (insensible à la casse simulee)
         const snapshot = await this.firestore.collection('guilds')
             .where('meta.isPublic', '==', true)
             .limit(20)
@@ -66,23 +65,11 @@ const db = {
         const doc = await docRef.get();
         if (doc.exists) {
             const data = doc.data();
-            
-            // If already a member, return true
-            if (data.memberEmails.includes(userEmail)) {
-                return true;
-            }
-
-            // If guild is open, add member
+            if (data.memberEmails.includes(userEmail)) return true;
             if (data.meta.isOpen) {
                 const logEntry = {
-                    id: 'log_' + Date.now(),
-                    type: 'system',
-                    title: 'Nouveau membre',
-                    completedBy: userEmail, // Use email as ID initially
-                    completedAt: new Date().toISOString(),
-                    xpEarned: 0
+                    id: 'log_' + Date.now(), type: 'system', title: 'Nouveau membre', completedBy: userEmail, completedAt: new Date().toISOString(), xpEarned: 0
                 };
-
                 await docRef.update({ 
                     memberEmails: firebase.firestore.FieldValue.arrayUnion(userEmail),
                     questLog: firebase.firestore.FieldValue.arrayUnion(logEntry)
@@ -96,16 +83,29 @@ const db = {
     async leaveGuild(guildId, userEmail) {
         const docRef = this.firestore.collection('guilds').doc(guildId);
         const logEntry = {
-            id: 'log_' + Date.now(),
-            type: 'system',
-            title: 'Départ',
-            completedBy: userEmail,
-            completedAt: new Date().toISOString(),
-            xpEarned: 0
+            id: 'log_' + Date.now(), type: 'system', title: 'Départ', completedBy: userEmail, completedAt: new Date().toISOString(), xpEarned: 0
         };
         await docRef.update({ 
             memberEmails: firebase.firestore.FieldValue.arrayRemove(userEmail),
             questLog: firebase.firestore.FieldValue.arrayUnion(logEntry)
         });
+    },
+
+    // --- System Versioning (The Kill Switch) ---
+    listenToSystemConfig(callback) {
+        // We use a specific doc in 'system' collection for global config
+        this.firestore.collection('system').doc('config').onSnapshot((doc) => {
+            if (doc.exists) callback(doc.data());
+            else callback({ minBuild: 0 }); 
+        }, err => console.warn("No system config access"));
+    },
+
+    async setSystemConfig(buildNumber) {
+        // Only works if rules allow it, but we try
+        try {
+            await this.firestore.collection('system').doc('config').set({ minBuild: buildNumber }, { merge: true });
+        } catch (e) {
+            console.warn("Could not set system config", e);
+        }
     }
 };
