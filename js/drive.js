@@ -183,9 +183,11 @@ const DriveAPI = {
     // Update the DB file
     async updateFile(fileId, data) {
         try {
+            // Using request for more control over the multipart body if needed, 
+            // but standard update with media should work if resource is clean.
             const response = await gapi.client.drive.files.update({
                 fileId: fileId,
-                resource: data, // Just send the JSON object
+                resource: {}, // Don't send the whole data as metadata!
                 media: {
                     mimeType: 'application/json',
                     body: JSON.stringify(data)

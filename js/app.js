@@ -6,6 +6,7 @@ const app = {
     currentView: 'board', // board, history
 
     async init() {
+        console.log("ChoreQuest v1.9.6 (v25) starting...");
         this.showLoading(true);
         try {
             // Check if we have a stored guild preference
