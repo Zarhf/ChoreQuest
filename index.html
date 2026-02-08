@@ -5,40 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChoreQuest</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=26">
+    <link rel="stylesheet" href="css/styles.css?v=30">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
 </head>
 <body>
-    <script>
-        async function handleNuke() {
-            if (window.location.search.includes('nuke=true')) {
-                if ('serviceWorker' in navigator) {
-                    const registrations = await navigator.serviceWorker.getRegistrations();
-                    for (let registration of registrations) { await registration.unregister(); }
-                }
-                const names = await caches.keys();
-                for (let name of names) { await caches.delete(name); }
-                alert('Application réinitialisée !');
-                window.location.href = window.location.pathname + '?v=' + Date.now();
-            }
-        }
-        handleNuke();
-    </script>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
     <div id="app">
         <header>
             <h1>🛡️ ChoreQuest</h1>
             <div id="auth-container">
-                <button id="account-btn" onclick="app.showModal('account-modal')">
-                    <span id="account-status" class="account-status-dot"></span>
+                <button id="account-btn" class="hidden" onclick="app.showModal('account-modal')">
+                    <span id="account-status" class="account-status-dot online"></span>
                     Mon Compte
                 </button>
             </div>
         </header>
 
         <main>
-            <div id="loading" class="hidden">Rassemblement de la guilde...</div>
+            <div id="loading" class="hidden">Chargement de la guilde...</div>
             
             <section id="content" class="hidden">
                 <div id="user-profile">
@@ -72,11 +61,14 @@
             </section>
             
             <section id="welcome-screen" class="hidden">
-                <p>Bienvenue, brave Héros ! Votre aventure domestique commence ici.</p>
-                <button class="action-btn" onclick="handleAuthClick()">Se connecter avec Google</button>
+                <div style="text-align: center; margin-top: 2rem;">
+                    <p>Bienvenue, brave Héros ! Votre aventure domestique commence ici.</p>
+                    <button class="action-btn" onclick="auth.login()">Se connecter avec Google</button>
+                </div>
             </section>
         </main>
 
+        <!-- Account Modal -->
         <div id="account-modal" class="modal hidden">
             <div class="modal-content">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
@@ -90,12 +82,12 @@
                         <button class="action-btn secondary-btn" onclick="app.renameGuild()" style="padding:2px 10px; font-size:0.7rem; width:auto;">✏️</button>
                     </div>
                     <div style="display:flex; gap:10px; align-items:center;">
-                        <strong id="current-guild-name" style="font-size:0.9rem;">Ma Guilde</strong>
+                        <strong id="current-guild-name" style="font-size:0.9rem;">Chargement...</strong>
                         <button class="action-btn" onclick="app.openGuildSwitcher()" style="margin:0; padding:5px 10px; font-size:0.7rem; width:auto;">Changer</button>
                     </div>
                 </div>
 
-                <div id="user-settings" class="hidden">
+                <div id="user-settings">
                     <div class="settings-group">
                         <h4>Héros</h4>
                         <div style="display:grid; grid-template-columns: 1fr 2fr; gap:10px;">
@@ -112,34 +104,32 @@
 
                     <div class="settings-group" style="background:transparent; border:1px dashed #444;">
                         <h4>Session</h4>
-                        <div id="auth-status-text" style="font-size:0.8rem; opacity:0.7; margin-bottom:10px;">Connecté</div>
-                        <button id="login-modal-btn" class="action-btn hidden" onclick="handleAuthClick()" style="font-size:0.8rem; padding:8px;">Connexion Google</button>
-                        <button id="logout-modal-btn" class="action-btn secondary-btn" onclick="handleSignoutClick()" style="font-size:0.8rem; padding:8px;">Déconnexion</button>
+                        <div id="user-email-display" style="font-size:0.8rem; opacity:0.7; margin-bottom:10px;">...</div>
+                        <button class="action-btn secondary-btn" onclick="auth.logout()" style="font-size:0.8rem; padding:8px;">Déconnexion</button>
                     </div>
 
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                         <button class="action-btn" onclick="app.showModal('dev-modal'); app.renderDevMode();" style="background-color: #6c757d; font-size:0.7rem;">🛠️ Admin</button>
-                        <button class="action-btn danger-btn" onclick="app.forceAppReset()" style="font-size:0.7rem;">⚠️ Réparer</button>
+                        <button class="action-btn danger-btn" onclick="app.forceAppReset()" style="font-size:0.7rem;">⚠️ Réinitialiser</button>
                     </div>
-                    <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">v1.9.7</small>
+                    <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">ChoreQuest v2.0.0 (Firebase)</small>
                 </div>
             </div>
         </div>
 
         <div id="guild-modal" class="modal hidden">
             <div class="modal-content">
-                <h2>Choisir une Guilde</h2>
+                <h2>Mes Guildes</h2>
                 <div id="guild-list-container" style="max-height: 300px; overflow-y: auto; margin-bottom: 1rem;"></div>
-                
-                <button class="action-btn" onclick="app.searchGuildOnDrive()" style="background-color:#27ae60; margin-bottom:10px;">🔍 Rechercher sur Google Drive</button>
+                <button class="action-btn" onclick="app.createNewGuild()" style="background-color:#27ae60; margin-bottom:10px;">➕ Créer une nouvelle Guilde</button>
                 <button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button>
-                <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">v1.9.7</small>
             </div>
         </div>
 
         <div id="onboarding-modal" class="modal hidden">
             <div class="modal-content">
-                <h2>Créer votre Héros</h2>
+                <h2>Bienvenue dans cette Guilde</h2>
+                <p>Créez votre Héros pour commencer.</p>
                 <input type="text" id="new-user-name" placeholder="Nom du Héros">
                 <select id="new-user-avatar">
                     <option value="🛡️">🛡️ Guerrier</option>
@@ -174,25 +164,14 @@
 
         <div id="dev-modal" class="modal hidden">
             <div class="modal-content" style="max-width: 800px; max-height: 80vh; overflow-y: auto;">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <h2>🛠️ Administration</h2>
-                    <button onclick="app.checkForUpdates()" style="background:#4a90e2; color:white; border:none; padding:5px 10px; border-radius:4px; font-size:0.7rem;">Vérifier mise à jour</button>
-                </div>
-                <p style="font-size:0.7rem; opacity:0.5; margin-top:-10px;">Version: 1.9.7</p>
+                <h2>🛠️ Administration Firestore</h2>
                 <div class="settings-group">
-                    <h4>Inviter un membre</h4>
-                    <div style="display:flex; gap:10px;">
-                        <input type="email" id="invite-email" placeholder="email@gmail.com" style="margin:0; flex-grow:1;">
-                        <button class="action-btn" onclick="app.inviteMember()" style="margin:0; width:auto; padding:0 15px;">Inviter</button>
-                    </div>
+                    <h4>ID Guilde Actuelle</h4>
+                    <code id="debug-guild-id" style="user-select:all; background:#222; padding:5px; display:block; word-break:break-all;">...</code>
                 </div>
                 <div class="settings-group">
-                    <h4>Héros du Foyer</h4>
+                    <h4>Membres</h4>
                     <div id="debug-users"></div>
-                </div>
-                <div class="settings-group">
-                    <h4>Métadonnées</h4>
-                    <pre id="debug-meta" style="background:#000; padding:10px; border-radius:5px; font-size:0.8rem;"></pre>
                 </div>
                 <button class="action-btn secondary-btn" onclick="app.hideModals()">Fermer</button>
             </div>
@@ -204,17 +183,16 @@
         <button id="update-btn">Installer</button>
     </div>
 
-    <script src="js/config.js?v=26"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="https://apis.google.com/js/api.js" async defer></script>
-    <script src="js/auth.js?v=26" defer></script>
-    <script src="js/drive.js?v=26" defer></script>
-    <script src="js/app.js?v=26" defer></script>
+    <!-- App Logic -->
+    <script src="js/config.js?v=30"></script>
+    <script src="js/auth.js?v=30"></script>
+    <script src="js/firebase-db.js?v=30"></script>
+    <script src="js/app.js?v=30"></script>
 
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js?v=26').then(reg => {
+                navigator.serviceWorker.register('sw.js?v=30').then(reg => {
                     reg.addEventListener('updatefound', () => {
                         const newWorker = reg.installing;
                         newWorker.addEventListener('statechange', () => {
@@ -225,10 +203,6 @@
                                 };
                             }
                         });
-                    });
-                    setInterval(() => { reg.update(); }, 1000 * 60 * 15);
-                    document.addEventListener('visibilitychange', () => {
-                        if (document.visibilityState === 'visible') reg.update();
                     });
                 });
             });

@@ -1,6 +1,11 @@
 const CONFIG = {
-    CLIENT_ID: '450555148530-s0nrr6i2ci34015me6c93clr468v58pf.apps.googleusercontent.com',
-    API_KEY: 'AIzaSyDozF6JlBguksV_8yhz99-QdN905BofIEg',
-    SCOPES: "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email",
-    DB_FILENAME: "chorequest_db.json"
+    firebase: {
+        apiKey: "AIzaSyA-utrSA-wu_Hjmxa4a8eox2vJ--b5ccr4",
+        authDomain: "chorequest-1c5b6.firebaseapp.com",
+        projectId: "chorequest-1c5b6",
+        storageBucket: "chorequest-1c5b6.firebasestorage.app",
+        messagingSenderId: "8039494089",
+        appId: "1:8039494089:web:d98b458ebdc89145c2f818",
+        measurementId: "G-RP3LQ9PLKF"
+    }
 };

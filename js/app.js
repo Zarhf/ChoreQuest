@@ -1,275 +1,69 @@
 const app = {
-    dbFileId: null,
+    guildId: null,
     data: null,
     currentUser: null,
-    clickCount: 0,
-    currentView: 'board', // board, history
+    currentView: 'board',
 
     async init() {
-        console.log("ChoreQuest v1.9.6 (v25) starting...");
+        auth.init(async (user) => {
+            if (user) {
+                await this.loadGuild();
+            }
+        });
+    },
+
+    async loadGuild() {
         this.showLoading(true);
         try {
-            // Check if we have a stored guild preference
-            const preferredGuildId = localStorage.getItem('currentGuildId');
-            
-            if (preferredGuildId) {
-                try {
-                    this.data = await DriveAPI.readFile(preferredGuildId);
-                    this.dbFileId = preferredGuildId;
-                } catch (e) {
-                    console.warn("Preferred guild not found, fallback to discovery");
-                    this.dbFileId = null;
-                }
-            }
+            // 1. Get Preferred or Discover Guilds
+            let savedGuildId = localStorage.getItem('currentGuildId');
+            const availableGuilds = await db.getAvailableGuilds(auth.user.email);
 
-            if (!this.dbFileId) {
-                // Discovery mode
-                const guilds = await DriveAPI.listAvailableGuilds();
-                if (guilds.length > 0) {
-                    // Pick the first one
-                    this.dbFileId = guilds[0].id;
-                    this.data = await DriveAPI.readFile(this.dbFileId);
-                } else {
-                    // STOP! Don't create silently. Ask user.
-                    // But for first launch, we might want to create.
-                    // Let's check if we really found nothing or if it was an error.
-                    this.data = this.getInitialData();
-                    this.dbFileId = await DriveAPI.createDBFile(this.data);
-                    console.log("Nouvelle guilde créée par défaut.");
-                }
-            }
-            
-            // Save current choice
-            if(this.dbFileId) localStorage.setItem('currentGuildId', this.dbFileId);
-
-            await this.checkAndMigrateData(); 
-
-            // Logic: Find user by Google Email first
-            const googleEmail = localStorage.getItem('google_email');
-            
-            if (this.data.users.length === 0) {
-                this.showModal('onboarding-modal');
+            if (availableGuilds.length > 0) {
+                // Pick saved one if still available, or the first one
+                const matched = availableGuilds.find(g => g.id === savedGuildId);
+                this.guildId = matched ? matched.id : availableGuilds[0].id;
             } else {
-                // Try to find hero linked to this email
-                let matchedUser = null;
-                
-                if (googleEmail) {
-                    matchedUser = this.data.users.find(u => u.email === googleEmail);
-                }
-
-                // Fallback to local storage ID if no email match (legacy)
-                if (!matchedUser) {
-                    const lastUserId = localStorage.getItem('lastUserId');
-                    matchedUser = this.data.users.find(u => u.id === lastUserId);
-                }
-
-                if (matchedUser) {
-                    this.currentUser = matchedUser;
-                    // Ensure email is saved in DB if missing (migration)
-                    if (googleEmail && !this.currentUser.email) {
-                        this.currentUser.email = googleEmail;
-                        this.saveAndRender();
-                    }
-                    this.syncSettingsUI();
-                    this.render();
-                } else {
-                    // New user in this guild!
-                    // Show onboarding to create a new hero linked to this email
-                    console.log("Nouveau joueur dans cette guilde !");
-                    this.currentUser = null;
-                    document.getElementById('new-user-name').value = ''; // Reset form
-                    this.showModal('onboarding-modal');
-                }
+                // First time: Create a default guild
+                this.guildId = await db.createGuild(auth.user.email, "Ma Guilde");
             }
+
+            localStorage.setItem('currentGuildId', this.guildId);
+
+            // 2. Start Real-time listener
+            db.listenToGuild(this.guildId, (data) => {
+                this.data = data;
+                this.handleDataUpdate();
+                this.showLoading(false);
+            });
+
         } catch (err) {
-            console.error("Initialization failed:", err);
-            // Show error UI instead of silent fail
-            document.getElementById('loading').innerHTML = `
-                <p>Erreur de connexion à la Guilde.</p>
-                <button class="action-btn" onclick="window.location.reload()">Réessayer</button>
-                <button class="action-btn secondary-btn" onclick="app.openGuildSwitcher()">Changer de Guilde</button>
-            `;
-            return; // Stop here
-        } finally {
-            if(this.data) this.showLoading(false);
+            console.error("Guild loading failed:", err);
+            this.showLoading(false);
         }
     },
 
-    getInitialData() {
-        return {
-            meta: { 
-                version: 3, 
-                created_at: new Date().toISOString(),
-                guildName: "Nouvelle Guilde" // Default Name
-            },
-            users: [],
-            questDefinitions: [], 
-            activeQuests: [],     
-            questLog: []          
-        };
-    },
-
-    // --- Guild Management ---
-    renameGuild() {
-        const newName = prompt("Nouveau nom pour cette Guilde :", this.data.meta.guildName || "Ma Guilde");
-        if (newName && newName.trim() !== "") {
-            this.data.meta.guildName = newName.trim();
-            this.saveAndRender();
-            this.syncSettingsUI();
-        }
-    },
-
-    async openGuildSwitcher() {
-        this.showLoading(true);
-        const guilds = await DriveAPI.listAvailableGuilds();
-        this.showLoading(false);
-
-        const listHtml = guilds.map(g => {
-            const isCurrent = g.id === this.dbFileId;
-            return `
-            <div style="background:${isCurrent ? '#4a90e2' : '#0f3460'}; padding:10px; margin-bottom:5px; border-radius:5px; cursor:pointer; border:1px solid #aaa;" onclick="app.switchGuild('${g.id}')">
-                <strong>${g.name}</strong><br>
-                <small>Propriétaire : ${g.owner} ${isCurrent ? '(Actuelle)' : ''}</small>
-            </div>`;
-        }).join('');
-
-        document.getElementById('guild-list-container').innerHTML = listHtml;
-        this.showModal('guild-modal');
-    },
-
-    switchGuild(fileId) {
-        if (fileId === this.dbFileId) return this.hideModals();
+    handleDataUpdate() {
+        // Find Hero linked to current Google Account
+        const matchedUser = this.data.users.find(u => u.email === auth.user.email);
         
-        localStorage.setItem('currentGuildId', fileId);
-        localStorage.removeItem('lastUserId'); 
-        window.location.reload();
-    },
-
-    async searchGuildOnDrive() {
-        try {
-            const fileId = await DriveAPI.showPicker();
-            if (fileId) {
-                this.switchGuild(fileId);
-            }
-        } catch (err) {
-            console.error("Picker failed:", err);
-            alert("Impossible d'ouvrir l'explorateur Google Drive.");
-        }
-    },
-
-    // --- Migration System ---
-    async checkAndMigrateData() {
-        // Migration V2 (Simple Tasks) -> V3 (Definitions/Active/Log)
-        if (!this.data.meta.version || this.data.meta.version < 3) {
-            console.log("Migrating to V3...");
-            
-            // Init new structures if missing
-            if (!this.data.questDefinitions) this.data.questDefinitions = [];
-            if (!this.data.activeQuests) this.data.activeQuests = [];
-            if (!this.data.questLog) this.data.questLog = [];
-
-            // Convert old tasks
-            if (this.data.tasks && this.data.tasks.length > 0) {
-                this.data.tasks.forEach(oldTask => {
-                    // Create Definition
-                    const defId = 'def_' + oldTask.id;
-                    const definition = {
-                        id: defId,
-                        title: oldTask.title,
-                        baseXp: parseInt(oldTask.xp),
-                        frequency: oldTask.frequency || 'none'
-                    };
-                    this.data.questDefinitions.push(definition);
-
-                    // Create Active Instance
-                    this.data.activeQuests.push({
-                        id: 'inst_' + Date.now() + Math.random().toString(36).substr(2, 5),
-                        definitionId: defId,
-                        title: oldTask.title,
-                        xp: parseInt(oldTask.xp),
-                        dueDate: oldTask.nextDueDate || new Date().toISOString(),
-                        status: 'todo'
-                    });
-                });
-                delete this.data.tasks; // Cleanup
-            }
-
-            this.data.meta.version = 3;
-            await this.saveAndRender();
-            alert("Mise à jour des données effectuée (v3) !");
-        }
-    },
-
-    // --- Gestion Utilisateurs ---
-    finishOnboarding() {
-        const name = document.getElementById('new-user-name').value;
-        const avatar = document.getElementById('new-user-avatar').value;
-        if (!name) return alert("Votre héros doit avoir un nom !");
-        this.addUser(name, avatar);
-        this.hideModals();
-    },
-
-    addUser(name, avatar) {
-        const googleEmail = localStorage.getItem('google_email');
-        const newUser = { 
-            id: 'u' + Date.now(), 
-            name, 
-            avatar, 
-            xp: 0, 
-            level: 1,
-            email: googleEmail // Link to Google Account
-        };
-        this.data.users.push(newUser);
-        this.currentUser = newUser;
-        localStorage.setItem('lastUserId', newUser.id);
-        this.syncSettingsUI();
-        this.saveAndRender();
-    },
-
-    syncSettingsUI() {
-        if (!this.currentUser) return;
-        const elName = document.getElementById('edit-user-name');
-        const elAvatar = document.getElementById('edit-user-avatar');
-        const elGuild = document.getElementById('current-guild-name');
-
-        if (elName) elName.value = this.currentUser.name;
-        if (elAvatar) elAvatar.value = this.currentUser.avatar;
-        if (elGuild) elGuild.innerText = (this.data.meta && this.data.meta.guildName) ? this.data.meta.guildName : "Ma Guilde";
-    },
-
-    updateCurrentUserInfo() {
-        if (!this.currentUser) return;
-        this.currentUser.name = document.getElementById('edit-user-name').value;
-        this.currentUser.avatar = document.getElementById('edit-user-avatar').value;
-        this.saveAndRender();
-    },
-
-    switchUser(userId) {
-        const user = this.data.users.find(u => u.id === userId);
-        if (user) {
-            this.currentUser = user;
-            localStorage.setItem('lastUserId', user.id);
-            this.syncSettingsUI();
-            this.render();
-            this.hideModals();
-        }
-    },
-
-    deleteUser(userId) {
-        if (!confirm("Supprimer ce héros ?")) return;
-        this.data.users = this.data.users.filter(u => u.id !== userId);
-        if (this.currentUser.id === userId) this.currentUser = this.data.users[0] || null;
-        if (!this.currentUser) {
+        if (!matchedUser) {
+            this.currentUser = null;
             this.showModal('onboarding-modal');
         } else {
-            localStorage.setItem('lastUserId', this.currentUser.id);
+            this.currentUser = matchedUser;
             this.syncSettingsUI();
+            this.render();
         }
-        this.saveAndRender();
-        this.renderDevMode();
     },
 
-    // --- Game Logic (V3) ---
+    // --- Actions (Write to Firebase) ---
+    async save() {
+        if (this.guildId && this.data) {
+            await db.updateGuild(this.guildId, this.data);
+        }
+    },
+
     async completeTask(instanceId) {
         const index = this.data.activeQuests.findIndex(q => q.id === instanceId);
         if (index === -1) return;
@@ -277,31 +71,26 @@ const app = {
         const quest = this.data.activeQuests[index];
         const def = this.data.questDefinitions.find(d => d.id === quest.definitionId);
         
-        // 1. Give Rewards
+        // Reward
         this.currentUser.xp += parseInt(quest.xp);
-        
-        // Level Up
-        const xpNeeded = this.currentUser.level * 100;
+        const xpNeeded = (this.currentUser.level || 1) * 100;
         if (this.currentUser.xp >= xpNeeded) {
-            this.currentUser.level++;
+            this.currentUser.level = (this.currentUser.level || 1) + 1;
             this.currentUser.xp -= xpNeeded;
-            alert(`🎊 NIVEAU SUPÉRIEUR ! ${this.currentUser.name} passe niveau ${this.currentUser.level} !`);
+            alert(`🎊 LEVEL UP! ${this.currentUser.name} passe niveau ${this.currentUser.level} !`);
         }
 
-        // 2. Add to History (Log)
+        // History
         this.data.questLog.unshift({
             id: 'log_' + Date.now(),
-            definitionId: quest.definitionId,
             title: quest.title,
             completedBy: this.currentUser.id,
             completedAt: new Date().toISOString(),
             xpEarned: quest.xp
         });
-
-        // Limit log size (keep last 50)
         if (this.data.questLog.length > 50) this.data.questLog.pop();
 
-        // 3. Handle Recurrence
+        // Recurrence
         if (def && def.frequency && def.frequency !== 'none') {
             const now = new Date();
             let nextDate = new Date();
@@ -310,235 +99,171 @@ const app = {
                 case 'weekly': nextDate.setDate(now.getDate() + 7); break;
                 case 'monthly': nextDate.setMonth(now.getMonth() + 1); break;
             }
-            nextDate.setHours(4, 0, 0, 0); // Reset to 4 AM
-            
-            // Update the instance for next time
+            nextDate.setHours(4, 0, 0, 0);
             quest.dueDate = nextDate.toISOString();
-            console.log("Next due date:", quest.dueDate);
         } else {
-            // Remove one-off quest
             this.data.activeQuests.splice(index, 1);
         }
 
-        await this.saveAndRender();
+        await this.save();
     },
 
-    addQuest() {
+    async addQuest() {
         const title = document.getElementById('quest-title').value;
         const xp = document.getElementById('quest-difficulty').value;
         const freq = document.getElementById('quest-frequency').value;
+        if (!title) return;
 
-        if (!title) return alert("Titre manquant !");
-
-        // 1. Create Definition
         const defId = 'def_' + Date.now();
-        const newDef = {
-            id: defId,
-            title: title,
-            baseXp: parseInt(xp),
-            frequency: freq
-        };
-        this.data.questDefinitions.push(newDef);
-
-        // 2. Create Active Instance
+        this.data.questDefinitions.push({ id: defId, title, baseXp: parseInt(xp), frequency: freq });
         this.data.activeQuests.push({
             id: 'inst_' + Date.now(),
             definitionId: defId,
             title: title,
             xp: parseInt(xp),
-            dueDate: new Date().toISOString(),
-            status: 'todo'
+            dueDate: new Date().toISOString()
         });
 
-        this.saveAndRender();
+        await this.save();
         this.hideModals();
         document.getElementById('quest-title').value = '';
-        document.getElementById('quest-frequency').value = 'none';
     },
 
-    // --- UI Navigation ---
-    setView(viewName) {
-        this.currentView = viewName;
-        
-        // Update Tabs UI
-        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-        document.getElementById(`tab-${viewName}`).classList.add('active');
+    async finishOnboarding() {
+        const name = document.getElementById('new-user-name').value;
+        const avatar = document.getElementById('new-user-avatar').value;
+        if (!name) return;
 
+        const newUser = {
+            id: 'u' + Date.now(),
+            name,
+            avatar,
+            xp: 0,
+            level: 1,
+            email: auth.user.email
+        };
+        this.data.users.push(newUser);
+        await this.save();
+        this.hideModals();
+    },
+
+    async createNewGuild() {
+        const name = prompt("Nom de la nouvelle Guilde :");
+        if (!name) return;
+        this.showLoading(true);
+        const newId = await db.createGuild(auth.user.email, name);
+        localStorage.setItem('currentGuildId', newId);
+        window.location.reload();
+    },
+
+    async openGuildSwitcher() {
+        this.showLoading(true);
+        const guilds = await db.getAvailableGuilds(auth.user.email);
+        this.showLoading(false);
+
+        const listHtml = guilds.map(g => `
+            <div style="background:${g.id === this.guildId ? '#4a90e2' : '#0f3460'}; padding:10px; margin-bottom:5px; border-radius:5px; cursor:pointer;" 
+                 onclick="app.switchGuild('${g.id}')">
+                <strong>${g.meta.guildName}</strong><br>
+                <small>ID: ${g.id}</small>
+            </div>`).join('');
+        
+        document.getElementById('guild-list-container').innerHTML = listHtml;
+        this.showModal('guild-modal');
+    },
+
+    switchGuild(id) {
+        localStorage.setItem('currentGuildId', id);
+        window.location.reload();
+    },
+
+    async renameGuild() {
+        const newName = prompt("Nouveau nom :", this.data.meta.guildName);
+        if (newName) {
+            this.data.meta.guildName = newName;
+            await this.save();
+        }
+    },
+
+    // --- UI Helpers ---
+    setView(v) {
+        this.currentView = v;
+        document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.id === `tab-${v}`));
         this.render();
     },
 
-    // --- UI Rendering ---
     render() {
         if (!this.currentUser) return;
         document.getElementById('content').classList.remove('hidden');
-        document.getElementById('welcome-screen').classList.add('hidden');
         
-        // Render Profile
+        // Profile
         document.getElementById('user-name').innerText = this.currentUser.name;
         document.getElementById('user-avatar').innerText = this.currentUser.avatar;
-        document.getElementById('user-level').innerText = this.currentUser.level;
+        document.getElementById('user-level').innerText = this.currentUser.level || 1;
         document.getElementById('user-xp').innerText = this.currentUser.xp;
-        const xpNeeded = this.currentUser.level * 100;
+        const xpNeeded = (this.currentUser.level || 1) * 100;
         document.getElementById('next-level-xp').innerText = xpNeeded;
         document.getElementById('xp-progress').style.width = `${(this.currentUser.xp / xpNeeded) * 100}%`;
 
-        // Render Main Content based on View
-        const board = document.getElementById('quest-board');
-        const history = document.getElementById('history-board');
-
         if (this.currentView === 'board') {
-            board.classList.remove('hidden');
-            if(history) history.classList.add('hidden');
+            document.getElementById('quest-board').classList.remove('hidden');
+            document.getElementById('history-board').classList.add('hidden');
             this.renderBoard();
         } else {
-            board.classList.add('hidden');
-            if(history) history.classList.remove('hidden');
+            document.getElementById('quest-board').classList.add('hidden');
+            document.getElementById('history-board').classList.remove('hidden');
             this.renderHistory();
         }
     },
 
     renderBoard() {
         const now = new Date().toISOString();
-        const visibleTasks = this.data.activeQuests.filter(t => !t.dueDate || t.dueDate <= now);
+        const visible = this.data.activeQuests.filter(q => q.dueDate <= now);
         const list = document.getElementById('task-list');
-        
-        list.innerHTML = visibleTasks.length === 0 ? 
-            '<p style="text-align:center; opacity:0.5;">Tout est calme... trop calme.</p>' : 
-            visibleTasks.map(t => {
-                const def = this.data.questDefinitions.find(d => d.id === t.definitionId);
-                const isRecurring = def && def.frequency && def.frequency !== 'none';
-                return `
+        list.innerHTML = visible.length === 0 ? '<p style="text-align:center; opacity:0.5;">Tout est fait !</p>' : 
+            visible.map(q => `
                 <div class="quest-card">
                     <div class="quest-info">
-                        <h4>${isRecurring ? '🔄 ' : ''}${t.title}</h4>
-                        <span>💰 ${t.xp} XP</span>
+                        <h4>${q.title}</h4>
+                        <span>💰 ${q.xp} XP</span>
                     </div>
-                    <button class="complete-btn" onclick="app.completeTask('${t.id}')">Valider</button>
-                </div>
-            `}).join('');
+                    <button class="complete-btn" onclick="app.completeTask('${q.id}')">Valider</button>
+                </div>`).join('');
     },
 
     renderHistory() {
-        const container = document.getElementById('history-list');
-        if (!container) return;
-
-        container.innerHTML = this.data.questLog.length === 0 ?
-            '<p style="text-align:center; opacity:0.5;">Le journal est vide.</p>' :
-            this.data.questLog.map(log => {
-                const user = this.data.users.find(u => u.id === log.completedBy);
-                const userName = user ? user.name : 'Inconnu';
-                const date = new Date(log.completedAt).toLocaleDateString() + ' ' + new Date(log.completedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                return `
-                <div class="history-item">
-                    <div style="font-weight:bold;">${log.title}</div>
-                    <div style="font-size:0.8rem; color:#aaa;">
-                        Par ${userName} • ${date} • <span style="color:#4a90e2">+${log.xpEarned} XP</span>
-                    </div>
-                </div>
-            `}).join('');
+        const list = document.getElementById('history-list');
+        list.innerHTML = this.data.questLog.map(log => {
+            const user = this.data.users.find(u => u.id === log.completedBy);
+            return `<div class="history-item">
+                <strong>${log.title}</strong><br>
+                <small>Par ${user ? user.name : '??'} • ${new Date(log.completedAt).toLocaleString()}</small>
+            </div>`;
+        }).join('');
     },
 
-    // --- Helpers ---
-    async checkForUpdates() {
-        if ('serviceWorker' in navigator) {
-            const r = await navigator.serviceWorker.getRegistration();
-            if (r) { await r.update(); location.reload(); }
-        }
+    syncSettingsUI() {
+        const elGuild = document.getElementById('current-guild-name');
+        if (elGuild) elGuild.innerText = this.data.meta.guildName;
+        document.getElementById('edit-user-name').value = this.currentUser.name;
+        document.getElementById('edit-user-avatar').value = this.currentUser.avatar;
     },
 
-    async inviteMember() {
-        const email = document.getElementById('invite-email').value;
-        if (!email || !email.includes('@')) return alert("Veuillez saisir un email valide.");
-
-        this.showLoading(true);
-        try {
-            await DriveAPI.shareFile(this.dbFileId, email);
-            alert(`Succès ! Le fichier a été partagé avec ${email}.`);
-            document.getElementById('invite-email').value = '';
-        } catch (err) {
-            alert("Erreur lors du partage.");
-        } finally {
-            this.showLoading(false);
-        }
-    },
-
-    async saveAndRender() {
-        this.render();
-        if (this.dbFileId) {
-            try {
-                await DriveAPI.updateFile(this.dbFileId, this.data);
-            } catch (err) {
-                console.error("Save failed:", err);
-            }
-        }
-    },
-
-    forceAppReset() {
-        if (!confirm("Attention : Cela va redémarrer l'application et forcer le téléchargement de la dernière version. Continuer ?")) return;
-        
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(registrations => {
-                for (let registration of registrations) { registration.unregister(); }
-            });
-        }
-        caches.keys().then(names => {
-            for (let name of names) caches.delete(name);
-        });
-        
-        // Petite pause pour laisser le temps au nettoyage
-        setTimeout(() => {
-            alert('Application nettoyée. Redémarrage...');
-            window.location.reload();
-        }, 500);
+    updateCurrentUserInfo() {
+        this.currentUser.name = document.getElementById('edit-user-name').value;
+        this.currentUser.avatar = document.getElementById('edit-user-avatar').value;
+        this.save();
     },
 
     renderDevMode() {
-        if (!this.data) return;
-
-        // Render Users Admin
-        const userHTML = this.data.users.map(u => `
-            <div style="display:flex; justify-content:space-between; align-items:center; background:#0f3460; padding:5px; margin-bottom:5px; border-radius:4px;">
-                <span>${u.avatar} <b>${u.name}</b> (Lvl ${u.level})</span>
-                <div>
-                    <button onclick="app.switchUser('${u.id}')" style="background:#27ae60; color:white; border:none; padding:2px 5px; cursor:pointer">Incarner</button>
-                    <button onclick="app.deleteUser('${u.id}')" style="background:#e94560; color:white; border:none; padding:2px 5px; cursor:pointer">Supprimer</button>
-                </div>
-            </div>
-        `).join('');
-        document.getElementById('debug-users').innerHTML = userHTML || 'Aucun utilisateur';
-
-        // Render Active Quests Admin (Raw)
-        const taskHTML = this.data.activeQuests.map(t => `
-            <div style="font-size:0.8rem; background:#16213e; padding:5px; margin-bottom:2px; border-radius:4px;">
-                - <b>${t.title}</b> (${t.xp} XP) <br> Échéance: ${new Date(t.dueDate).toLocaleString()}
-            </div>
-        `).join('');
-        
-        // On va ajouter un conteneur pour ces tâches dans le HTML (ou le créer dynamiquement)
-        let tasksContainer = document.getElementById('debug-tasks');
-        if (!tasksContainer) {
-            const div = document.createElement('div');
-            div.id = 'debug-tasks';
-            document.getElementById('debug-users').parentElement.insertAdjacentElement('afterend', div);
-            tasksContainer = div;
-            const title = document.createElement('h4');
-            title.innerText = "Quêtes Actives (Système)";
-            tasksContainer.insertAdjacentElement('beforebegin', title);
-        }
-        tasksContainer.innerHTML = taskHTML || 'Aucune tâche active';
-
-        // Display Guild ID and Metadata
-        const metaContainer = document.getElementById('debug-meta');
-        if (metaContainer) {
-            metaContainer.innerHTML = `ID Guilde Actuelle : <br><code style="user-select:all; background:#222; padding:5px; display:block; margin:10px 0; word-break:break-all;">${this.dbFileId}</code><br>` + JSON.stringify(this.data.meta, null, 2);
-        }
+        document.getElementById('debug-guild-id').innerText = this.guildId;
+        document.getElementById('debug-users').innerHTML = this.data.users.map(u => `<div>${u.avatar} ${u.name} (${u.email})</div>`).join('');
     },
 
     showLoading(s) { document.getElementById('loading').classList.toggle('hidden', !s); },
     showModal(id) { document.getElementById(id).classList.remove('hidden'); },
-    hideModals() { document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')); }
+    hideModals() { document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')); },
+    forceAppReset() { if(confirm('Réinitialiser ?')) { localStorage.clear(); window.location.reload(); } }
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Initial UI Setup handled by auth.js checkAuthStatus
-});
+app.init();
