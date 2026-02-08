@@ -183,18 +183,27 @@ const DriveAPI = {
     // Update the DB file
     async updateFile(fileId, data) {
         try {
-            // Using request for more control over the multipart body if needed, 
-            // but standard update with media should work if resource is clean.
-            const response = await gapi.client.drive.files.update({
-                fileId: fileId,
-                resource: {}, // Don't send the whole data as metadata!
-                media: {
-                    mimeType: 'application/json',
-                    body: JSON.stringify(data)
-                },
-                supportsAllDrives: true
+            // Simple upload strategy: 
+            // Use standard upload endpoint but with uploadType=media for direct content replacement
+            // This is often more reliable for shared files than multipart
+            const accessToken = gapi.client.getToken().access_token;
+            const content = JSON.stringify(data);
+            
+            const response = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media&supportsAllDrives=true`, {
+                method: 'PATCH', 
+                headers: new Headers({
+                    'Authorization': 'Bearer ' + accessToken,
+                    'Content-Type': 'application/json'
+                }),
+                body: content
             });
-            return response.result;
+            
+            if (!response.ok) {
+                const err = await response.json();
+                throw err;
+            }
+            
+            return await response.json();
         } catch (err) {
             console.error('Error updating file:', err);
             throw err;
