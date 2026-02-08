@@ -7,14 +7,19 @@ const auth = {
 
         firebase.auth().onAuthStateChanged((user) => {
             this.user = user;
+            const elEmail = document.getElementById('user-email-display');
+            const elAccountBtn = document.getElementById('account-btn');
+            const elWelcome = document.getElementById('welcome-screen');
+            const elContent = document.getElementById('content');
+
             if (user) {
-                document.getElementById('user-email-display').innerText = user.email;
-                document.getElementById('account-btn').classList.remove('hidden');
-                document.getElementById('welcome-screen').classList.add('hidden');
+                if (elEmail) elEmail.innerText = user.email;
+                if (elAccountBtn) elAccountBtn.classList.remove('hidden');
+                if (elWelcome) elWelcome.classList.add('hidden');
             } else {
-                document.getElementById('account-btn').classList.add('hidden');
-                document.getElementById('welcome-screen').classList.remove('hidden');
-                document.getElementById('content').classList.add('hidden');
+                if (elAccountBtn) elAccountBtn.classList.add('hidden');
+                if (elWelcome) elWelcome.classList.remove('hidden');
+                if (elContent) elContent.classList.add('hidden');
             }
             onAuthStateChanged(user);
         });

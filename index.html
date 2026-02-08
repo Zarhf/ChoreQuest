@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChoreQuest</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=32">
+    <link rel="stylesheet" href="css/styles.css?v=33">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
 </head>
@@ -126,8 +126,9 @@
                         <button class="action-btn" onclick="app.showModal('dev-modal'); app.renderDevMode();" style="background-color: #6c757d; font-size:0.7rem;">🛠️ Admin</button>
                         <button class="action-btn secondary-btn" onclick="auth.logout()" style="font-size:0.7rem;">🚪 Déco</button>
                     </div>
+                    <div id="user-email-display" style="font-size:0.6rem; opacity:0.3; text-align:center; margin-top:5px;">...</div>
                     <button class="action-btn danger-btn" onclick="app.forceAppReset()" style="font-size:0.7rem; margin-top:10px;">⚠️ Réinitialiser App</button>
-                    <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">ChoreQuest v2.1.0</small>
+                    <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">ChoreQuest v2.1.1</small>
                 </div>
             </div>
         </div>
@@ -142,7 +143,7 @@
                 <h3>Rechercher une Guilde</h3>
                 <div style="display:flex; gap:5px; margin-bottom:10px;">
                     <input type="text" id="guild-search-input" placeholder="Nom de la guilde..." style="margin:0; flex-grow:1;">
-                    <button class="action-btn" onclick="app.searchGuilds()" style="width:auto; padding:0 15px; margin:0;">Rechercher</button>
+                    <button class="action-btn" onclick="app.searchGuilds()" style="width:auto; padding:0 15px; margin:0;">Chercher</button>
                 </div>
                 <div id="guild-search-results" style="max-height: 150px; overflow-y: auto; margin-bottom: 1rem; font-size:0.9rem;"></div>
 
@@ -209,15 +210,15 @@
     </div>
 
     <!-- App Logic -->
-    <script src="js/config.js?v=32"></script>
-    <script src="js/auth.js?v=32"></script>
-    <script src="js/firebase-db.js?v=32"></script>
-    <script src="js/app.js?v=32"></script>
+    <script src="js/config.js?v=33"></script>
+    <script src="js/auth.js?v=33"></script>
+    <script src="js/firebase-db.js?v=33"></script>
+    <script src="js/app.js?v=33"></script>
 
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js?v=32').then(reg => {
+                navigator.serviceWorker.register('sw.js?v=33').then(reg => {
                     reg.addEventListener('updatefound', () => {
                         const newWorker = reg.installing;
                         newWorker.addEventListener('statechange', () => {
@@ -228,6 +229,11 @@
                                 };
                             }
                         });
+                    });
+                    
+                    setInterval(() => { reg.update(); }, 1000 * 60 * 15);
+                    document.addEventListener('visibilitychange', () => {
+                        if (document.visibilityState === 'visible') reg.update();
                     });
                 });
             });
