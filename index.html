@@ -155,6 +155,41 @@
             </div>
         </div>
 
+        <!-- Edit Quest Modal -->
+        <div id="edit-quest-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Modifier la Quête</h2>
+                    <button class="close-btn" onclick="app.hideModals()">X</button>
+                </div>
+                <input type="hidden" id="edit-quest-id">
+                <input type="text" id="edit-quest-title" placeholder="Titre">
+                
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                    <div><label style="font-size:0.7rem;">XP :</label><input type="number" id="edit-quest-difficulty"></div>
+                    <div style="display:flex; flex-direction:column;"><label style="font-size:0.7rem;">Plage horaire :</label>
+                        <div style="display:flex; gap:5px; align-items:center;"><input type="time" id="edit-quest-time-start"><input type="time" id="edit-quest-time-end"></div>
+                    </div>
+                </div>
+
+                <label style="font-size:0.7rem;">Récurrence :</label>
+                <select id="edit-quest-frequency" onchange="document.getElementById('edit-quest-days-selector').style.display = (this.value === 'weekly' ? 'block' : 'none')">
+                    <option value="none">Une seule fois</option>
+                    <option value="daily">Tous les jours</option>
+                    <option value="weekly">Toutes les semaines</option>
+                    <option value="monthly">Tous les mois</option>
+                </select>
+
+                <div id="edit-quest-days-selector" class="hidden" style="margin-top:10px;">
+                    <div style="display:flex; justify-content:space-between;"><label><input type="checkbox" name="edit-quest-day" value="1"> L</label><label><input type="checkbox" name="edit-quest-day" value="2"> M</label><label><input type="checkbox" name="edit-quest-day" value="3"> M</label><label><input type="checkbox" name="edit-quest-day" value="4"> J</label><label><input type="checkbox" name="edit-quest-day" value="5"> V</label><label><input type="checkbox" name="edit-quest-day" value="6"> S</label><label><input type="checkbox" name="edit-quest-day" value="0"> D</label></div>
+                </div>
+
+                <button class="action-btn" style="margin-top:20px; background-color:#27ae60;" onclick="app.saveQuestEdits()">Enregistrer les changements</button>
+                <button class="action-btn danger-btn" onclick="app.archiveQuest()">🗑️ Supprimer (Archiver)</button>
+                <button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button>
+            </div>
+        </div>
+
         <div id="onboarding-modal" class="modal hidden">
             <div class="modal-content">
                 <h2>Bienvenue dans cette Guilde</h2>
