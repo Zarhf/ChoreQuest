@@ -1,13 +1,13 @@
-const CACHE_NAME = 'chorequest-v41'; 
+const CACHE_NAME = 'chorequest-v47'; 
 const ASSETS = [
     './',
     './index.html',
-    './css/styles.css?v=41',
-    './js/app.js?v=41',
-    './js/auth.js?v=41',
-    './js/firebase-db.js?v=41',
-    './js/config.js?v=41',
-    './js/version-manager.js?v=41',
+    './css/styles.css?v=47',
+    './js/app.js?v=47',
+    './js/auth.js?v=47',
+    './js/firebase-db.js?v=47',
+    './js/config.js?v=47',
+    './js/version-manager.js?v=47',
     './manifest.json',
     './icons/icon.svg'
 ];
@@ -27,25 +27,30 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (e) => {
     const url = new URL(e.request.url);
+
     if (url.pathname.endsWith('version.json')) {
         e.respondWith(fetch(e.request));
         return;
     }
+
     if (e.request.mode === 'navigate') {
-        e.respondWith(
-            fetch(e.request).catch(() => caches.match(e.request))
-        );
+        e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
         return;
     }
+
     if (url.origin === location.origin) {
         e.respondWith(
             caches.match(e.request).then((cachedResponse) => {
                 const fetchPromise = fetch(e.request).then((networkResponse) => {
+                    if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+                        return networkResponse;
+                    }
+                    const responseToCache = networkResponse.clone();
                     caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(e.request, networkResponse.clone());
+                        cache.put(e.request, responseToCache);
                     });
                     return networkResponse;
-                });
+                }).catch(() => null);
                 return cachedResponse || fetchPromise;
             })
         );
@@ -53,7 +58,5 @@ self.addEventListener('fetch', (e) => {
 });
 
 self.addEventListener('message', (event) => {
-    if (event.data.action === 'skipWaiting') {
-        self.skipWaiting();
-    }
+    if (event.data.action === 'skipWaiting') self.skipWaiting();
 });
