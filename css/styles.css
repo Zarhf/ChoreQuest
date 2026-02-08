@@ -333,38 +333,58 @@ input, select {
     letter-spacing: 1px;
 }
 
-.hidden { display: none !important; }
-
-/* Notification de mise à jour */
-#update-toast {
+/* Notification d'Activité (Toaster) */
+#activity-toast {
     position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #4a90e2;
+    top: 20px;
+    right: 20px;
+    background: #0f3460;
     color: white;
-    padding: 1rem 1.5rem;
-    border-radius: 50px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    padding: 12px 20px;
+    border-radius: 8px;
+    border-left: 4px solid #4a90e2;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    z-index: 2000;
     display: flex;
     align-items: center;
-    gap: 15px;
-    z-index: 1000;
-    font-weight: bold;
-    animation: slideUp 0.3s ease-out;
+    gap: 10px;
+    animation: slideInRight 0.3s ease-out;
 }
 
-@keyframes slideUp {
-    from { bottom: -100px; opacity: 0; }
-    to { bottom: 20px; opacity: 1; }
+@keyframes slideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
 }
 
-#update-toast button {
-    background: white;
-    color: #4a90e2;
-    border: none;
-    padding: 5px 15px;
-    border-radius: 20px;
-    font-size: 0.8rem;
+/* Couleurs de Quêtes (Rareté basée sur XP) */
+.quest-card.rarity-common { border-left: 5px solid #95a5a6; } /* Gris */
+.quest-card.rarity-uncommon { border-left: 5px solid #27ae60; } /* Vert */
+.quest-card.rarity-rare { border-left: 5px solid #2980b9; } /* Bleu */
+.quest-card.rarity-epic { border-left: 5px solid #8e44ad; } /* Violet */
+.quest-card.rarity-legendary { border-left: 5px solid #f1c40f; box-shadow: 0 0 10px rgba(241, 196, 15, 0.3); } /* Or */
+
+.quest-card.upcoming { opacity: 0.6; filter: grayscale(0.5); }
+.quest-card.upcoming .complete-btn { display: none; }
+
+.recurrence-tag {
+    font-size: 0.7rem;
+    background: rgba(255,255,255,0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 5px;
+}
+
+.undo-btn {
+    background: transparent;
+    border: 1px solid #e94560;
+    color: #e94560;
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 4px;
     cursor: pointer;
+    margin-top: 5px;
 }
+
+.undo-btn:hover { background: #e94560; color: white; }
+
+.hidden { display: none !important; }
