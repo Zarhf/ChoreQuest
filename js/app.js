@@ -64,7 +64,6 @@ const app = {
             app.currentUser = null;
             app.showModal('onboarding-modal');
         } else {
-            // forced migration
             let needsSave = false;
             app.data.users.forEach(u => {
                 if (!u.avatar || !u.avatar.startsWith('http')) {
@@ -87,8 +86,8 @@ const app = {
     // --- Avatar Management ---
     getAvatarHtml(avatarStr, size = "40px") {
         if (!avatarStr || !avatarStr.startsWith('http')) {
-            // For special icons like ? or ⚔️
-            return `<div style="width:${size}; height:${size}; display:flex; align-items:center; justify-content:center; font-size:calc(${size} * 0.5); font-weight:bold; color:rgba(255,255,255,0.5);">${avatarStr || '?'}</div>`;
+            const seed = app.currentUser?.name || 'Hero';
+            avatarStr = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`;
         }
         return `<img src="${avatarStr}" alt="Avatar" style="width:${size}; height:${size}; border-radius:50%; display:block; object-fit:cover; border: 1px solid rgba(255,255,255,0.1);">`;
     },
@@ -411,18 +410,16 @@ const app = {
             const canClaim = !q.assignedTo && !up;
 
             return `<div class="quest-card ${rarity} ${up ? 'upcoming' : ''}">
-                <div class="quest-info" onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        ${assigneeHtml}
-                        <div>
-                            <h4>${freq} ${q.title} <span class="edit-icon">✏️</span></h4>
-                            <span>💰 ${q.xp} XP${time}</span>
-                        </div>
+                <div class="quest-body" onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer">
+                    ${assigneeHtml}
+                    <div class="quest-info">
+                        <h4>${freq} ${q.title} <span class="edit-icon">✏️</span></h4>
+                        <span>💰 ${q.xp} XP${time}</span>
                     </div>
                 </div>
-                <div style="display:flex; flex-direction:column; gap:5px;">
-                    ${!up ? `<button class="complete-btn" onclick="app.completeTask('${q.id}')">Valider</button>` : ''}
-                    ${canClaim ? `<button class="action-btn" onclick="app.claimQuest('${q.id}')" style="padding:2px 8px; font-size:0.7rem; background:#27ae60;">✋ Je prends</button>` : ''}
+                <div class="quest-actions-container">
+                    ${canClaim ? `<button class="quest-action-btn btn-claim" onclick="event.stopPropagation(); app.claimQuest('${q.id}')" title="✋ Je prends">☝️</button>` : ''}
+                    ${!up ? `<button class="quest-action-btn btn-complete" onclick="event.stopPropagation(); app.completeTask('${q.id}')" title="Valider">✅</button>` : ''}
                 </div>
             </div>`;
         };
@@ -540,13 +537,13 @@ const app = {
     },
     async searchGuilds() {
         const q = document.getElementById('guild-search-input').value; if (!q) return;
-        app.showLoading(true); const results = await db.searchPublicGuilds(q); app.showLoading(false);
-        document.getElementById('guild-search-results').innerHTML = results.length ? results.map(g => `<div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;"><span>${g.meta.guildName}</span><button class="action-btn" style="width:auto; padding:5px 10px;" onclick="app.handleJoinLink('${g.id}')">Rejoindre</button></div>`).join('') : "<p>Rien trouvé.</p>";
+        app.showLoading(true); const guilds = await db.searchPublicGuilds(q); app.showLoading(false);
+        document.getElementById('guild-search-results').innerHTML = guilds.length ? guilds.map(g => `<div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;"><span>${g.meta.guildName}</span><button class="action-btn" style="width:auto; padding:5px 10px;" onclick="app.handleJoinLink('${g.id}')">Rejoindre</button></div>`).join('') : "<p>Rien trouvé.</p>";
     },
     async copyInviteLink() { const url = `${window.location.origin}${window.location.pathname}?join=${app.guildId}`; await navigator.clipboard.writeText(url); alert("Lien copié !"); },
     switchGuild(id) { localStorage.setItem('currentGuildId', id); window.location.reload(); },
     async toggleGuildPublic() { app.data.meta.isPublic = !app.data.meta.isPublic; await app.save(); app.syncSettingsUI(); },
     async leaveGuild() { if (!confirm("Quitter ?")) return; app.showLoading(true); await db.leaveGuild(app.guildId, auth.user.email); localStorage.removeItem('currentGuildId'); window.location.reload(); },
-    async updateGuildSettings() { if (!app.data) return; app.data.meta.guildName = document.getElementById('edit-guild-name').value; app.data.meta.isPublic = document.getElementById('edit-guild-public').value === 'true'; app.data.meta.isOpen = document.getElementById('edit-guild-open').value === 'true'; await app.save(); },
+    async updateGuildSettings() { if (!this.data) return; this.data.meta.guildName = document.getElementById('edit-guild-name').value; this.data.meta.isPublic = document.getElementById('edit-guild-public').value === 'true'; this.data.meta.isOpen = document.getElementById('edit-guild-open').value === 'true'; await app.save(); },
 };
 app.init();

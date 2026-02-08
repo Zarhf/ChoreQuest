@@ -427,15 +427,59 @@ input, select {
     background: #2c3e50; /* Fallback */
     margin-bottom: 1rem;
     border-radius: 12px;
-    padding: 1.2rem;
+    padding: 0; /* On enlève le padding pour les boutons full-height */
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: stretch; /* Crucial pour que les boutons prennent toute la hauteur */
     transition: transform 0.2s, box-shadow 0.2s;
     border: 1px solid rgba(255,255,255,0.1);
     color: white;
-    user-select: none; /* Empêche la sélection de texte */
+    user-select: none;
     -webkit-user-select: none;
+    overflow: hidden; /* Pour arrondir les coins des boutons aux bords */
+}
+
+.quest-body {
+    padding: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-grow: 1;
+}
+
+.quest-actions-container {
+    display: flex;
+    align-items: stretch;
+}
+
+.quest-action-btn {
+    border: none;
+    width: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: filter 0.2s;
+    color: white;
+}
+
+.quest-action-btn:active {
+    filter: brightness(1.2);
+}
+
+.btn-complete {
+    background: rgba(39, 174, 96, 0.8); /* Vert */
+    border-left: 1px solid rgba(255,255,255,0.1);
+}
+
+.btn-claim {
+    background: rgba(52, 152, 219, 0.8); /* Bleu */
+    border-left: 1px solid rgba(255,255,255,0.1);
+}
+
+.quest-card.upcoming .quest-actions-container {
+    display: none; /* Pas d'actions sur les quêtes à venir */
 }
 
 .edit-icon {
