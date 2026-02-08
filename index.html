@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChoreQuest</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=31">
+    <link rel="stylesheet" href="css/styles.css?v=32">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
 </head>
@@ -67,7 +67,6 @@
                     <h2>Quêtes Actives</h2>
                     <div id="task-list"></div>
                     <button id="open-add-quest-modal" class="action-btn" onclick="app.showModal('quest-modal')">+ Nouvelle Quête</button>
-                    <button class="action-btn secondary-btn" onclick="app.openGuildSwitcher()" style="margin-top:10px; font-size:0.8rem;">🏰 Changer de Guilde</button>
                 </div>
 
                 <div id="history-board" class="hidden">
@@ -93,14 +92,19 @@
                 </div>
 
                 <div class="settings-group" style="padding: 0.8rem;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                        <h4 style="margin:0;">Guilde</h4>
+                    <h4 style="margin:0 0 10px 0;">Guilde Actuelle</h4>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <strong id="current-guild-name">Ma Guilde</strong>
                         <button class="action-btn secondary-btn" onclick="app.renameGuild()" style="padding:2px 10px; font-size:0.7rem; width:auto;">✏️</button>
                     </div>
-                    <div style="display:flex; gap:10px; align-items:center;">
-                        <strong id="current-guild-name" style="font-size:0.9rem;">Chargement...</strong>
-                        <button class="action-btn" onclick="app.openGuildSwitcher()" style="margin:0; padding:5px 10px; font-size:0.7rem; width:auto;">Changer</button>
+                    
+                    <div style="font-size:0.8rem; margin-bottom:10px;">
+                        Visibilité : <span id="public-status">...</span> 
+                        <button class="action-btn secondary-btn" onclick="app.toggleGuildPublic()" style="padding:2px 10px; font-size:0.6rem; width:auto; margin-left:5px;">Changer</button>
                     </div>
+
+                    <button class="action-btn" onclick="app.copyInviteLink()" style="background-color:#27ae60; font-size:0.8rem; margin-bottom:10px;">🔗 Copier lien d'invitation</button>
+                    <button class="action-btn" onclick="app.openGuildSwitcher()" style="font-size:0.8rem;">🏰 Changer de Guilde</button>
                 </div>
 
                 <div id="user-settings">
@@ -118,17 +122,12 @@
                         </div>
                     </div>
 
-                    <div class="settings-group" style="background:transparent; border:1px dashed #444;">
-                        <h4>Session</h4>
-                        <div id="user-email-display" style="font-size:0.8rem; opacity:0.7; margin-bottom:10px;">...</div>
-                        <button class="action-btn secondary-btn" onclick="auth.logout()" style="font-size:0.8rem; padding:8px;">Déconnexion</button>
-                    </div>
-
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                         <button class="action-btn" onclick="app.showModal('dev-modal'); app.renderDevMode();" style="background-color: #6c757d; font-size:0.7rem;">🛠️ Admin</button>
-                        <button class="action-btn danger-btn" onclick="app.forceAppReset()" style="font-size:0.7rem;">⚠️ Réparer</button>
+                        <button class="action-btn secondary-btn" onclick="auth.logout()" style="font-size:0.7rem;">🚪 Déco</button>
                     </div>
-                    <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">v2.0.1 (Firebase)</small>
+                    <button class="action-btn danger-btn" onclick="app.forceAppReset()" style="font-size:0.7rem; margin-top:10px;">⚠️ Réinitialiser App</button>
+                    <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">ChoreQuest v2.1.0</small>
                 </div>
             </div>
         </div>
@@ -136,11 +135,19 @@
         <div id="guild-modal" class="modal hidden">
             <div class="modal-content">
                 <h2>Mes Guildes</h2>
-                <div id="guild-list-container" style="max-height: 300px; overflow-y: auto; margin-bottom: 1rem;"></div>
+                <div id="guild-list-container" style="max-height: 200px; overflow-y: auto; margin-bottom: 1rem;"></div>
+                
+                <hr style="border:0; border-top:1px solid #444; margin:1rem 0;">
+                
+                <h3>Rechercher une Guilde</h3>
+                <div style="display:flex; gap:5px; margin-bottom:10px;">
+                    <input type="text" id="guild-search-input" placeholder="Nom de la guilde..." style="margin:0; flex-grow:1;">
+                    <button class="action-btn" onclick="app.searchGuilds()" style="width:auto; padding:0 15px; margin:0;">Rechercher</button>
+                </div>
+                <div id="guild-search-results" style="max-height: 150px; overflow-y: auto; margin-bottom: 1rem; font-size:0.9rem;"></div>
+
                 <button class="action-btn" onclick="app.createNewGuild()" style="background-color:#27ae60; margin-bottom:10px;">➕ Créer une nouvelle Guilde</button>
-                <button class="action-btn" onclick="app.joinExistingGuild()" style="background-color:#4a90e2; margin-bottom:10px;">🛡️ Rejoindre via ID</button>
                 <button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button>
-                <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">v2.0.1</small>
             </div>
         </div>
 
@@ -202,15 +209,15 @@
     </div>
 
     <!-- App Logic -->
-    <script src="js/config.js?v=31"></script>
-    <script src="js/auth.js?v=31"></script>
-    <script src="js/firebase-db.js?v=31"></script>
-    <script src="js/app.js?v=31"></script>
+    <script src="js/config.js?v=32"></script>
+    <script src="js/auth.js?v=32"></script>
+    <script src="js/firebase-db.js?v=32"></script>
+    <script src="js/app.js?v=32"></script>
 
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js?v=31').then(reg => {
+                navigator.serviceWorker.register('sw.js?v=32').then(reg => {
                     reg.addEventListener('updatefound', () => {
                         const newWorker = reg.installing;
                         newWorker.addEventListener('statechange', () => {
@@ -221,11 +228,6 @@
                                 };
                             }
                         });
-                    });
-                    
-                    setInterval(() => { reg.update(); }, 1000 * 60 * 15);
-                    document.addEventListener('visibilitychange', () => {
-                        if (document.visibilityState === 'visible') reg.update();
                     });
                 });
             });

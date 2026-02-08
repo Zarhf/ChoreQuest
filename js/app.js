@@ -7,10 +7,9 @@ const app = {
     async init() {
         auth.init(async (user) => {
             if (user) {
-                // Check for Invitation Link
-                const urlParams = new URLSearchParams(window.location.search);
-                const joinId = urlParams.get('join');
-                
+                // Check URL for Invitation
+                const params = new URLSearchParams(window.location.search);
+                const joinId = params.get('join');
                 if (joinId) {
                     await this.handleJoinLink(joinId);
                 } else {
@@ -20,24 +19,15 @@ const app = {
         });
     },
 
-    async handleJoinLink(guildId) {
-        if (confirm("Voulez-vous rejoindre cette Guilde ?")) {
-            this.showLoading(true);
-            try {
-                const success = await db.joinGuild(guildId, auth.user.email);
-                if (success) {
-                    localStorage.setItem('currentGuildId', guildId);
-                    window.history.replaceState({}, document.title, "/ChoreQuest/"); // Clean URL
-                    window.location.reload();
-                } else {
-                    alert("Impossible de rejoindre (Guilde fermée ou introuvable).");
-                    await this.loadGuild();
-                }
-            } catch (e) {
-                console.error(e);
-                await this.loadGuild();
-            }
+    async handleJoinLink(id) {
+        this.showLoading(true);
+        const success = await db.joinGuild(id, auth.user.email);
+        if (success) {
+            localStorage.setItem('currentGuildId', id);
+            window.history.replaceState({}, document.title, window.location.pathname);
+            window.location.reload();
         } else {
+            alert("Impossible de rejoindre cette guilde.");
             await this.loadGuild();
         }
     },
@@ -45,38 +35,25 @@ const app = {
     async loadGuild() {
         this.showLoading(true);
         try {
-            // 1. Get Preferred or Discover Guilds
-            let savedGuildId = localStorage.getItem('currentGuildId');
-            const availableGuilds = await db.getAvailableGuilds(auth.user.email);
-
-            if (availableGuilds.length > 0) {
-                // Pick saved one if still available, or the first one
-                const matched = availableGuilds.find(g => g.id === savedGuildId);
-                this.guildId = matched ? matched.id : availableGuilds[0].id;
+            let savedId = localStorage.getItem('currentGuildId');
+            const guilds = await db.getAvailableGuilds(auth.user.email);
+            if (guilds.length > 0) {
+                const matched = guilds.find(g => g.id === savedId);
+                this.guildId = matched ? matched.id : guilds[0].id;
             } else {
-                // First time: Create a default guild
                 this.guildId = await db.createGuild(auth.user.email, "Ma Guilde");
             }
-
             localStorage.setItem('currentGuildId', this.guildId);
-
-            // 2. Start Real-time listener
             db.listenToGuild(this.guildId, (data) => {
                 this.data = data;
                 this.handleDataUpdate();
                 this.showLoading(false);
             });
-
-        } catch (err) {
-            console.error("Guild loading failed:", err);
-            this.showLoading(false);
-        }
+        } catch (err) { console.error(err); this.showLoading(false); }
     },
 
     handleDataUpdate() {
-        // Find Hero linked to current Google Account
         const matchedUser = this.data.users.find(u => u.email === auth.user.email);
-        
         if (!matchedUser) {
             this.currentUser = null;
             this.showModal('onboarding-modal');
@@ -87,30 +64,20 @@ const app = {
         }
     },
 
-    // --- Actions (Write to Firebase) ---
-    async save() {
-        if (this.guildId && this.data) {
-            await db.updateGuild(this.guildId, this.data);
-        }
-    },
+    async save() { if (this.guildId && this.data) await db.updateGuild(this.guildId, this.data); },
 
     async completeTask(instanceId) {
         const index = this.data.activeQuests.findIndex(q => q.id === instanceId);
         if (index === -1) return;
-
         const quest = this.data.activeQuests[index];
         const def = this.data.questDefinitions.find(d => d.id === quest.definitionId);
-        
-        // Reward
         this.currentUser.xp += parseInt(quest.xp);
         const xpNeeded = (this.currentUser.level || 1) * 100;
         if (this.currentUser.xp >= xpNeeded) {
             this.currentUser.level = (this.currentUser.level || 1) + 1;
             this.currentUser.xp -= xpNeeded;
-            alert(`🎊 LEVEL UP! ${this.currentUser.name} passe niveau ${this.currentUser.level} !`);
+            alert(`🎊 LEVEL UP! ${this.currentUser.name} est Niveau ${this.currentUser.level} !`);
         }
-
-        // History
         this.data.questLog.unshift({
             id: 'log_' + Date.now(),
             title: quest.title,
@@ -119,22 +86,14 @@ const app = {
             xpEarned: quest.xp
         });
         if (this.data.questLog.length > 50) this.data.questLog.pop();
-
-        // Recurrence
         if (def && def.frequency && def.frequency !== 'none') {
-            const now = new Date();
-            let nextDate = new Date();
-            switch(def.frequency) {
-                case 'daily': nextDate.setDate(now.getDate() + 1); break;
-                case 'weekly': nextDate.setDate(now.getDate() + 7); break;
-                case 'monthly': nextDate.setMonth(now.getMonth() + 1); break;
-            }
-            nextDate.setHours(4, 0, 0, 0);
-            quest.dueDate = nextDate.toISOString();
-        } else {
-            this.data.activeQuests.splice(index, 1);
-        }
-
+            const next = new Date();
+            if (def.frequency === 'daily') next.setDate(next.getDate() + 1);
+            else if (def.frequency === 'weekly') next.setDate(next.getDate() + 7);
+            else if (def.frequency === 'monthly') next.setMonth(next.getMonth() + 1);
+            next.setHours(4, 0, 0, 0);
+            quest.dueDate = next.toISOString();
+        } else { this.data.activeQuests.splice(index, 1); }
         await this.save();
     },
 
@@ -143,17 +102,9 @@ const app = {
         const xp = document.getElementById('quest-difficulty').value;
         const freq = document.getElementById('quest-frequency').value;
         if (!title) return;
-
         const defId = 'def_' + Date.now();
         this.data.questDefinitions.push({ id: defId, title, baseXp: parseInt(xp), frequency: freq });
-        this.data.activeQuests.push({
-            id: 'inst_' + Date.now(),
-            definitionId: defId,
-            title: title,
-            xp: parseInt(xp),
-            dueDate: new Date().toISOString()
-        });
-
+        this.data.activeQuests.push({ id: 'inst_' + Date.now(), definitionId: defId, title, xp: parseInt(xp), dueDate: new Date().toISOString() });
         await this.save();
         this.hideModals();
         document.getElementById('quest-title').value = '';
@@ -163,16 +114,7 @@ const app = {
         const name = document.getElementById('new-user-name').value;
         const avatar = document.getElementById('new-user-avatar').value;
         if (!name) return;
-
-        const newUser = {
-            id: 'u' + Date.now(),
-            name,
-            avatar,
-            xp: 0,
-            level: 1,
-            email: auth.user.email
-        };
-        this.data.users.push(newUser);
+        this.data.users.push({ id: 'u' + Date.now(), name, avatar, xp: 0, level: 1, email: auth.user.email });
         await this.save();
         this.hideModals();
     },
@@ -180,62 +122,54 @@ const app = {
     async createNewGuild() {
         const name = prompt("Nom de la nouvelle Guilde :");
         if (!name) return;
-        this.showLoading(true);
-        const newId = await db.createGuild(auth.user.email, name);
-        localStorage.setItem('currentGuildId', newId);
-        window.location.reload();
+        const id = await db.createGuild(auth.user.email, name);
+        this.switchGuild(id);
     },
 
     async openGuildSwitcher() {
         this.showLoading(true);
         const guilds = await db.getAvailableGuilds(auth.user.email);
         this.showLoading(false);
-
-        const listHtml = guilds.map(g => `
+        document.getElementById('guild-list-container').innerHTML = guilds.map(g => `
             <div style="background:${g.id === this.guildId ? '#4a90e2' : '#0f3460'}; padding:10px; margin-bottom:5px; border-radius:5px; cursor:pointer;" 
                  onclick="app.switchGuild('${g.id}')">
-                <strong>${g.meta.guildName}</strong><br>
-                <small>ID: ${g.id}</small>
+                <strong>${g.meta.guildName}</strong>
             </div>`).join('');
-        
-        document.getElementById('guild-list-container').innerHTML = listHtml;
         this.showModal('guild-modal');
     },
 
-    async joinExistingGuild() {
-        const id = prompt("Saisissez l'ID de la Guilde à rejoindre :");
-        if (!id || id.length < 10) return;
-
+    async searchGuilds() {
+        const q = document.getElementById('guild-search-input').value;
+        if (!q) return;
         this.showLoading(true);
-        try {
-            const success = await db.joinGuild(id, auth.user.email);
-            if (success) {
-                this.switchGuild(id);
-            } else {
-                alert("Guilde introuvable.");
-            }
-        } catch (err) {
-            console.error("Join failed", err);
-            alert("Erreur lors de l'adhésion à la guilde.");
-        } finally {
-            this.showLoading(false);
-        }
+        const results = await db.searchPublicGuilds(q);
+        this.showLoading(false);
+        document.getElementById('guild-search-results').innerHTML = results.length === 0 ? "<p>Rien trouvé.</p>" : 
+            results.map(g => `<div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;">
+                <span>${g.meta.guildName}</span>
+                <button class="action-btn" style="width:auto; padding:5px 10px;" onclick="app.handleJoinLink('${g.id}')">Rejoindre</button>
+            </div>`).join('');
     },
 
-    switchGuild(id) {
-        localStorage.setItem('currentGuildId', id);
-        window.location.reload();
+    async copyInviteLink() {
+        const url = `${window.location.origin}${window.location.pathname}?join=${this.guildId}`;
+        await navigator.clipboard.writeText(url);
+        alert("Lien copié ! Partagez-le avec vos amis.");
+    },
+
+    switchGuild(id) { localStorage.setItem('currentGuildId', id); window.location.reload(); },
+
+    async toggleGuildPublic() {
+        this.data.meta.isPublic = !this.data.meta.isPublic;
+        await this.save();
+        this.syncSettingsUI();
     },
 
     async renameGuild() {
-        const newName = prompt("Nouveau nom :", this.data.meta.guildName);
-        if (newName) {
-            this.data.meta.guildName = newName;
-            await this.save();
-        }
+        const n = prompt("Nom :", this.data.meta.guildName);
+        if (n) { this.data.meta.guildName = n; await this.save(); }
     },
 
-    // --- UI Helpers ---
     setView(v) {
         this.currentView = v;
         document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.id === `tab-${v}`));
@@ -245,8 +179,6 @@ const app = {
     render() {
         if (!this.currentUser) return;
         document.getElementById('content').classList.remove('hidden');
-        
-        // Profile
         document.getElementById('user-name').innerText = this.currentUser.name;
         document.getElementById('user-avatar').innerText = this.currentUser.avatar;
         document.getElementById('user-level').innerText = this.currentUser.level || 1;
@@ -254,7 +186,7 @@ const app = {
         const xpNeeded = (this.currentUser.level || 1) * 100;
         document.getElementById('next-level-xp').innerText = xpNeeded;
         document.getElementById('xp-progress').style.width = `${(this.currentUser.xp / xpNeeded) * 100}%`;
-
+        
         if (this.currentView === 'board') {
             document.getElementById('quest-board').classList.remove('hidden');
             document.getElementById('history-board').classList.add('hidden');
@@ -297,23 +229,14 @@ const app = {
         if (elGuild) elGuild.innerText = this.data.meta.guildName;
         document.getElementById('edit-user-name').value = this.currentUser.name;
         document.getElementById('edit-user-avatar').value = this.currentUser.avatar;
+        document.getElementById('public-status').innerText = this.data.meta.isPublic ? "Publique" : "Privée";
     },
 
-    updateCurrentUserInfo() {
-        this.currentUser.name = document.getElementById('edit-user-name').value;
-        this.currentUser.avatar = document.getElementById('edit-user-avatar').value;
-        this.save();
-    },
-
-    renderDevMode() {
-        document.getElementById('debug-guild-id').innerText = this.guildId;
-        document.getElementById('debug-users').innerHTML = this.data.users.map(u => `<div>${u.avatar} ${u.name} (${u.email})</div>`).join('');
-    },
-
+    updateCurrentUserInfo() { this.currentUser.name = document.getElementById('edit-user-name').value; this.currentUser.avatar = document.getElementById('edit-user-avatar').value; this.save(); },
+    renderDevMode() { document.getElementById('debug-guild-id').innerText = this.guildId; document.getElementById('debug-users').innerHTML = this.data.users.map(u => `<div>${u.avatar} ${u.name} (${u.email})</div>`).join(''); },
     showLoading(s) { document.getElementById('loading').classList.toggle('hidden', !s); },
     showModal(id) { document.getElementById(id).classList.remove('hidden'); },
     hideModals() { document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')); },
     forceAppReset() { if(confirm('Réinitialiser ?')) { localStorage.clear(); window.location.reload(); } }
 };
-
 app.init();
