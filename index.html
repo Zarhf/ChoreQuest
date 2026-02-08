@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChoreQuest</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=47">
+    <link rel="stylesheet" href="css/styles.css?v=49">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
 </head>
@@ -26,7 +26,10 @@
         handleNuke();
     </script>
 
-    <script src="js/version-manager.js?v=47"></script>
+    <!-- Version Manager (First Script) -->
+    <script src="js/version-manager.js?v=49"></script>
+
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -67,10 +70,8 @@
                 <div id="quest-board">
                     <h2>Quêtes Actives</h2>
                     <div id="task-list"></div>
-                    
                     <h2 style="margin-top:2rem; opacity:0.7;">Quêtes À Venir</h2>
                     <div id="upcoming-task-list"></div>
-
                     <button id="open-add-quest-modal" class="action-btn" style="margin-top:2rem;" onclick="app.showModal('quest-modal')">+ Nouvelle Quête</button>
                 </div>
 
@@ -88,20 +89,17 @@
             </section>
         </main>
 
+        <!-- Modales -->
         <div id="guild-settings-modal" class="modal hidden">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h2>🏰 Ma Guilde</h2>
-                    <button class="close-btn" onclick="app.hideModals()">X</button>
-                </div>
+                <div class="modal-header"><h2>🏰 Ma Guilde</h2><button class="close-btn" onclick="app.hideModals()">X</button></div>
                 <div class="settings-group">
-                    <input type="text" id="edit-guild-name" onchange="app.renameGuild()" style="margin-bottom:10px; font-weight:bold; width:100%;" placeholder="Nom de la Guilde">
+                    <input type="text" id="edit-guild-name" onchange="app.renameGuild()" style="margin-bottom:10px; font-weight:bold; width:100%;">
                     <div style="font-size:0.8rem; margin-bottom:15px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                         <div>Visibilité : <select id="edit-guild-public" onchange="app.updateGuildSettings()"><option value="false">🔒 Privée</option><option value="true">🌍 Publique</option></select></div>
                         <div>Accès : <select id="edit-guild-open" onchange="app.updateGuildSettings()"><option value="true">✅ Ouverte</option><option value="false">⛔ Fermée</option></select></div>
                     </div>
-                    <h4>Membres</h4>
-                    <div id="guild-members-list"></div>
+                    <h4>Membres</h4><div id="guild-members-list"></div>
                     <button class="action-btn" onclick="app.copyInviteLink()" style="background-color:#27ae60; font-size:0.8rem; margin-bottom:10px;">🔗 Copier lien d'invitation</button>
                     <button class="action-btn secondary-btn" onclick="app.openGuildSwitcher()" style="font-size:0.8rem; margin-bottom:10px;">🔄 Changer de Guilde</button>
                     <button id="quit-guild-btn" class="action-btn danger-btn" onclick="app.leaveGuild()" style="font-size:0.8rem;">🚪 Quitter cette Guilde</button>
@@ -111,10 +109,7 @@
 
         <div id="profile-modal" class="modal hidden">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h2>👤 Mon Profil</h2>
-                    <button class="close-btn" onclick="app.hideModals()">X</button>
-                </div>
+                <div class="modal-header"><h2>👤 Mon Profil</h2><button class="close-btn" onclick="app.hideModals()">X</button></div>
                 <div class="settings-group">
                     <h4>Héros</h4>
                     <div style="display:grid; grid-template-columns: 1fr 2fr; gap:10px;">
@@ -127,75 +122,30 @@
                     <button class="action-btn" onclick="app.showModal('dev-modal'); app.renderDevMode();" style="background-color:#6c757d; font-size:0.7rem;">🛠️ Admin</button>
                     <button class="action-btn danger-btn" onclick="app.forceAppReset()">⚠️ Réparer</button>
                 </div>
-                <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">v2.5.6</small>
+                <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">v2.6.1 (Auto-Update)</small>
             </div>
         </div>
 
-        <div id="guild-switcher-modal" class="modal hidden">
-            <div class="modal-content">
-                <h2>Mes Guildes</h2>
-                <div id="guild-list-container"></div>
-                <hr style="border:0; border-top:1px solid #444; margin:1rem 0;">
-                <h3>Rechercher</h3>
-                <div style="display:flex; gap:5px; margin-bottom:10px;"><input type="text" id="guild-search-input" placeholder="Nom..."><button class="action-btn" onclick="app.searchGuilds()" style="width:auto;">🔍</button></div>
-                <div id="guild-search-results"></div>
-                <button class="action-btn" onclick="app.showModal('create-guild-modal')" style="background-color:#27ae60;">➕ Créer une nouvelle Guilde</button>
-                <button class="action-btn secondary-btn" onclick="app.hideModals()">Fermer</button>
-            </div>
-        </div>
-
-        <div id="create-guild-modal" class="modal hidden">
-            <div class="modal-content">
-                <h2>Nouvelle Guilde</h2>
-                <input type="text" id="new-guild-name" placeholder="Nom de la Guilde">
-                <select id="new-guild-public"><option value="false">Privée</option><option value="true">Publique</option></select>
-                <select id="new-guild-open"><option value="true">Ouverte</option><option value="false">Fermée</option></select>
-                <button class="action-btn" onclick="app.confirmCreateGuild()" style="background-color:#27ae60;">Créer la Guilde</button>
-                <button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button>
-            </div>
-        </div>
-
-        <!-- Edit Quest Modal -->
         <div id="edit-quest-modal" class="modal hidden">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Modifier la Quête</h2>
-                    <button class="close-btn" onclick="app.hideModals()">X</button>
-                </div>
+                <div class="modal-header"><h2>Modifier la Quête</h2><button class="close-btn" onclick="app.hideModals()">X</button></div>
                 <input type="hidden" id="edit-quest-id">
-                <input type="text" id="edit-quest-title" placeholder="Titre">
-                
+                <input type="text" id="edit-quest-title">
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                     <div><label style="font-size:0.7rem;">XP :</label><input type="number" id="edit-quest-difficulty"></div>
                     <div style="display:flex; flex-direction:column;"><label style="font-size:0.7rem;">Plage horaire :</label>
                         <div style="display:flex; gap:5px; align-items:center;"><input type="time" id="edit-quest-time-start"><input type="time" id="edit-quest-time-end"></div>
                     </div>
                 </div>
-
                 <label style="font-size:0.7rem;">Récurrence :</label>
                 <select id="edit-quest-frequency" onchange="document.getElementById('edit-quest-days-selector').style.display = (this.value === 'weekly' ? 'block' : 'none')">
-                    <option value="none">Une seule fois</option>
-                    <option value="daily">Tous les jours</option>
-                    <option value="weekly">Toutes les semaines</option>
-                    <option value="monthly">Tous les mois</option>
+                    <option value="none">Une seule fois</option><option value="daily">Tous les jours</option><option value="weekly">Toutes les semaines</option><option value="monthly">Tous les mois</option>
                 </select>
-
                 <div id="edit-quest-days-selector" class="hidden" style="margin-top:10px;">
                     <div style="display:flex; justify-content:space-between;"><label><input type="checkbox" name="edit-quest-day" value="1"> L</label><label><input type="checkbox" name="edit-quest-day" value="2"> M</label><label><input type="checkbox" name="edit-quest-day" value="3"> M</label><label><input type="checkbox" name="edit-quest-day" value="4"> J</label><label><input type="checkbox" name="edit-quest-day" value="5"> V</label><label><input type="checkbox" name="edit-quest-day" value="6"> S</label><label><input type="checkbox" name="edit-quest-day" value="0"> D</label></div>
                 </div>
-
-                <button class="action-btn" style="margin-top:20px; background-color:#27ae60;" onclick="app.saveQuestEdits()">Enregistrer les changements</button>
-                <button class="action-btn danger-btn" onclick="app.archiveQuest()">🗑️ Supprimer (Archiver)</button>
-                <button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button>
-            </div>
-        </div>
-
-        <div id="onboarding-modal" class="modal hidden">
-            <div class="modal-content">
-                <h2>Bienvenue dans cette Guilde</h2>
-                <input type="text" id="new-user-name" placeholder="Nom du Héros">
-                <select id="new-user-avatar"><option value="🛡️">🛡️ Guerrier</option><option value="🔮">🔮 Mage</option></select>
-                <button class="action-btn" onclick="app.finishOnboarding()">Commencer l'Aventure</button>
+                <button class="action-btn" style="margin-top:20px; background-color:#27ae60;" onclick="app.saveQuestEdits()">Enregistrer</button>
+                <button class="action-btn danger-btn" onclick="app.archiveQuest()">🗑️ Supprimer</button>
             </div>
         </div>
 
@@ -211,10 +161,7 @@
                 </div>
                 <label style="font-size:0.7rem;">Récurrence :</label>
                 <select id="quest-frequency" onchange="document.getElementById('quest-days-selector').style.display = (this.value === 'weekly' ? 'block' : 'none')">
-                    <option value="none">Une seule fois</option>
-                    <option value="daily">Tous les jours</option>
-                    <option value="weekly">Toutes les semaines</option>
-                    <option value="monthly">Tous les mois</option>
+                    <option value="none">Une seule fois</option><option value="daily">Tous les jours</option><option value="weekly">Toutes les semaines</option><option value="monthly">Tous les mois</option>
                 </select>
                 <div id="quest-days-selector" class="hidden" style="margin-top:10px;">
                     <div style="display:flex; justify-content:space-between;"><label><input type="checkbox" name="quest-day" value="1"> L</label><label><input type="checkbox" name="quest-day" value="2"> M</label><label><input type="checkbox" name="quest-day" value="3"> M</label><label><input type="checkbox" name="quest-day" value="4"> J</label><label><input type="checkbox" name="quest-day" value="5"> V</label><label><input type="checkbox" name="quest-day" value="6"> S</label><label><input type="checkbox" name="quest-day" value="0"> D</label></div>
@@ -224,31 +171,53 @@
             </div>
         </div>
 
-        <div id="dev-modal" class="modal hidden">
+        <div id="guild-switcher-modal" class="modal hidden">
             <div class="modal-content">
-                <h2>🛠️ Admin</h2>
-                <code id="debug-guild-id"></code>
-                <div id="debug-users"></div>
+                <h2>Mes Guildes</h2><div id="guild-list-container"></div>
+                <hr style="border:0; border-top:1px solid #444; margin:1rem 0;">
+                <h3>Rechercher</h3>
+                <div style="display:flex; gap:5px; margin-bottom:10px;"><input type="text" id="guild-search-input" placeholder="Nom..."><button class="action-btn" onclick="app.searchGuilds()" style="width:auto;">🔍</button></div>
+                <div id="guild-search-results"></div>
+                <button class="action-btn" onclick="app.showModal('create-guild-modal')" style="background-color:#27ae60; margin-bottom:10px;">➕ Créer une Guilde</button>
                 <button class="action-btn secondary-btn" onclick="app.hideModals()">Fermer</button>
             </div>
+        </div>
+
+        <div id="create-guild-modal" class="modal hidden">
+            <div class="modal-content">
+                <h2>Nouvelle Guilde</h2>
+                <input type="text" id="new-guild-name" placeholder="Nom de la Guilde">
+                <select id="new-guild-public"><option value="false">Privée</option><option value="true">Publique</option></select>
+                <select id="new-guild-open"><option value="true">Ouverte</option><option value="false">Fermée</option></select>
+                <button class="action-btn" onclick="app.confirmCreateGuild()" style="background-color:#27ae60;">Créer la Guilde</button>
+                <button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button>
+            </div>
+        </div>
+
+        <div id="onboarding-modal" class="modal hidden">
+            <div class="modal-content">
+                <h2>Bienvenue</h2><input type="text" id="new-user-name" placeholder="Nom du Héros"><select id="new-user-avatar"><option value="🛡️">🛡️ Guerrier</option><option value="🔮">🔮 Mage</option></select>
+                <button class="action-btn" onclick="app.finishOnboarding()">Commencer</button>
+            </div>
+        </div>
+
+        <div id="dev-modal" class="modal hidden">
+            <div class="modal-content"><h2>🛠️ Admin</h2><code id="debug-guild-id"></code><div id="debug-users"></div><button class="action-btn secondary-btn" onclick="app.hideModals()">Fermer</button></div>
         </div>
     </div>
 
     <!-- Notifications UI -->
     <div id="activity-toast" class="hidden"><span id="toast-icon">📜</span> <span id="toast-message">...</span></div>
-    <div id="update-toast" class="hidden" style="position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#4a90e2; padding:10px 20px; border-radius:50px; z-index:3000; box-shadow:0 4px 10px rgba(0,0,0,0.5);">
-        <span style="color:white; font-weight:bold;">🛡️ Mise à jour prête !</span>
-        <button id="update-btn" style="margin-left:10px; border-radius:20px; padding:5px 15px;">Installer</button>
-    </div>
 
-    <script src="js/config.js?v=47"></script>
-    <script src="js/auth.js?v=47"></script>
-    <script src="js/firebase-db.js?v=47"></script>
-    <script src="js/app.js?v=47"></script>
+    <!-- App Logic -->
+    <script src="js/config.js?v=49"></script>
+    <script src="js/auth.js?v=49"></script>
+    <script src="js/firebase-db.js?v=49"></script>
+    <script src="js/app.js?v=49"></script>
 
     <script>
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js?v=47'); });
+            window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js?v=49'); });
         }
     </script>
 </body>
