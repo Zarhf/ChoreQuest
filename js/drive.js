@@ -168,7 +168,8 @@ const DriveAPI = {
         try {
             const response = await gapi.client.drive.files.get({
                 fileId: fileId,
-                alt: 'media'
+                alt: 'media',
+                supportsAllDrives: true
             });
             return response.result;
         } catch (err) {
@@ -191,8 +192,7 @@ const DriveAPI = {
             form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
             form.append('file', file);
 
-            // Using fetch for upload as gapi doesn't support multipart upload easily for updates
-            const response = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`, {
+            const response = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart&supportsAllDrives=true`, {
                 method: 'PATCH',
                 headers: new Headers({'Authorization': 'Bearer ' + accessToken}),
                 body: form

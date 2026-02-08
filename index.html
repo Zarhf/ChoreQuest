@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChoreQuest</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=20">
+    <link rel="stylesheet" href="css/styles.css?v=21">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
 </head>
@@ -204,17 +204,17 @@
         <button id="update-btn">Installer</button>
     </div>
 
-    <script src="js/config.js?v=20"></script>
+    <script src="js/config.js?v=21"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
-    <script src="js/auth.js?v=20" defer></script>
-    <script src="js/drive.js?v=20" defer></script>
-    <script src="js/app.js?v=20" defer></script>
+    <script src="js/auth.js?v=21" defer></script>
+    <script src="js/drive.js?v=21" defer></script>
+    <script src="js/app.js?v=21" defer></script>
 
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js?v=20').then(reg => {
+                navigator.serviceWorker.register('sw.js?v=21').then(reg => {
                     reg.addEventListener('updatefound', () => {
                         const newWorker = reg.installing;
                         newWorker.addEventListener('statechange', () => {
@@ -226,7 +226,6 @@
                             }
                         });
                     });
-                    
                     setInterval(() => { reg.update(); }, 1000 * 60 * 15);
                     document.addEventListener('visibilitychange', () => {
                         if (document.visibilityState === 'visible') reg.update();
