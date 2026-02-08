@@ -1,8 +1,8 @@
 const app = {
     guildId: null,
     data: null,
-    currentUser: null,
-    mainUser: null,
+    currentUser: null, 
+    mainUser: null,    
     currentView: 'board',
     lastLogId: null,
 
@@ -26,7 +26,7 @@ const app = {
                 window.history.replaceState({}, document.title, window.location.pathname);
                 window.location.reload();
             } else {
-                alert("Impossible de rejoindre.");
+                alert("Impossible de rejoindre cette guilde.");
                 await this.loadGuild();
             }
         } catch (err) { console.error(err); await this.loadGuild(); }
@@ -52,7 +52,7 @@ const app = {
                 this.showLoading(false);
                 setTimeout(() => { if (indicator) indicator.classList.remove('syncing'); }, 1000);
             });
-        } catch (err) { console.error(err); this.showLoading(false); }
+        } catch (err) { console.error("Load Guild Error:", err); this.showLoading(false); }
     },
 
     handleDataUpdate() {
@@ -98,14 +98,19 @@ const app = {
         const squires = this.data.users.filter(u => u.managedBy === this.mainUser.id);
         const rotationList = [this.mainUser, ...squires];
         const currentIndex = rotationList.findIndex(u => u.id === this.currentUser.id);
-        const nextIndex = (currentIndex + 1) % rotationList.length;
-        const nextUser = rotationList[nextIndex];
-        
+        const nextUser = rotationList[(currentIndex + 1) % rotationList.length];
         if (nextUser.id === this.mainUser.id) this.stopImpersonating();
         else this.impersonate(nextUser.id);
     },
 
-    // --- Quest Logic ---
+    // --- Quest Logic & Assignment ---
+    async claimQuest(instanceId) {
+        const quest = this.data.activeQuests.find(q => q.id === instanceId);
+        if (!quest) return;
+        quest.assignedTo = this.currentUser.id;
+        await this.save();
+    },
+
     async completeTask(instanceId) {
         const index = this.data.activeQuests.findIndex(q => q.id === instanceId);
         if (index === -1) return;
@@ -129,6 +134,8 @@ const app = {
 
         if (def && def.frequency && def.frequency !== 'none') {
             quest.dueDate = this.calculateNextDueDate(def).toISOString();
+            // Important: Reset assignee if default was "For all"
+            quest.assignedTo = def.defaultAssignee || null;
         } else {
             this.data.activeQuests.splice(index, 1);
         }
@@ -147,7 +154,7 @@ const app = {
             }
             if (!found) next.setDate(fromDate.getDate() + 7 * interval);
         }
-        else if (def.frequency === 'monthly') next.setMonth(now.getMonth() + interval);
+        else if (def.frequency === 'monthly') next.setMonth(next.getMonth() + interval);
         next.setHours(4, 0, 0, 0);
         return next;
     },
@@ -166,6 +173,7 @@ const app = {
         const xp = parseInt(document.getElementById('quest-difficulty').value);
         const freq = document.getElementById('quest-frequency').value;
         const interval = document.getElementById('quest-interval').value;
+        const assignee = document.getElementById('quest-assignee').value || null;
         const tStart = document.getElementById('quest-time-start').value;
         const tEnd = document.getElementById('quest-time-end').value;
         const days = Array.from(document.querySelectorAll('input[name="quest-day"]:checked')).map(cb => cb.value);
@@ -173,11 +181,11 @@ const app = {
         if (!title || isNaN(xp)) return;
         const defId = 'def_' + Date.now();
         const timeSlot = (tStart && tEnd) ? { start: tStart, end: tEnd } : null;
-        const definition = { id: defId, title, baseXp: xp, frequency: freq, interval, days, timeSlot };
+        const definition = { id: defId, title, baseXp: xp, frequency: freq, interval, days, timeSlot, defaultAssignee: assignee };
         const firstDueDate = this.calculateFirstDueDate(definition);
 
         this.data.questDefinitions.push(definition);
-        this.data.activeQuests.push({ id: 'inst_' + Date.now(), definitionId: defId, title, xp, dueDate: firstDueDate.toISOString(), timeSlot });
+        this.data.activeQuests.push({ id: 'inst_' + Date.now(), definitionId: defId, title, xp, dueDate: firstDueDate.toISOString(), timeSlot, assignedTo: assignee });
         this.data.questLog.unshift({ id: 'log_cr_'+Date.now(), type: 'system', title: `Nouvelle quête : ${title}`, completedBy: this.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
         await this.save();
         this.hideModals();
@@ -194,6 +202,8 @@ const app = {
         document.getElementById('edit-quest-title').value = def.title;
         document.getElementById('edit-quest-difficulty').value = def.baseXp;
         document.getElementById('edit-quest-frequency').value = def.frequency || 'none';
+        document.getElementById('edit-quest-assignee').value = def.defaultAssignee || '';
+        
         if (def.timeSlot) {
             document.getElementById('edit-quest-time-start').value = def.timeSlot.start;
             document.getElementById('edit-quest-time-end').value = def.timeSlot.end;
@@ -214,10 +224,12 @@ const app = {
         const xp = parseInt(document.getElementById('edit-quest-difficulty').value);
         const freq = document.getElementById('edit-quest-frequency').value;
         const interval = document.getElementById('edit-quest-interval').value;
+        const assignee = document.getElementById('edit-quest-assignee').value || null;
         const tStart = document.getElementById('edit-quest-time-start').value;
         const tEnd = document.getElementById('edit-quest-time-end').value;
         const days = Array.from(document.querySelectorAll('input[name="edit-quest-day"]:checked')).map(cb => cb.value);
 
+        if (!title || isNaN(xp)) return;
         const defIdx = this.data.questDefinitions.findIndex(d => d.id === defId);
         if (defIdx === -1) return;
 
@@ -225,11 +237,14 @@ const app = {
         const oldDef = this.data.questDefinitions[defIdx];
         const changedSchedule = oldDef.frequency !== freq || JSON.stringify(oldDef.days) !== JSON.stringify(days) || oldDef.interval !== interval;
 
-        this.data.questDefinitions[defIdx] = { ...oldDef, title, baseXp: xp, frequency: freq, interval, days, timeSlot };
+        this.data.questDefinitions[defIdx] = { ...oldDef, title, baseXp: xp, frequency: freq, interval, days, timeSlot, defaultAssignee: assignee };
         this.data.activeQuests.forEach(q => {
             if (q.definitionId === defId) {
                 q.title = title; q.xp = xp; q.timeSlot = timeSlot;
+                // If it's a new instance or we forced a reschedule
                 if (changedSchedule) q.dueDate = this.calculateFirstDueDate(this.data.questDefinitions[defIdx]).toISOString();
+                // Update assignment only if it wasn't manually claimed
+                if (!q.assignedTo || q.assignedTo === oldDef.defaultAssignee) q.assignedTo = assignee;
             }
         });
         await this.save();
@@ -267,21 +282,13 @@ const app = {
         await this.save();
     },
 
-    // --- UI ---
-    getQuestRarity(xp) {
-        const maxXP = Math.max(...this.data.questDefinitions.map(d => d.baseXp), 10);
-        const r = xp / maxXP;
-        if (r >= 0.9) return 'rarity-legendary';
-        if (r >= 0.7) return 'rarity-epic';
-        if (r >= 0.4) return 'rarity-rare';
-        if (r >= 0.2) return 'rarity-uncommon';
-        return 'rarity-common';
-    },
-
+    // --- UI Rendering ---
     render() {
         if (!this.currentUser) return;
         document.getElementById('content').classList.remove('hidden');
-        document.getElementById('user-name').innerText = (this.currentUser.id !== this.mainUser.id ? '📜 ' : '') + this.currentUser.name;
+        
+        const isSquire = this.currentUser.id !== this.mainUser.id;
+        document.getElementById('user-name').innerText = (isSquire ? '📜 ' : '') + this.currentUser.name;
         document.getElementById('user-avatar-display').innerText = this.currentUser.avatar;
         document.getElementById('user-level').innerText = this.currentUser.level || 1;
         document.getElementById('user-xp').innerText = this.currentUser.xp;
@@ -289,7 +296,6 @@ const app = {
         document.getElementById('next-level-xp').innerText = xpNeeded;
         document.getElementById('xp-progress').style.width = `${(this.currentUser.xp / xpNeeded) * 100}%`;
 
-        // Quick Switch Button
         const squires = this.data.users.filter(u => u.managedBy === this.mainUser.id);
         const switchBtn = document.getElementById('quick-switch-btn');
         if (squires.length > 0) {
@@ -303,13 +309,13 @@ const app = {
             switchBtn.classList.add('hidden');
         }
         
-        const elBoard = document.getElementById('quest-board');
-        const elHistory = document.getElementById('history-board');
         if (this.currentView === 'board') {
-            elBoard.classList.remove('hidden'); elHistory.classList.add('hidden');
+            document.getElementById('quest-board').classList.remove('hidden');
+            document.getElementById('history-board').classList.add('hidden');
             this.renderBoard();
         } else {
-            elBoard.classList.add('hidden'); elHistory.classList.remove('hidden');
+            document.getElementById('quest-board').classList.add('hidden');
+            document.getElementById('history-board').classList.remove('hidden');
             this.renderHistory();
         }
     },
@@ -333,12 +339,28 @@ const app = {
             const def = this.data.questDefinitions.find(d => d.id === q.definitionId);
             const freq = (def && def.frequency !== 'none') ? '🔄' : '';
             const time = q.timeSlot ? ` • 🕒 ${q.timeSlot.start}-${q.timeSlot.end}` : '';
+            
+            // Assignee Badge
+            const assignee = this.data.users.find(u => u.id === q.assignedTo);
+            const assigneeHtml = assignee ? `<span class="assignee-badge" title="Assigné à ${assignee.name}">${assignee.avatar}</span>` : `<span class="assignee-badge empty" title="Pour tous">⚔️</span>`;
+            
+            // Claim Button
+            const canClaim = !q.assignedTo && !up;
+
             return `<div class="quest-card ${rarity} ${up ? 'upcoming' : ''}">
                 <div class="quest-info" onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer">
-                    <h4>${freq} ${q.title} <span class="edit-icon">✏️</span></h4>
-                    <span>💰 ${q.xp} XP${time}</span>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        ${assigneeHtml}
+                        <div>
+                            <h4>${freq} ${q.title} <span class="edit-icon">✏️</span></h4>
+                            <span>💰 ${q.xp} XP${time}</span>
+                        </div>
+                    </div>
                 </div>
-                ${!up ? `<button class="complete-btn" onclick="app.completeTask('${q.id}')">Valider</button>` : ''}
+                <div style="display:flex; flex-direction:column; gap:5px;">
+                    ${!up ? `<button class="complete-btn" onclick="app.completeTask('${q.id}')">Valider</button>` : ''}
+                    ${canClaim ? `<button class="action-btn" onclick="app.claimQuest('${q.id}')" style="padding:2px 8px; font-size:0.7rem; background:#27ae60;">✋ Je prends</button>` : ''}
+                </div>
             </div>`;
         };
 
@@ -351,13 +373,21 @@ const app = {
         document.getElementById('upcoming-task-list').innerHTML = Object.keys(groups).map(day => `<div class="upcoming-day-group"><div class="upcoming-day-title">${day}</div>${groups[day].map(q => html(q, true)).join('')}</div>`).join('') || '<p style="text-align:center; opacity:0.2;">Rien de prévu.</p>';
     },
 
+    getQuestRarity(xp) {
+        const maxXP = Math.max(...this.data.questDefinitions.map(d => d.baseXp), 10);
+        const r = xp / maxXP;
+        if (r >= 0.9) return 'rarity-legendary';
+        if (r >= 0.7) return 'rarity-epic';
+        if (r >= 0.4) return 'rarity-rare';
+        if (r >= 0.2) return 'rarity-uncommon';
+        return 'rarity-common';
+    },
+
     renderHistory() {
         document.getElementById('history-list').innerHTML = this.data.questLog.map(log => {
             const user = this.data.users.find(u => u.id === log.completedBy || u.email === log.completedBy);
             const color = log.type === 'system' ? '#e94560' : '#4a90e2';
-            let verb = log.type === 'completion' ? "a triomphé de" : "a effectué";
-            if (log.title.includes('Annulation')) verb = "a annulé";
-            return `<div class="history-item" style="border-left-color: ${color}"><div style="display:flex; justify-content:space-between; align-items:start;"><div><strong>${log.title}</strong><br><small>${user ? user.name : 'Système'} ${verb} • ${new Date(log.completedAt).toLocaleString()}</small></div>${log.type === 'completion' ? `<button class="undo-btn" onclick="app.undoLog('${log.id}')">Annuler</button>` : ''}</div></div>`;
+            return `<div class="history-item" style="border-left-color: ${color}"><div style="display:flex; justify-content:space-between; align-items:start;"><div><strong>${log.title}</strong><br><small>${user ? user.name : '??'} • ${new Date(log.completedAt).toLocaleString()}</small></div>${log.type === 'completion' ? `<button class="undo-btn" onclick="app.undoLog('${log.id}')">Annuler</button>` : ''}</div></div>`;
         }).join('');
     },
 
@@ -375,11 +405,11 @@ const app = {
     showActivityToast(log) {
         const t = document.getElementById('activity-toast');
         const user = this.data.users.find(u => u.id === log.completedBy || u.email === log.completedBy);
-        let verb = "a triomphé de";
-        if (log.type === 'system') verb = "info :";
+        const name = user ? user.name : 'Un membre';
+        let verb = log.type === 'system' ? "info :" : "a validé";
         if (log.title.includes('Annulation')) verb = "a annulé";
         document.getElementById('toast-icon').innerText = log.type === 'system' ? '🛡️' : '⚔️';
-        document.getElementById('toast-message').innerText = `${user ? user.name : 'Quelqu\'un'} ${verb} : "${log.title}"`;
+        document.getElementById('toast-message').innerText = `${name} ${verb} : "${log.title}"`;
         t.classList.remove('hidden'); setTimeout(() => t.classList.add('hidden'), 5000);
     },
 
@@ -388,11 +418,18 @@ const app = {
         document.getElementById('edit-guild-public').value = String(!!this.data.meta.isPublic);
         document.getElementById('edit-guild-open').value = String(!!this.data.meta.isOpen);
         this.renderGuildMembers();
+        
+        // Update Assignee Selectors
+        const memberOptions = `<option value="">⚔️ Pour tous</option>` + this.data.users.map(u => `<option value="${u.id}">${u.avatar} ${u.name}</option>`).join('');
+        document.getElementById('quest-assignee').innerHTML = memberOptions;
+        document.getElementById('edit-quest-assignee').innerHTML = memberOptions;
+
         document.getElementById('edit-user-name').value = this.mainUser.name;
         document.getElementById('edit-user-avatar').value = this.mainUser.avatar;
+        
         const squires = this.data.users.filter(u => u.managedBy === this.mainUser.id);
         const impersonatedId = localStorage.getItem('impersonatedHeroId');
-        document.getElementById('squire-list').innerHTML = squires.map(s => `<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; margin-bottom:5px;"><span>${s.avatar} <b>${s.name}</b> (Lvl ${s.level})</span>${impersonatedId === s.id ? `<button class="action-btn" onclick="app.stopImpersonating()" style="width:auto; padding:2px 8px; font-size:0.7rem; background:#e94560;">Quitter</button>` : `<button class="action-btn" onclick="app.impersonate('${s.id}')" style="width:auto; padding:2px 8px; font-size:0.7rem;">Incarner</button>`}</div>`).join('') || '<p style="font-size:0.7rem; opacity:0.5;">Aucun écuyer.</p>';
+        document.getElementById('squire-list').innerHTML = squires.map(s => `<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; margin-bottom:5px;"><span>${s.avatar} <b>${s.name}</b></span>${impersonatedId === s.id ? `<button class="action-btn danger-btn" onclick="app.stopImpersonating()" style="width:auto; padding:2px 8px; font-size:0.7rem;">Quitter</button>` : `<button class="action-btn" onclick="app.impersonate('${s.id}')" style="width:auto; padding:2px 8px; font-size:0.7rem;">Incarner</button>`}</div>`).join('') || '<p style="font-size:0.7rem; opacity:0.5;">Aucun écuyer.</p>';
         const qBtn = document.getElementById('quit-guild-btn'); if (qBtn) qBtn.style.display = (this.data.meta.owner === auth.user.email) ? 'none' : 'block';
     },
 
@@ -420,8 +457,8 @@ const app = {
     },
     async searchGuilds() {
         const q = document.getElementById('guild-search-input').value; if (!q) return;
-        this.showLoading(true); const results = await db.searchPublicGuilds(q); this.showLoading(false);
-        document.getElementById('guild-search-results').innerHTML = results.length ? results.map(g => `<div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;"><span>${g.meta.guildName}</span><button class="action-btn" style="width:auto; padding:5px 10px;" onclick="app.handleJoinLink('${g.id}')">Rejoindre</button></div>`).join('') : "<p>Rien trouvé.</p>";
+        this.showLoading(true); const guilds = await db.searchPublicGuilds(q); this.showLoading(false);
+        document.getElementById('guild-search-results').innerHTML = guilds.length ? guilds.map(g => `<div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;"><span>${g.meta.guildName}</span><button class="action-btn" style="width:auto; padding:5px 10px;" onclick="app.handleJoinLink('${g.id}')">Rejoindre</button></div>`).join('') : "<p>Rien trouvé.</p>";
     },
     async copyInviteLink() { const url = `${window.location.origin}${window.location.pathname}?join=${this.guildId}`; await navigator.clipboard.writeText(url); alert("Lien copié !"); },
     switchGuild(id) { localStorage.setItem('currentGuildId', id); window.location.reload(); },
