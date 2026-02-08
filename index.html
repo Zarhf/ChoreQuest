@@ -51,7 +51,10 @@
             
             <section id="content" class="hidden">
                 <div id="user-profile">
-                    <div class="avatar-circle" id="user-avatar-display">👤</div>
+                    <div style="position:relative;">
+                        <div class="avatar-circle" id="user-avatar-display">👤</div>
+                        <button id="quick-switch-btn" class="hidden" onclick="app.rotateUser()" style="position:absolute; bottom:-5px; right:-10px; background:#4a90e2; border:2px solid #1a1a2e; border-radius:50%; width:30px; height:30px; font-size:1.2rem; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 5px rgba(0,0,0,0.5);" title="Passer au suivant"></button>
+                    </div>
                     <div class="user-stats">
                         <h3 id="user-name">Héros</h3>
                         <div>Niveau <span id="user-level">1</span></div>
