@@ -34,8 +34,8 @@ const VersionManager = {
             }
         }
 
-        // Silent reload
-        window.location.href = window.location.origin + window.location.pathname + '?v=' + newBuild;
+        // Silent reload with unique timestamp
+        window.location.href = window.location.origin + window.location.pathname + '?force_v=' + Date.now();
     }
 };
 
