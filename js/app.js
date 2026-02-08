@@ -210,22 +210,37 @@ const app = {
 
     render() {
         if (!this.currentUser) return;
-        document.getElementById('content').classList.remove('hidden');
-        document.getElementById('user-name').innerText = this.currentUser.name;
-        document.getElementById('user-avatar').innerText = this.currentUser.avatar;
-        document.getElementById('user-level').innerText = this.currentUser.level || 1;
-        document.getElementById('user-xp').innerText = this.currentUser.xp;
+        const elContent = document.getElementById('content');
+        if (elContent) elContent.classList.remove('hidden');
+        
+        // Profile
+        const elName = document.getElementById('user-name');
+        const elAvatar = document.getElementById('user-avatar-display');
+        const elLevel = document.getElementById('user-level');
+        const elXP = document.getElementById('user-xp');
+        const elNextXP = document.getElementById('next-level-xp');
+        const elProgress = document.getElementById('xp-progress');
+
+        if (elName) elName.innerText = this.currentUser.name;
+        if (elAvatar) elAvatar.innerText = this.currentUser.avatar;
+        if (elLevel) elLevel.innerText = this.currentUser.level || 1;
+        if (elXP) elXP.innerText = this.currentUser.xp;
+        
         const xpNeeded = (this.currentUser.level || 1) * 100;
-        document.getElementById('next-level-xp').innerText = xpNeeded;
-        document.getElementById('xp-progress').style.width = `${(this.currentUser.xp / xpNeeded) * 100}%`;
+        if (elNextXP) elNextXP.innerText = xpNeeded;
+        if (elProgress) elProgress.style.width = `${(this.currentUser.xp / xpNeeded) * 100}%`;
         
         if (this.currentView === 'board') {
-            document.getElementById('quest-board').classList.remove('hidden');
-            document.getElementById('history-board').classList.add('hidden');
+            const elBoard = document.getElementById('quest-board');
+            const elHistory = document.getElementById('history-board');
+            if (elBoard) elBoard.classList.remove('hidden');
+            if (elHistory) elHistory.classList.add('hidden');
             this.renderBoard();
         } else {
-            document.getElementById('quest-board').classList.add('hidden');
-            document.getElementById('history-board').classList.remove('hidden');
+            const elBoard = document.getElementById('quest-board');
+            const elHistory = document.getElementById('history-board');
+            if (elBoard) elBoard.classList.add('hidden');
+            if (elHistory) elHistory.classList.remove('hidden');
             this.renderHistory();
         }
     },
