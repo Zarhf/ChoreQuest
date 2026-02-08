@@ -1,25 +1,28 @@
-const CACHE_NAME = 'chorequest-v39'; 
+const CACHE_NAME = 'chorequest-v41'; 
 const ASSETS = [
     './',
     './index.html',
-    './css/styles.css?v=39',
-    './js/app.js?v=39',
-    './js/auth.js?v=39',
-    './js/firebase-db.js?v=39',
-    './js/config.js?v=39',
-    './js/version-manager.js?v=39',
+    './css/styles.css?v=41',
+    './js/app.js?v=41',
+    './js/auth.js?v=41',
+    './js/firebase-db.js?v=41',
+    './js/config.js?v=41',
+    './js/version-manager.js?v=41',
     './manifest.json',
     './icons/icon.svg'
 ];
 
 self.addEventListener('install', (e) => {
+    self.skipWaiting();
     e.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
 });
 
 self.addEventListener('activate', (event) => {
-    event.waitUntil(caches.keys().then((names) => Promise.all(names.map((n) => {
-        if (n !== CACHE_NAME) return caches.delete(n);
-    }))));
+    event.waitUntil(
+        caches.keys().then((names) => Promise.all(names.map((n) => {
+            if (n !== CACHE_NAME) return caches.delete(n);
+        }))).then(() => self.clients.claim())
+    );
 });
 
 self.addEventListener('fetch', (e) => {
@@ -29,14 +32,28 @@ self.addEventListener('fetch', (e) => {
         return;
     }
     if (e.request.mode === 'navigate') {
-        e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+        e.respondWith(
+            fetch(e.request).catch(() => caches.match(e.request))
+        );
         return;
     }
     if (url.origin === location.origin) {
-        e.respondWith(caches.match(e.request).then((res) => res || fetch(e.request)));
+        e.respondWith(
+            caches.match(e.request).then((cachedResponse) => {
+                const fetchPromise = fetch(e.request).then((networkResponse) => {
+                    caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(e.request, networkResponse.clone());
+                    });
+                    return networkResponse;
+                });
+                return cachedResponse || fetchPromise;
+            })
+        );
     }
 });
 
-self.addEventListener('message', (e) => {
-    if (e.data.action === 'skipWaiting') self.skipWaiting();
+self.addEventListener('message', (event) => {
+    if (event.data.action === 'skipWaiting') {
+        self.skipWaiting();
+    }
 });

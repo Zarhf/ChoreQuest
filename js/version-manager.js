@@ -1,28 +1,27 @@
 const VersionManager = {
     async check() {
         try {
-            // Fetch version.json with a timestamp to bypass ALL caches
             const response = await fetch('version.json?t=' + Date.now(), { cache: "no-store" });
             const serverConfig = await response.json();
             
             const localBuild = localStorage.getItem('app_build');
 
-            if (localBuild && parseInt(localBuild) < serverConfig.build) {
-                console.log(`New version found: ${serverConfig.version} (Build ${serverConfig.build})`);
+            if (!localBuild || parseInt(localBuild) < serverConfig.build) {
+                console.log(`New version detected: Build ${serverConfig.build}. Updating...`);
                 await this.update(serverConfig.build);
             } else {
-                localStorage.setItem('app_build', serverConfig.build);
                 console.log(`App is up to date (Build ${serverConfig.build})`);
             }
         } catch (e) {
-            console.warn("Version check failed (Offline?)", e);
+            console.warn("Version check failed", e);
         }
     },
 
     async update(newBuild) {
-        console.log("Forcing update...");
-        
-        // 1. Unregister Service Workers
+        // 1. Mark as updating to avoid loops
+        localStorage.setItem('app_build', newBuild);
+
+        // 2. Unregister SW
         if ('serviceWorker' in navigator) {
             const registrations = await navigator.serviceWorker.getRegistrations();
             for (let registration of registrations) {
@@ -30,7 +29,7 @@ const VersionManager = {
             }
         }
 
-        // 2. Clear Caches
+        // 3. Clear Caches
         if ('caches' in window) {
             const names = await caches.keys();
             for (let name of names) {
@@ -38,14 +37,10 @@ const VersionManager = {
             }
         }
 
-        // 3. Update Local Version
-        localStorage.setItem('app_build', newBuild);
-
-        // 4. Hard Reload
-        alert(`Mise à jour v${newBuild} installée !`);
-        window.location.reload(true);
+        // 4. Force Reload with cache-busting query param
+        console.log("Reloading for new version...");
+        window.location.href = window.location.origin + window.location.pathname + '?v=' + newBuild;
     }
 };
 
-// Check immediately
 VersionManager.check();

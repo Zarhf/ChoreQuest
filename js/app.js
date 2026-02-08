@@ -3,11 +3,11 @@ const app = {
     data: null,
     currentUser: null,
     currentView: 'board',
+    lastLogId: null,
 
     async init() {
         auth.init(async (user) => {
             if (user) {
-                // Check URL for Invitation
                 const params = new URLSearchParams(window.location.search);
                 const joinId = params.get('join');
                 if (joinId) {
@@ -28,12 +28,11 @@ const app = {
                 window.history.replaceState({}, document.title, window.location.pathname);
                 window.location.reload();
             } else {
-                alert("Impossible de rejoindre cette guilde (Elle est peut-être fermée ou n'existe plus).");
+                alert("Impossible de rejoindre cette guilde.");
                 await this.loadGuild();
             }
         } catch (err) {
             console.error(err);
-            alert("Erreur lors de l'adhésion.");
             await this.loadGuild();
         }
     },
@@ -43,30 +42,23 @@ const app = {
         try {
             let savedId = localStorage.getItem('currentGuildId');
             const guilds = await db.getAvailableGuilds(auth.user.email);
-            
             if (guilds.length > 0) {
                 const matched = guilds.find(g => g.id === savedId);
                 this.guildId = matched ? matched.id : guilds[0].id;
             } else {
                 this.guildId = await db.createGuild(auth.user.email, "Ma Guilde");
             }
-            
             localStorage.setItem('currentGuildId', this.guildId);
             db.listenToGuild(this.guildId, (data) => {
                 this.data = data;
                 this.handleDataUpdate();
                 this.showLoading(false);
             });
-        } catch (err) { 
-            console.error("Load Guild Error:", err); 
-            this.showLoading(false); 
-        }
+        } catch (err) { console.error(err); this.showLoading(false); }
     },
 
     handleDataUpdate() {
-        // Watch for changes before rendering (to detect new logs)
         this.watchForToasts();
-
         const matchedUser = this.data.users.find(u => u.email === auth.user.email);
         if (!matchedUser) {
             this.currentUser = null;
@@ -137,18 +129,10 @@ const app = {
         const name = document.getElementById('new-guild-name').value;
         const isPublic = document.getElementById('new-guild-public').value === 'true';
         const isOpen = document.getElementById('new-guild-open').value === 'true';
-
-        if (!name) return alert("Le nom de la guilde est requis.");
-
+        if (!name) return alert("Nom requis");
         this.showLoading(true);
-        try {
-            const id = await db.createGuild(auth.user.email, name, isPublic, isOpen);
-            this.switchGuild(id);
-        } catch (err) {
-            console.error(err);
-            alert("Erreur lors de la création.");
-            this.showLoading(false);
-        }
+        const id = await db.createGuild(auth.user.email, name, isPublic, isOpen);
+        this.switchGuild(id);
     },
 
     async updateGuildSettings() {
@@ -159,9 +143,7 @@ const app = {
         await this.save();
     },
 
-    async renameGuild() {
-        this.updateGuildSettings();
-    },
+    async renameGuild() { this.updateGuildSettings(); },
 
     async openGuildSwitcher() {
         this.showLoading(true);
@@ -191,7 +173,7 @@ const app = {
     async copyInviteLink() {
         const url = `${window.location.origin}${window.location.pathname}?join=${this.guildId}`;
         await navigator.clipboard.writeText(url);
-        alert("Lien copié ! Partagez-le avec vos amis.");
+        alert("Lien copié !");
     },
 
     switchGuild(id) { localStorage.setItem('currentGuildId', id); window.location.reload(); },
@@ -203,7 +185,7 @@ const app = {
     },
 
     async leaveGuild() {
-        if (!confirm("Voulez-vous vraiment quitter cette guilde ?")) return;
+        if (!confirm("Quitter ?")) return;
         this.showLoading(true);
         await db.leaveGuild(this.guildId, auth.user.email);
         localStorage.removeItem('currentGuildId');
@@ -220,33 +202,26 @@ const app = {
         if (!this.currentUser) return;
         const elContent = document.getElementById('content');
         if (elContent) elContent.classList.remove('hidden');
-        
-        // Profile
         const elName = document.getElementById('user-name');
         const elAvatar = document.getElementById('user-avatar-display');
         const elLevel = document.getElementById('user-level');
         const elXP = document.getElementById('user-xp');
         const elNextXP = document.getElementById('next-level-xp');
         const elProgress = document.getElementById('xp-progress');
-
         if (elName) elName.innerText = this.currentUser.name;
         if (elAvatar) elAvatar.innerText = this.currentUser.avatar;
         if (elLevel) elLevel.innerText = this.currentUser.level || 1;
         if (elXP) elXP.innerText = this.currentUser.xp;
-        
         const xpNeeded = (this.currentUser.level || 1) * 100;
         if (elNextXP) elNextXP.innerText = xpNeeded;
         if (elProgress) elProgress.style.width = `${(this.currentUser.xp / xpNeeded) * 100}%`;
-        
+        const elBoard = document.getElementById('quest-board');
+        const elHistory = document.getElementById('history-board');
         if (this.currentView === 'board') {
-            const elBoard = document.getElementById('quest-board');
-            const elHistory = document.getElementById('history-board');
             if (elBoard) elBoard.classList.remove('hidden');
             if (elHistory) elHistory.classList.add('hidden');
             this.renderBoard();
         } else {
-            const elBoard = document.getElementById('quest-board');
-            const elHistory = document.getElementById('history-board');
             if (elBoard) elBoard.classList.add('hidden');
             if (elHistory) elHistory.classList.remove('hidden');
             this.renderHistory();
@@ -271,87 +246,52 @@ const app = {
     renderHistory() {
         const list = document.getElementById('history-list');
         list.innerHTML = this.data.questLog.map(log => {
-            const isSystem = log.type === 'system';
-            // Try to find user by ID, if not found (e.g. email for new joiner), use raw ID
             const user = this.data.users.find(u => u.id === log.completedBy || u.email === log.completedBy);
             const userName = user ? user.name : (log.completedBy || 'Système');
             const date = new Date(log.completedAt).toLocaleString();
-            
-            let icon = '📜';
-            let color = '#aaa';
-            
-            if (isSystem) {
-                if (log.title === 'Nouveau membre') { icon = '👋'; color = '#27ae60'; }
-                if (log.title === 'Départ') { icon = '🚪'; color = '#e94560'; }
-            } else {
-                icon = '✅'; color = '#4a90e2';
-            }
-
+            let color = log.type === 'system' ? '#e94560' : '#4a90e2';
             return `<div class="history-item" style="border-left-color: ${color}">
-                <strong>${icon} ${log.title}</strong><br>
-                <small>${userName} • ${date} ${log.xpEarned > 0 ? '• +' + log.xpEarned + ' XP' : ''}</small>
+                <strong>${log.title}</strong><br>
+                <small>${userName} • ${date}</small>
             </div>`;
         }).join('');
     },
 
-    // --- Toast Notification System ---
-    lastLogId: null,
-
     watchForToasts() {
         if (!this.data || !this.data.questLog || this.data.questLog.length === 0) return;
-        const latestLog = this.data.questLog[0];
-        if (!this.lastLogId) {
-            this.lastLogId = latestLog.id;
-            return;
-        }
-        if (latestLog.id !== this.lastLogId) {
-            this.lastLogId = latestLog.id;
-            if (latestLog.completedBy === this.currentUser.id || latestLog.completedBy === auth.user.email) return;
-            this.showToastNotification(latestLog);
+        const latest = this.data.questLog[0];
+        if (!this.lastLogId) { this.lastLogId = latest.id; return; }
+        if (latest.id !== this.lastLogId) {
+            this.lastLogId = latest.id;
+            if (latest.completedBy === this.currentUser.id || latest.completedBy === auth.user.email) return;
+            this.showToastNotification(latest);
         }
     },
 
     showToastNotification(log) {
         const toast = document.getElementById('update-toast');
-        const btn = document.getElementById('update-btn');
         const span = toast.querySelector('span');
         const user = this.data.users.find(u => u.id === log.completedBy || u.email === log.completedBy);
-        const userName = user ? user.name : 'Quelqu\'un';
-        span.innerText = `${userName} : ${log.title}`;
-        if (btn) btn.style.display = 'none';
+        span.innerText = `${user ? user.name : 'Quelqu\'un'} : ${log.title}`;
         toast.classList.remove('hidden');
-        setTimeout(() => {
-            toast.classList.add('hidden');
-            if (btn) btn.style.display = 'inline-block';
-        }, 4000);
+        setTimeout(() => toast.classList.add('hidden'), 4000);
     },
 
     syncSettingsUI() {
-        // Guild Modal
         const elGuildName = document.getElementById('edit-guild-name');
         if (elGuildName) elGuildName.value = this.data.meta.guildName;
-        
         const elPublic = document.getElementById('edit-guild-public');
         if (elPublic) elPublic.value = String(!!this.data.meta.isPublic);
-
         const elOpen = document.getElementById('edit-guild-open');
         if (elOpen) elOpen.value = String(!!this.data.meta.isOpen);
-
         this.renderGuildMembers();
-
-        // Profile Modal
         const elUserName = document.getElementById('edit-user-name');
         if (elUserName) elUserName.value = this.currentUser.name;
-        
         const elUserAvatar = document.getElementById('edit-user-avatar');
         if (elUserAvatar) elUserAvatar.value = this.currentUser.avatar;
-
-        // Add Quit Button if not owner
         const isOwner = this.data.meta.owner === auth.user.email;
         const quitBtn = document.getElementById('quit-guild-btn');
-        if (quitBtn) {
-            quitBtn.style.display = isOwner ? 'none' : 'block';
-        }
+        if (quitBtn) quitBtn.style.display = isOwner ? 'none' : 'block';
     },
 
     renderGuildMembers() {
@@ -360,8 +300,7 @@ const app = {
         list.innerHTML = this.data.users.map(u => `
             <div style="display:flex; align-items:center; gap:10px; margin-bottom:5px; font-size:0.9rem;">
                 <span style="font-size:1.2rem;">${u.avatar}</span>
-                <span style="flex-grow:1;">${u.name}</span>
-                <span style="opacity:0.6; font-size:0.8rem;">Lvl ${u.level || 1}</span>
+                <span>${u.name} (Lvl ${u.level || 1})</span>
             </div>`).join('');
     },
 
@@ -370,15 +309,8 @@ const app = {
         document.getElementById('debug-guild-id').innerText = this.guildId; 
         document.getElementById('debug-users').innerHTML = this.data.users.map(u => `<div>${u.avatar} ${u.name} (${u.email})</div>`).join(''); 
     },
-    showLoading(s) { 
-        const el = document.getElementById('loading');
-        if (el) el.classList.toggle('hidden', !s); 
-    },
-    showModal(id) { 
-        const el = document.getElementById(id);
-        if (el) el.classList.remove('hidden');
-        else console.error(`Modal with ID '${id}' not found!`);
-    },
+    showLoading(s) { const el = document.getElementById('loading'); if (el) el.classList.toggle('hidden', !s); },
+    showModal(id) { const el = document.getElementById(id); if (el) el.classList.remove('hidden'); },
     hideModals() { document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')); },
     forceAppReset() { if(confirm('Réinitialiser ?')) { localStorage.clear(); window.location.reload(); } }
 };
