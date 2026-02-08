@@ -21,13 +21,19 @@ const app = {
 
     async handleJoinLink(id) {
         this.showLoading(true);
-        const success = await db.joinGuild(id, auth.user.email);
-        if (success) {
-            localStorage.setItem('currentGuildId', id);
-            window.history.replaceState({}, document.title, window.location.pathname);
-            window.location.reload();
-        } else {
-            alert("Impossible de rejoindre cette guilde.");
+        try {
+            const success = await db.joinGuild(id, auth.user.email);
+            if (success) {
+                localStorage.setItem('currentGuildId', id);
+                window.history.replaceState({}, document.title, window.location.pathname);
+                window.location.reload();
+            } else {
+                alert("Impossible de rejoindre cette guilde (Elle est peut-être fermée ou n'existe plus).");
+                await this.loadGuild();
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Erreur lors de l'adhésion.");
             await this.loadGuild();
         }
     },
@@ -37,19 +43,27 @@ const app = {
         try {
             let savedId = localStorage.getItem('currentGuildId');
             const guilds = await db.getAvailableGuilds(auth.user.email);
+            
             if (guilds.length > 0) {
                 const matched = guilds.find(g => g.id === savedId);
                 this.guildId = matched ? matched.id : guilds[0].id;
             } else {
+                // No guild at all, we don't auto-create anymore, 
+                // we'll let the user choose or create in the welcome screen logic
+                // But for now, to avoid blocking, let's create a default one if absolutely none found
                 this.guildId = await db.createGuild(auth.user.email, "Ma Guilde");
             }
+            
             localStorage.setItem('currentGuildId', this.guildId);
             db.listenToGuild(this.guildId, (data) => {
                 this.data = data;
                 this.handleDataUpdate();
                 this.showLoading(false);
             });
-        } catch (err) { console.error(err); this.showLoading(false); }
+        } catch (err) { 
+            console.error("Load Guild Error:", err); 
+            this.showLoading(false); 
+        }
     },
 
     handleDataUpdate() {
@@ -119,11 +133,34 @@ const app = {
         this.hideModals();
     },
 
-    async createNewGuild() {
-        const name = prompt("Nom de la nouvelle Guilde :");
-        if (!name) return;
-        const id = await db.createGuild(auth.user.email, name);
-        this.switchGuild(id);
+    async confirmCreateGuild() {
+        const name = document.getElementById('new-guild-name').value;
+        const isPublic = document.getElementById('new-guild-public').value === 'true';
+        const isOpen = document.getElementById('new-guild-open').value === 'true';
+
+        if (!name) return alert("Le nom de la guilde est requis.");
+
+        this.showLoading(true);
+        try {
+            const id = await db.createGuild(auth.user.email, name, isPublic, isOpen);
+            this.switchGuild(id);
+        } catch (err) {
+            console.error(err);
+            alert("Erreur lors de la création.");
+            this.showLoading(false);
+        }
+    },
+
+    async updateGuildSettings() {
+        if (!this.data) return;
+        this.data.meta.guildName = document.getElementById('edit-guild-name').value;
+        this.data.meta.isPublic = document.getElementById('edit-guild-public').value === 'true';
+        this.data.meta.isOpen = document.getElementById('edit-guild-open').value === 'true';
+        await this.save();
+    },
+
+    async renameGuild() {
+        this.updateGuildSettings();
     },
 
     async openGuildSwitcher() {
@@ -163,11 +200,6 @@ const app = {
         this.data.meta.isPublic = !this.data.meta.isPublic;
         await this.save();
         this.syncSettingsUI();
-    },
-
-    async renameGuild() {
-        const n = prompt("Nom :", this.data.meta.guildName);
-        if (n) { this.data.meta.guildName = n; await this.save(); }
     },
 
     setView(v) {
@@ -225,15 +257,27 @@ const app = {
     },
 
     syncSettingsUI() {
-        const elGuild = document.getElementById('current-guild-name');
-        if (elGuild) elGuild.innerText = this.data.meta.guildName;
+        const elGuild = document.getElementById('edit-guild-name');
+        if (elGuild) elGuild.value = this.data.meta.guildName;
+        
+        const elPublic = document.getElementById('edit-guild-public');
+        if (elPublic) elPublic.value = String(!!this.data.meta.isPublic);
+
+        const elOpen = document.getElementById('edit-guild-open');
+        if (elOpen) elOpen.value = String(!!this.data.meta.isOpen);
+
         document.getElementById('edit-user-name').value = this.currentUser.name;
         document.getElementById('edit-user-avatar').value = this.currentUser.avatar;
-        document.getElementById('public-status').innerText = this.data.meta.isPublic ? "Publique" : "Privée";
+        
+        const statusEl = document.getElementById('public-status');
+        if (statusEl) statusEl.innerText = this.data.meta.isPublic ? "Publique" : "Privée";
     },
 
     updateCurrentUserInfo() { this.currentUser.name = document.getElementById('edit-user-name').value; this.currentUser.avatar = document.getElementById('edit-user-avatar').value; this.save(); },
-    renderDevMode() { document.getElementById('debug-guild-id').innerText = this.guildId; document.getElementById('debug-users').innerHTML = this.data.users.map(u => `<div>${u.avatar} ${u.name} (${u.email})</div>`).join(''); },
+    renderDevMode() { 
+        document.getElementById('debug-guild-id').innerText = this.guildId; 
+        document.getElementById('debug-users').innerHTML = this.data.users.map(u => `<div>${u.avatar} ${u.name} (${u.email})</div>`).join(''); 
+    },
     showLoading(s) { document.getElementById('loading').classList.toggle('hidden', !s); },
     showModal(id) { document.getElementById(id).classList.remove('hidden'); },
     hideModals() { document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')); },

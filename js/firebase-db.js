@@ -33,7 +33,7 @@ const db = {
             .filter(g => g.meta.guildName.toLowerCase().includes(queryText.toLowerCase()));
     },
 
-    async createGuild(ownerEmail, name, isPublic = false) {
+    async createGuild(ownerEmail, name, isPublic = false, isOpen = true) {
         const newGuild = {
             meta: {
                 version: 3,
@@ -41,7 +41,7 @@ const db = {
                 guildName: name || "Nouvelle Guilde",
                 owner: ownerEmail,
                 isPublic: isPublic, 
-                isOpen: true        
+                isOpen: isOpen        
             },
             memberEmails: [ownerEmail],
             users: [],
@@ -66,12 +66,18 @@ const db = {
         const doc = await docRef.get();
         if (doc.exists) {
             const data = doc.data();
-            if (data.meta.isOpen && !data.memberEmails.includes(userEmail)) {
+            
+            // If already a member, return true
+            if (data.memberEmails.includes(userEmail)) {
+                return true;
+            }
+
+            // If guild is open, add member
+            if (data.meta.isOpen) {
                 data.memberEmails.push(userEmail);
                 await docRef.update({ memberEmails: data.memberEmails });
                 return true;
             }
-            return data.memberEmails.includes(userEmail);
         }
         return false;
     }
