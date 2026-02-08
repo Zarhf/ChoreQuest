@@ -356,35 +356,54 @@ input, select {
     to { transform: translateX(0); opacity: 1; }
 }
 
-/* Couleurs de Quêtes (Rareté basée sur XP) */
-.quest-card.rarity-common { border-left: 5px solid #95a5a6; } /* Gris */
-.quest-card.rarity-uncommon { border-left: 5px solid #27ae60; } /* Vert */
-.quest-card.rarity-rare { border-left: 5px solid #2980b9; } /* Bleu */
-.quest-card.rarity-epic { border-left: 5px solid #8e44ad; } /* Violet */
-.quest-card.rarity-legendary { border-left: 5px solid #f1c40f; box-shadow: 0 0 10px rgba(241, 196, 15, 0.3); } /* Or */
-
-.quest-card.upcoming { opacity: 0.6; filter: grayscale(0.5); }
-.quest-card.upcoming .complete-btn { display: none; }
-
-.recurrence-tag {
-    font-size: 0.7rem;
-    background: rgba(255,255,255,0.1);
-    padding: 2px 6px;
-    border-radius: 4px;
-    margin-left: 5px;
+/* Cartes de Quêtes - Design Rareté */
+.quest-card {
+    background: #2c3e50; /* Fallback */
+    margin-bottom: 1rem;
+    border-radius: 12px;
+    padding: 1.2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: 1px solid rgba(255,255,255,0.1);
+    color: white;
 }
 
-.undo-btn {
-    background: transparent;
-    border: 1px solid #e94560;
-    color: #e94560;
-    font-size: 0.7rem;
-    padding: 2px 8px;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-top: 5px;
+.quest-card.rarity-common { background: linear-gradient(135deg, #4b5563, #2d3748); }
+.quest-card.rarity-uncommon { background: linear-gradient(135deg, #059669, #064e3b); }
+.quest-card.rarity-rare { background: linear-gradient(135deg, #2563eb, #1e3a8a); }
+.quest-card.rarity-epic { background: linear-gradient(135deg, #7c3aed, #4c1d95); }
+.quest-card.rarity-legendary { 
+    background: linear-gradient(135deg, #d97706, #78350f); 
+    box-shadow: 0 0 15px rgba(217, 119, 6, 0.4);
+    border: 1px solid #fcd34d;
 }
 
-.undo-btn:hover { background: #e94560; color: white; }
+.quest-card h4 {
+    margin: 0 0 5px 0;
+    font-size: 1.1rem;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.upcoming-day-group {
+    margin-top: 1.5rem;
+}
+
+.upcoming-day-title {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #4a90e2;
+    margin-bottom: 10px;
+    border-bottom: 1px solid rgba(74, 144, 226, 0.2);
+    padding-bottom: 5px;
+}
+
+/* Toaster amélioré */
+#activity-toast {
+    min-width: 250px;
+    max-width: 90vw;
+}
 
 .hidden { display: none !important; }

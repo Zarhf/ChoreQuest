@@ -122,6 +122,7 @@ const app = {
         const log = this.data.questLog[idx];
         if (!confirm(`Annuler "${log.title}" ?`)) return;
 
+        // 1. Rollback XP
         const user = this.data.users.find(u => u.id === log.completedBy);
         if (user) {
             user.xp -= log.xpEarned;
@@ -129,12 +130,24 @@ const app = {
             else if (user.xp < 0) user.xp = 0;
         }
 
+        // 2. Rollback Task
         const quest = this.data.activeQuests.find(q => q.definitionId === log.definitionId);
-        if (quest) quest.dueDate = new Date(0).toISOString();
+        if (quest) quest.dueDate = new Date(0).toISOString(); // Available now
         else if (log.type === 'completion') {
             this.data.activeQuests.push({ id: log.instanceId, definitionId: log.definitionId, title: log.title, xp: log.xpEarned, dueDate: new Date(0).toISOString() });
         }
+
+        // 3. Special Undo Log
         this.data.questLog.splice(idx, 1);
+        this.data.questLog.unshift({
+            id: 'log_undo_' + Date.now(),
+            type: 'system',
+            title: `Annulation : ${log.title}`,
+            completedBy: this.currentUser.id,
+            completedAt: new Date().toISOString(),
+            xpEarned: 0
+        });
+
         await this.save();
     },
 
@@ -142,22 +155,26 @@ const app = {
         const title = document.getElementById('quest-title').value;
         const xp = parseInt(document.getElementById('quest-difficulty').value);
         const freq = document.getElementById('quest-frequency').value;
-        const timeslot = document.getElementById('quest-timeslot').value;
+        const tStart = document.getElementById('quest-time-start').value;
+        const tEnd = document.getElementById('quest-time-end').value;
         const days = Array.from(document.querySelectorAll('input[name="quest-day"]:checked')).map(cb => cb.value);
 
         if (!title || isNaN(xp)) return;
         const defId = 'def_' + Date.now();
-        this.data.questDefinitions.push({ id: defId, title, baseXp: xp, frequency: freq, days, timeSlot: timeslot });
-        this.data.activeQuests.push({ id: 'inst_' + Date.now(), definitionId: defId, title, xp, dueDate: new Date().toISOString(), timeSlot: timeslot });
+        const timeSlot = (tStart && tEnd) ? { start: tStart, end: tEnd } : null;
+
+        this.data.questDefinitions.push({ id: defId, title, baseXp: xp, frequency: freq, days, timeSlot });
+        this.data.activeQuests.push({ id: 'inst_' + Date.now(), definitionId: defId, title, xp, dueDate: new Date().toISOString(), timeSlot });
         
-        this.data.questLog.unshift({ id: 'log_cr_'+Date.now(), type: 'system', title: `Quête créée : ${title}`, completedBy: this.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
+        this.data.questLog.unshift({ id: 'log_cr_'+Date.now(), type: 'system', title: `Nouvelle quête créée : ${title}`, completedBy: this.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
         await this.save();
         this.hideModals();
     },
 
-    // --- UI ---
+    // --- UI Helpers ---
     getQuestRarity(xp) {
-        const maxXP = Math.max(...this.data.questDefinitions.map(d => d.baseXp), 150);
+        if (!this.data.questDefinitions.length) return 'rarity-common';
+        const maxXP = Math.max(...this.data.questDefinitions.map(d => d.baseXp), 10);
         const r = xp / maxXP;
         if (r >= 0.9) return 'rarity-legendary';
         if (r >= 0.7) return 'rarity-epic';
@@ -193,31 +210,48 @@ const app = {
         const active = this.data.activeQuests.filter(q => q.dueDate <= now);
         const upcoming = this.data.activeQuests.filter(q => q.dueDate > now).sort((a,b) => a.dueDate.localeCompare(b.dueDate));
 
-        const html = (q, up) => {
+        const questHtml = (q, up) => {
             const rarity = this.getQuestRarity(q.xp);
             const def = this.data.questDefinitions.find(d => d.id === q.definitionId);
             const freq = (def && def.frequency !== 'none') ? '🔄' : '';
+            const time = q.timeSlot ? ` • 🕒 ${q.timeSlot.start}-${q.timeSlot.end}` : '';
             return `<div class="quest-card ${rarity} ${up ? 'upcoming' : ''}">
                 <div class="quest-info">
                     <h4>${freq} ${q.title}</h4>
-                    <span>💰 ${q.xp} XP ${q.timeSlot ? '• 🕒 ' + q.timeSlot : ''}</span>
-                    ${up ? '<br><small>📅 ' + new Date(q.dueDate).toLocaleDateString() + '</small>' : ''}
+                    <span>💰 ${q.xp} XP${time}</span>
                 </div>
                 ${!up ? `<button class="complete-btn" onclick="app.completeTask('${q.id}')">Valider</button>` : ''}
             </div>`;
         };
 
-        document.getElementById('task-list').innerHTML = active.length ? active.map(q => html(q, false)).join('') : '<p style="text-align:center; opacity:0.5;">Repos du guerrier...</p>';
-        document.getElementById('upcoming-task-list').innerHTML = upcoming.length ? upcoming.slice(0, 5).map(q => html(q, true)).join('') : '<p style="text-align:center; opacity:0.2;">Rien à l\'horizon.</p>';
+        document.getElementById('task-list').innerHTML = active.length ? active.map(q => questHtml(q, false)).join('') : '<p style="text-align:center; opacity:0.5;">Tout est calme...</p>';
+        
+        // Group Upcoming by Day
+        const groups = {};
+        upcoming.forEach(q => {
+            const d = new Date(q.dueDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+            if (!groups[d]) groups[d] = [];
+            groups[d].push(q);
+        });
+
+        document.getElementById('upcoming-task-list').innerHTML = upcoming.length ? 
+            Object.keys(groups).map(day => `
+                <div class="upcoming-day-group">
+                    <div class="upcoming-day-title">${day}</div>
+                    ${groups[day].map(q => questHtml(q, true)).join('')}
+                </div>`).join('') : '<p style="text-align:center; opacity:0.2;">Rien de prévu.</p>';
     },
 
     renderHistory() {
         document.getElementById('history-list').innerHTML = this.data.questLog.map(log => {
             const user = this.data.users.find(u => u.id === log.completedBy || u.email === log.completedBy);
             const color = log.type === 'system' ? '#e94560' : '#4a90e2';
+            let actionText = log.type === 'completion' ? "a accompli" : "a effectué";
+            if (log.title.includes('Annulation')) actionText = "a annulé";
+            
             return `<div class="history-item" style="border-left-color: ${color}">
                 <div style="display:flex; justify-content:space-between; align-items:start;">
-                    <div><strong>${log.title}</strong><br><small>${user ? user.name : 'Système'} • ${new Date(log.completedAt).toLocaleString()}</small></div>
+                    <div><strong>${log.title}</strong><br><small>${user ? user.name : 'Système'} ${actionText} • ${new Date(log.completedAt).toLocaleString()}</small></div>
                     ${log.type === 'completion' ? `<button class="undo-btn" onclick="app.undoLog('${log.id}')">Annuler</button>` : ''}
                 </div>
             </div>`;
@@ -230,28 +264,32 @@ const app = {
         if (!this.lastLogId) { this.lastLogId = latest.id; return; }
         if (latest.id !== this.lastLogId) {
             this.lastLogId = latest.id;
-            if (latest.completedBy === this.currentUser?.id || latest.completedBy === auth.user.email) return;
-            this.showActivityToast(latest);
+            const isMe = (latest.completedBy === this.currentUser?.id || latest.completedBy === auth.user.email);
+            if (!isMe) this.showActivityToast(latest);
         }
     },
 
     showActivityToast(log) {
         const t = document.getElementById('activity-toast');
         const user = this.data.users.find(u => u.id === log.completedBy || u.email === log.completedBy);
+        const name = user ? user.name : 'Un membre';
+        let verb = "a validé";
+        if (log.type === 'system') verb = "info :";
+        if (log.title.includes('Annulation')) verb = "a annulé";
+
         document.getElementById('toast-icon').innerText = log.type === 'system' ? '🛡️' : '⚔️';
-        document.getElementById('toast-message').innerText = `${user ? user.name : 'Quelqu\'un'} : ${log.title}`;
+        document.getElementById('toast-message').innerText = `${name} ${verb} "${log.title}"`;
         t.classList.remove('hidden'); setTimeout(() => t.classList.add('hidden'), 5000);
     },
 
     syncSettingsUI() {
-        document.getElementById('edit-guild-name').value = this.data.meta.guildName;
-        document.getElementById('edit-guild-public').value = String(!!this.data.meta.isPublic);
-        document.getElementById('edit-guild-open').value = String(!!this.data.meta.isOpen);
+        const elName = document.getElementById('edit-guild-name'); if (elName) elName.value = this.data.meta.guildName;
+        const elPub = document.getElementById('edit-guild-public'); if (elPub) elPub.value = String(!!this.data.meta.isPublic);
+        const elOpen = document.getElementById('edit-guild-open'); if (elOpen) elOpen.value = String(!!this.data.meta.isOpen);
         this.renderGuildMembers();
-        document.getElementById('edit-user-name').value = this.currentUser.name;
-        document.getElementById('edit-user-avatar').value = this.currentUser.avatar;
-        const quitBtn = document.getElementById('quit-guild-btn');
-        if (quitBtn) quitBtn.style.display = (this.data.meta.owner === auth.user.email) ? 'none' : 'block';
+        const elUName = document.getElementById('edit-user-name'); if (elUName) elUName.value = this.currentUser.name;
+        const elUAvatar = document.getElementById('edit-user-avatar'); if (elUAvatar) elUAvatar.value = this.currentUser.avatar;
+        const qBtn = document.getElementById('quit-guild-btn'); if (qBtn) qBtn.style.display = (this.data.meta.owner === auth.user.email) ? 'none' : 'block';
     },
 
     renderGuildMembers() {
@@ -279,6 +317,7 @@ const app = {
     async copyInviteLink() { const url = `${window.location.origin}${window.location.pathname}?join=${this.guildId}`; await navigator.clipboard.writeText(url); alert("Lien copié !"); },
     switchGuild(id) { localStorage.setItem('currentGuildId', id); window.location.reload(); },
     async toggleGuildPublic() { this.data.meta.isPublic = !this.data.meta.isPublic; await this.save(); this.syncSettingsUI(); },
-    async leaveGuild() { if (!confirm("Quitter ?")) return; this.showLoading(true); await db.leaveGuild(this.guildId, auth.user.email); localStorage.removeItem('currentGuildId'); window.location.reload(); }
+    async leaveGuild() { if (!confirm("Quitter ?")) return; this.showLoading(true); await db.leaveGuild(this.guildId, auth.user.email); localStorage.removeItem('currentGuildId'); window.location.reload(); },
+    async updateGuildSettings() { if (!this.data) return; this.data.meta.guildName = document.getElementById('edit-guild-name').value; this.data.meta.isPublic = document.getElementById('edit-guild-public').value === 'true'; this.data.meta.isOpen = document.getElementById('edit-guild-open').value === 'true'; await this.save(); },
 };
 app.init();

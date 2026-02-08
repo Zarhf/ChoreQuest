@@ -151,9 +151,13 @@
                         <label style="font-size:0.7rem;">XP Récompense :</label>
                         <input type="number" id="quest-difficulty" value="50">
                     </div>
-                    <div>
-                        <label style="font-size:0.7rem;">Plage horaire (Optionnel) :</label>
-                        <input type="text" id="quest-timeslot" placeholder="ex: 18h-20h">
+                    <div style="display:flex; flex-direction:column;">
+                        <label style="font-size:0.7rem;">Plage horaire :</label>
+                        <div style="display:flex; gap:5px; align-items:center;">
+                            <input type="time" id="quest-time-start" style="margin:0; font-size:0.8rem;">
+                            <span>-</span>
+                            <input type="time" id="quest-time-end" style="margin:0; font-size:0.8rem;">
+                        </div>
                     </div>
                 </div>
 
