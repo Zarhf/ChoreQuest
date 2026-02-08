@@ -72,7 +72,6 @@ const app = {
 
     async save() { if (this.guildId && this.data) await db.updateGuild(this.guildId, this.data); },
 
-    // --- Game Logic ---
     async completeTask(instanceId) {
         const index = this.data.activeQuests.findIndex(q => q.id === instanceId);
         if (index === -1) return;
@@ -130,7 +129,6 @@ const app = {
         const log = this.data.questLog[idx];
         if (!confirm(`Annuler "${log.title}" ?`)) return;
 
-        // 1. Rollback XP
         const user = this.data.users.find(u => u.id === log.completedBy);
         if (user) {
             user.xp -= log.xpEarned;
@@ -138,14 +136,12 @@ const app = {
             else if (user.xp < 0) user.xp = 0;
         }
 
-        // 2. Rollback Task
         const quest = this.data.activeQuests.find(q => q.definitionId === log.definitionId);
         if (quest) quest.dueDate = new Date(0).toISOString();
         else if (log.type === 'completion') {
             this.data.activeQuests.push({ id: log.instanceId, definitionId: log.definitionId, title: log.title, xp: log.xpEarned, dueDate: new Date(0).toISOString() });
         }
 
-        // 3. Special Undo Log
         this.data.questLog.splice(idx, 1);
         this.data.questLog.unshift({
             id: 'log_undo_' + Date.now(),
@@ -205,10 +201,12 @@ const app = {
         const elBoard = document.getElementById('quest-board');
         const elHistory = document.getElementById('history-board');
         if (this.currentView === 'board') {
-            elBoard.classList.remove('hidden'); elHistory.classList.add('hidden');
+            if (elBoard) elBoard.classList.remove('hidden');
+            if (elHistory) elHistory.classList.add('hidden');
             this.renderBoard();
         } else {
-            elBoard.classList.add('hidden'); elHistory.classList.remove('hidden');
+            if (elBoard) elBoard.classList.add('hidden');
+            if (elHistory) elHistory.classList.remove('hidden');
             this.renderHistory();
         }
     },
@@ -221,7 +219,7 @@ const app = {
         // Projeter les suivantes
         active.forEach(q => {
             const def = this.data.questDefinitions.find(d => d.id === q.definitionId);
-            if (def && def.frequency !== 'none') {
+            if (def && def.frequency && def.frequency !== 'none') {
                 const nextDate = this.calculateNextDueDate(def);
                 upcoming.push({ ...q, id: 'virtual_' + q.id, dueDate: nextDate.toISOString(), isVirtual: true });
             }
@@ -233,16 +231,18 @@ const app = {
             const def = this.data.questDefinitions.find(d => d.id === q.definitionId);
             const freq = (def && def.frequency !== 'none') ? '🔄' : '';
             const time = q.timeSlot ? ` • 🕒 ${q.timeSlot.start}-${q.timeSlot.end}` : '';
-            return `<div class="quest-card ${rarity} ${up ? 'upcoming' : ''}">
+            const virtualIcon = q.isVirtual ? '🔮 ' : '';
+            
+            return `<div class="quest-card ${rarity} ${up ? 'upcoming' : ''}" style="${q.isVirtual ? 'border: 1px dashed rgba(255,255,255,0.3);' : ''}">
                 <div class="quest-info">
-                    <h4>${freq} ${q.title}</h4>
+                    <h4>${virtualIcon}${freq} ${q.title}</h4>
                     <span>💰 ${q.xp} XP${time}</span>
                 </div>
                 ${!up ? `<button class="complete-btn" onclick="app.completeTask('${q.id}')">Valider</button>` : ''}
             </div>`;
         };
 
-        document.getElementById('task-list').innerHTML = active.length ? active.map(q => html(q, false)).join('') : '<p style="text-align:center; opacity:0.5;">Tout est calme...</p>';
+        document.getElementById('task-list').innerHTML = active.length ? active.map(q => html(q, false)).join('') : '<p style="text-align:center; opacity:0.5;">Tout est fait !</p>';
         
         const groups = {};
         upcoming.forEach(q => {
@@ -265,7 +265,7 @@ const app = {
             const color = log.type === 'system' ? '#e94560' : '#4a90e2';
             let actionText = log.type === 'completion' ? "a triomphé de" : "a effectué";
             if (log.title.includes('Annulation')) actionText = "a annulé";
-            if (log.title.includes('Nouvelle quête')) actionText = "a forgé";
+            if (log.title.includes('Nouvelle quête')) actionText = "a créé";
             
             return `<div class="history-item" style="border-left-color: ${color}">
                 <div style="display:flex; justify-content:space-between; align-items:start;">
@@ -282,8 +282,8 @@ const app = {
         if (!this.lastLogId) { this.lastLogId = latest.id; return; }
         if (latest.id !== this.lastLogId) {
             this.lastLogId = latest.id;
-            const isMe = (latest.completedBy === this.currentUser?.id || latest.completedBy === auth.user.email);
-            if (!isMe) this.showActivityToast(latest);
+            if (latest.completedBy === this.currentUser?.id || latest.completedBy === auth.user.email) return;
+            this.showActivityToast(latest);
         }
     },
 
@@ -293,8 +293,8 @@ const app = {
         const name = user ? user.name : 'Un membre';
         let verb = "a validé";
         if (log.type === 'system') verb = "info :";
-        if (log.title.includes('Annulation')) verb = "a annulé l'action";
-        if (log.title.includes('Nouvelle quête')) verb = "a créé une quête";
+        if (log.title.includes('Annulation')) verb = "a annulé";
+        if (log.title.includes('Nouvelle quête')) verb = "a créé";
 
         document.getElementById('toast-icon').innerText = log.type === 'system' ? '🛡️' : '⚔️';
         document.getElementById('toast-message').innerText = `${name} ${verb} : "${log.title}"`;
@@ -321,26 +321,6 @@ const app = {
         document.getElementById('debug-users').innerHTML = 
             `<h4>Membres</h4>` + this.data.users.map(u => `<div>${u.name} (${u.email})</div>`).join('') +
             `<h4>Définitions</h4>` + this.data.questDefinitions.map(d => `<div>${d.title} (${d.frequency})</div>`).join('');
-    },
-
-    renderBoard() {
-        // ... (début inchangé)
-        const questHtml = (q, up) => {
-            const rarity = this.getQuestRarity(q.xp);
-            const def = this.data.questDefinitions.find(d => d.id === q.definitionId);
-            const freq = (def && def.frequency !== 'none') ? '🔄' : '';
-            const time = q.timeSlot ? ` • 🕒 ${q.timeSlot.start}-${q.timeSlot.end}` : '';
-            const virtualIcon = q.isVirtual ? '🔮 ' : ''; // Indicateur visuel pour le debug
-            
-            return `<div class="quest-card ${rarity} ${up ? 'upcoming' : ''}" style="${q.isVirtual ? 'border: 1px dashed rgba(255,255,255,0.3);' : ''}">
-                <div class="quest-info">
-                    <h4>${virtualIcon}${freq} ${q.title}</h4>
-                    <span>💰 ${q.xp} XP${time}</span>
-                </div>
-                ${!up ? `<button class="complete-btn" onclick="app.completeTask('${q.id}')">Valider</button>` : ''}
-            </div>`;
-        };
-        // ... (reste inchangé)
     },
     setView(v) { this.currentView = v; document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.id === `tab-${v}`)); this.render(); },
     showLoading(s) { const el = document.getElementById('loading'); if (el) el.classList.toggle('hidden', !s); },
