@@ -27,7 +27,7 @@ const app = {
                 window.history.replaceState({}, document.title, window.location.pathname);
                 window.location.reload();
             } else {
-                alert("Impossible de rejoindre cette guilde.");
+                alert("Impossible de rejoindre.");
                 await app.loadGuild();
             }
         } catch (err) { console.error(err); await app.loadGuild(); }
@@ -79,22 +79,23 @@ const app = {
         return `<img src="${avatarStr}" alt="Avatar" style="width:${size}; height:${size}; border-radius:50%; display:block;">`;
     },
 
-    setAvatarStyle(style) {
+    setAvatarStyle(style, prefix = 'edit') {
         app.currentAvatarStyle = style;
-        document.querySelectorAll('.style-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.innerText.toLowerCase().includes(style.split('-')[0]));
+        document.querySelectorAll(`#${prefix}-avatar-preview ~ .style-selector .style-btn`).forEach(btn => {
+            btn.classList.toggle('active', btn.innerText.toLowerCase().includes(style.slice(0,3)));
         });
-        app.updateAvatarPreview();
+        app.updateAvatarPreview(prefix);
     },
 
-    updateAvatarPreview() {
-        const seedInput = document.getElementById('edit-avatar-seed');
-        const seed = seedInput ? seedInput.value : 'Quest';
+    updateAvatarPreview(prefix = 'edit') {
+        const seedInput = document.getElementById(`${prefix}-avatar-seed`);
+        const seed = (seedInput && seedInput.value) ? seedInput.value : (app.currentUser?.name || 'Quest');
         const url = `https://api.dicebear.com/7.x/${app.currentAvatarStyle}/svg?seed=${encodeURIComponent(seed)}`;
-        const preview = document.getElementById('edit-avatar-preview');
+        const preview = document.getElementById(`${prefix}-avatar-preview`);
         if (preview) preview.innerHTML = `<img src="${url}" alt="Preview" style="width:100%; height:100%;">`;
         
-        if (app.mainUser && document.getElementById('profile-modal').offsetParent) {
+        // Auto-save main user
+        if (prefix === 'edit' && app.mainUser && document.getElementById('profile-modal').offsetParent) {
             app.mainUser.avatar = url;
             app.save();
         }
@@ -109,7 +110,8 @@ const app = {
     // --- Hero & Squire Management ---
     async addSquire() {
         const name = document.getElementById('squire-name').value;
-        const avatar = document.getElementById('squire-avatar').value;
+        const seed = document.getElementById('squire-avatar-seed').value || name;
+        const avatar = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`;
         if (!name) return;
         const newSquire = { id: 'sq_' + Date.now(), name, avatar, xp: 0, level: 1, managedBy: app.mainUser.id };
         app.data.users.push(newSquire);
@@ -136,6 +138,16 @@ const app = {
         const nextUser = rotationList[(currentIndex + 1) % rotationList.length];
         if (nextUser.id === app.mainUser.id) app.stopImpersonating();
         else app.impersonate(nextUser.id);
+    },
+
+    async finishOnboarding() {
+        const name = document.getElementById('new-user-name').value;
+        const seed = document.getElementById('onboard-avatar-seed').value || name;
+        const avatar = `https://api.dicebear.com/7.x/${app.currentAvatarStyle}/svg?seed=${encodeURIComponent(seed)}`;
+        if (!name) return;
+        app.data.users.push({ id: 'u_' + Date.now(), name, avatar, email: auth.user.email, xp: 0, level: 1 });
+        await app.save();
+        app.hideModals();
     },
 
     // --- Quest Logic ---
@@ -330,6 +342,10 @@ const app = {
         document.getElementById('next-level-xp').innerText = xpNeeded;
         document.getElementById('xp-progress').style.width = `${(app.currentUser.xp / xpNeeded) * 100}%`;
 
+        // Profile Button miniature
+        const profBtn = document.getElementById('profile-btn');
+        if (profBtn) profBtn.innerHTML = app.getAvatarHtml(app.currentUser.avatar, "40px");
+
         // Quick Switch Button
         const squires = app.data.users.filter(u => u.managedBy === app.mainUser.id);
         const switchBtn = document.getElementById('quick-switch-btn');
@@ -338,7 +354,7 @@ const app = {
             const rotationList = [app.mainUser, ...squires];
             const currentIndex = rotationList.findIndex(u => u.id === app.currentUser.id);
             const nextUser = rotationList[(currentIndex + 1) % rotationList.length];
-            switchBtn.innerHTML = app.getAvatarHtml(nextUser.avatar, "26px");
+            switchBtn.innerHTML = app.getAvatarHtml(nextUser.avatar, "30px");
             switchBtn.title = `Passer à ${nextUser.name}`;
         } else {
             switchBtn.classList.add('hidden');
@@ -419,7 +435,13 @@ const app = {
         document.getElementById('history-list').innerHTML = app.data.questLog.map(log => {
             const user = app.data.users.find(u => u.id === log.completedBy || u.email === log.completedBy);
             const color = log.type === 'system' ? '#e94560' : '#4a90e2';
-            return `<div class="history-item" style="border-left-color: ${color}"><div style="display:flex; justify-content:space-between; align-items:start;"><div><strong>${log.title}</strong><br><small>${user ? user.name : '??'} • ${new Date(log.completedAt).toLocaleString()}</small></div>${log.type === 'completion' ? `<button class="undo-btn" onclick="app.undoLog('${log.id}')">Annuler</button>` : ''}</div></div>`;
+            return `<div class="history-item" style="border-left-color: ${color}"><div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    ${app.getAvatarHtml(user ? user.avatar : '🛡️', "30px")}
+                    <div><strong>${log.title}</strong><br><small>${user ? user.name : '??'} • ${new Date(log.completedAt).toLocaleString()}</small></div>
+                </div>
+                ${log.type === 'completion' ? `<button class="undo-btn" onclick="app.undoLog('${log.id}')">Annuler</button>` : ''}
+            </div></div>`;
         }).join('');
     },
 
@@ -437,9 +459,11 @@ const app = {
     showActivityToast(log) {
         const t = document.getElementById('activity-toast');
         const user = app.data.users.find(u => u.id === log.completedBy || u.email === log.completedBy);
+        const elAvatar = document.getElementById('toast-avatar');
+        if (elAvatar) elAvatar.innerHTML = app.getAvatarHtml(user ? user.avatar : '🛡️', "30px");
+        
         let verb = log.type === 'system' ? "info :" : "a validé";
         if (log.title.includes('Annulation')) verb = "a annulé";
-        document.getElementById('toast-icon').innerText = log.type === 'system' ? '🛡️' : '⚔️';
         document.getElementById('toast-message').innerText = `${user ? user.name : 'Quelqu\'un'} ${verb} : "${log.title}"`;
         t.classList.remove('hidden'); setTimeout(() => t.classList.add('hidden'), 5000);
     },
@@ -447,28 +471,21 @@ const app = {
     syncSettingsUI() {
         const elName = document.getElementById('edit-guild-name');
         if (elName) elName.value = app.data.meta.guildName;
-        const elPub = document.getElementById('edit-guild-public');
-        if (elPub) elPub.value = String(!!app.data.meta.isPublic);
-        const elOpen = document.getElementById('edit-guild-open');
-        if (elOpen) elOpen.value = String(!!app.data.meta.isOpen);
-        
         app.renderGuildMembers();
-        
         const memberOptions = `<option value="">⚔️ Pour tous</option>` + app.data.users.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
         const elQAssignee = document.getElementById('quest-assignee');
         if (elQAssignee) elQAssignee.innerHTML = memberOptions;
         const elEditQAssignee = document.getElementById('edit-quest-assignee');
         if (elEditQAssignee) elEditQAssignee.innerHTML = memberOptions;
-
         const elUName = document.getElementById('edit-user-name');
         if (elUName) elUName.value = app.mainUser.name;
         
+        // Seed initialization
         const elSeed = document.getElementById('edit-avatar-seed');
         if (elSeed && !elSeed.value && app.mainUser.avatar.includes('seed=')) {
             const urlParts = app.mainUser.avatar.split('seed=');
             if (urlParts.length > 1) elSeed.value = decodeURIComponent(urlParts[1]);
         }
-
         app.updateAvatarPreview();
         
         const squires = app.data.users.filter(u => u.managedBy === app.mainUser.id);
@@ -477,9 +494,6 @@ const app = {
         if (elSquireList) {
             elSquireList.innerHTML = squires.map(s => `<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; margin-bottom:5px;"><span>${app.getAvatarHtml(s.avatar, "20px")} <b>${s.name}</b></span>${impersonatedId === s.id ? `<button class="action-btn danger-btn" onclick="app.stopImpersonating()" style="width:auto; padding:2px 8px; font-size:0.7rem;">Quitter</button>` : `<button class="action-btn" onclick="app.impersonate('${s.id}')" style="width:auto; padding:2px 8px; font-size:0.7rem;">Incarner</button>`}</div>`).join('') || '<p style="font-size:0.7rem; opacity:0.5;">Aucun écuyer.</p>';
         }
-
-        const qBtn = document.getElementById('quit-guild-btn');
-        if (qBtn) qBtn.style.display = (app.data.meta.owner === auth.user.email) ? 'none' : 'block';
     },
 
     toggleRecurrenceUI(prefix) {

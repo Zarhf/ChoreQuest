@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChoreQuest</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=61">
+    <link rel="stylesheet" href="css/styles.css?v=64">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
 </head>
@@ -20,29 +20,29 @@
                 const names = await caches.keys();
                 for (let name of names) { await caches.delete(name); }
                 alert('Application réinitialisée !');
-                window.location.href = window.location.origin + window.location.pathname + '?force_v=' + Date.now();
+                window.location.href = window.location.pathname + '?force_v=' + Date.now();
             }
         }
         handleNuke();
     </script>
 
-    <script src="js/version-manager.js?v=61"></script>
+    <script src="js/version-manager.js?v=64"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
     <div id="app">
         <header>
-            <h1>🛡️ ChoreQuest <span id="sync-indicator" title="Synchronisé"></span></h1>
+            <h1>⚔️ ChoreQuest <span id="sync-indicator" title="Synchronisé"></span></h1>
             <div id="auth-container" class="header-actions">
                 <button id="guild-btn" class="icon-btn hidden" onclick="app.showModal('guild-settings-modal')" title="Ma Guilde">🏰</button>
-                <button id="profile-btn" class="icon-btn hidden" onclick="app.showModal('profile-modal')" title="Mon Profil">👤</button>
+                <button id="profile-btn" class="icon-btn hidden" onclick="app.showModal('profile-modal')" title="Mon Profil" style="padding:0; overflow:hidden; border-radius:50%; width:40px; height:40px; border:2px solid #4a90e2;"></button>
             </div>
         </header>
 
         <main>
             <div id="loading" class="hidden">
-                <div class="loader-shield">🛡️</div>
+                <div class="loader-shield">⚔️</div>
                 <div style="margin-top:10px; font-variant:small-caps; letter-spacing:2px;">Chargement...</div>
             </div>
             
@@ -50,7 +50,7 @@
                 <div id="user-profile">
                     <div style="position:relative;">
                         <div class="avatar-circle" id="user-avatar-display">👤</div>
-                        <button id="quick-switch-btn" class="hidden" onclick="app.rotateUser()" style="position:absolute; bottom:-5px; right:-10px; background:#4a90e2; border:2px solid #1a1a2e; border-radius:50%; width:30px; height:30px; font-size:1.2rem; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 5px rgba(0,0,0,0.5);" title="Passer au suivant"></button>
+                        <button id="quick-switch-btn" class="hidden" onclick="app.rotateUser()" style="position:absolute; bottom:-5px; right:-10px; background:#4a90e2; border:2px solid #1a1a2e; border-radius:50%; width:30px; height:30px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 5px rgba(0,0,0,0.5); overflow:hidden; padding:0;"></button>
                     </div>
                     <div class="user-stats">
                         <h3 id="user-name">Héros</h3>
@@ -66,7 +66,6 @@
                 </div>
 
                 <div id="quest-board">
-                    <h2>Quêtes Actives</h2>
                     <div id="task-list"></div>
                     <h2 style="margin-top:2rem; opacity:0.7;">Prochainement</h2>
                     <div id="upcoming-task-list"></div>
@@ -81,100 +80,68 @@
             
             <section id="welcome-screen" class="hidden">
                 <div style="text-align: center; margin-top: 2rem;">
-                    <p>Bienvenue, brave Héros !</p>
+                    <p>Bienvenue dans la Guilde, aventurier !</p>
                     <button class="action-btn" onclick="auth.login()">Se connecter avec Google</button>
                 </div>
             </section>
         </main>
 
-        <!-- Quest Creation Modal -->
+        <!-- Onboarding Modal (NEW: With customizer) -->
+        <div id="onboarding-modal" class="modal hidden">
+            <div class="modal-content">
+                <h2>Crée ton Héros</h2>
+                <div class="avatar-preview-container">
+                    <div class="avatar-circle" id="onboard-avatar-preview">👤</div>
+                    <div class="style-selector">
+                        <button class="style-btn active" onclick="app.setAvatarStyle('adventurer', 'onboard')">RPG</button>
+                        <button class="style-btn" onclick="app.setAvatarStyle('pixel-art', 'onboard')">Pixel</button>
+                        <button class="style-btn" onclick="app.setAvatarStyle('miniavs', 'onboard')">Mignon</button>
+                    </div>
+                    <input type="text" id="onboard-avatar-seed" placeholder="Ton nom..." oninput="app.updateAvatarPreview('onboard')" style="margin-top:10px;">
+                </div>
+                <input type="text" id="new-user-name" placeholder="Nom du Héros">
+                <button class="action-btn" onclick="app.finishOnboarding()" style="background-color:#27ae60;">Commencer l'Aventure</button>
+            </div>
+        </div>
+
+        <!-- Quest Modal -->
         <div id="quest-modal" class="modal hidden">
             <div class="modal-content">
                 <h2>Nouvelle Quête</h2>
                 <input type="text" id="quest-title" placeholder="Titre de la quête">
-                
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                    <div><label style="font-size:0.7rem;">XP Récompense :</label><input type="number" id="quest-difficulty" value="50"></div>
-                    <div style="display:flex; flex-direction:column;"><label style="font-size:0.7rem;">Horaires :</label>
-                        <div style="display:flex; gap:2px;"><input type="time" id="quest-time-start"><input type="time" id="quest-time-end"></div>
-                    </div>
+                    <div><label style="font-size:0.7rem;">XP :</label><input type="number" id="quest-difficulty" value="50"></div>
+                    <div><label style="font-size:0.7rem;">Horaires :</label><div style="display:flex; gap:2px;"><input type="time" id="quest-time-start"><input type="time" id="quest-time-end"></div></div>
                 </div>
-
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
-                    <div>
-                        <label style="font-size:0.7rem;">Récurrence :</label>
-                        <select id="quest-frequency" onchange="app.toggleRecurrenceUI('quest')">
-                            <option value="none">Une seule fois</option><option value="daily">Jours</option><option value="weekly">Semaines</option><option value="monthly">Mois</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label style="font-size:0.7rem;">Assigné à :</label>
-                        <select id="quest-assignee"></select>
-                    </div>
+                    <div><label style="font-size:0.7rem;">Récurrence :</label><select id="quest-frequency" onchange="app.toggleRecurrenceUI('quest')"><option value="none">Une seule fois</option><option value="daily">Jours</option><option value="weekly">Semaines</option><option value="monthly">Mois</option></select></div>
+                    <div><label style="font-size:0.7rem;">Assigné à :</label><select id="quest-assignee"></select></div>
                 </div>
-
                 <div id="quest-interval-container" class="hidden"><label style="font-size:0.7rem;">Tous les :</label><input type="number" id="quest-interval" value="1" min="1"></div>
-                <div id="quest-days-selector" class="hidden" style="margin-top:10px;">
-                    <div style="display:flex; justify-content:space-between;"><label><input type="checkbox" name="quest-day" value="1"> L</label><label><input type="checkbox" name="quest-day" value="2"> M</label><label><input type="checkbox" name="quest-day" value="3"> M</label><label><input type="checkbox" name="quest-day" value="4"> J</label><label><input type="checkbox" name="quest-day" value="5"> V</label><label><input type="checkbox" name="quest-day" value="6"> S</label><label><input type="checkbox" name="quest-day" value="0"> D</label></div>
-                </div>
-
+                <div id="quest-days-selector" class="hidden" style="margin-top:10px;"><div style="display:flex; justify-content:space-between;"><label><input type="checkbox" name="quest-day" value="1"> L</label><label><input type="checkbox" name="quest-day" value="2"> M</label><label><input type="checkbox" name="quest-day" value="3"> M</label><label><input type="checkbox" name="quest-day" value="4"> J</label><label><input type="checkbox" name="quest-day" value="5"> V</label><label><input type="checkbox" name="quest-day" value="6"> S</label><label><input type="checkbox" name="quest-day" value="0"> D</label></div></div>
                 <button class="action-btn" style="margin-top:20px; background-color:#4a90e2;" onclick="app.addQuest()">Ajouter</button>
                 <button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button>
             </div>
         </div>
 
-        <!-- Quest Edition Modal -->
+        <!-- Edit Quest Modal -->
         <div id="edit-quest-modal" class="modal hidden">
             <div class="modal-content">
                 <div class="modal-header"><h2>Modifier</h2><button class="close-btn" onclick="app.hideModals()">X</button></div>
                 <input type="hidden" id="edit-quest-id">
                 <input type="text" id="edit-quest-title">
-                
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                     <div><label style="font-size:0.7rem;">XP :</label><input type="number" id="edit-quest-difficulty"></div>
-                    <div><label style="font-size:0.7rem;">Horaires :</label>
-                        <div style="display:flex; gap:2px;"><input type="time" id="edit-quest-time-start"><input type="time" id="edit-quest-time-end"></div>
-                    </div>
+                    <div><label style="font-size:0.7rem;">Horaires :</label><div style="display:flex; gap:2px;"><input type="time" id="edit-quest-time-start"><input type="time" id="edit-quest-time-end"></div></div>
                 </div>
-
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
-                    <div>
-                        <label style="font-size:0.7rem;">Récurrence :</label>
-                        <select id="edit-quest-frequency" onchange="app.toggleRecurrenceUI('edit-quest')">
-                            <option value="none">Une seule fois</option><option value="daily">Jours</option><option value="weekly">Semaines</option><option value="monthly">Mois</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label style="font-size:0.7rem;">Assigné à :</label>
-                        <select id="edit-quest-assignee"></select>
-                    </div>
+                    <div><label style="font-size:0.7rem;">Récurrence :</label><select id="edit-quest-frequency" onchange="app.toggleRecurrenceUI('edit-quest')"><option value="none">Une seule fois</option><option value="daily">Jours</option><option value="weekly">Semaines</option><option value="monthly">Mois</option></select></div>
+                    <div><label style="font-size:0.7rem;">Assigné à :</label><select id="edit-quest-assignee"></select></div>
                 </div>
-
                 <div id="edit-quest-interval-container" class="hidden"><label style="font-size:0.7rem;">Tous les :</label><input type="number" id="edit-quest-interval" value="1" min="1"></div>
-                <div id="edit-quest-days-selector" class="hidden" style="margin-top:10px;">
-                    <div style="display:flex; justify-content:space-between;"><label><input type="checkbox" name="edit-quest-day" value="1"> L</label><label><input type="checkbox" name="edit-quest-day" value="2"> M</label><label><input type="checkbox" name="edit-quest-day" value="3"> M</label><label><input type="checkbox" name="edit-quest-day" value="4"> J</label><label><input type="checkbox" name="edit-quest-day" value="5"> V</label><label><input type="checkbox" name="edit-quest-day" value="6"> S</label><label><input type="checkbox" name="edit-quest-day" value="0"> D</label></div>
-                </div>
-
+                <div id="edit-quest-days-selector" class="hidden" style="margin-top:10px;"><div style="display:flex; justify-content:space-between;"><label><input type="checkbox" name="edit-quest-day" value="1"> L</label><label><input type="checkbox" name="edit-quest-day" value="2"> M</label><label><input type="checkbox" name="edit-quest-day" value="3"> M</label><label><input type="checkbox" name="edit-quest-day" value="4"> J</label><label><input type="checkbox" name="edit-quest-day" value="5"> V</label><label><input type="checkbox" name="edit-quest-day" value="6"> S</label><label><input type="checkbox" name="edit-quest-day" value="0"> D</label></div></div>
                 <button class="action-btn" style="margin-top:20px; background-color:#27ae60;" onclick="app.saveQuestEdits()">Enregistrer</button>
                 <button class="action-btn danger-btn" onclick="app.archiveQuest()">🗑️ Supprimer</button>
-            </div>
-        </div>
-
-        <!-- Guild Settings Modal -->
-        <div id="guild-settings-modal" class="modal hidden">
-            <div class="modal-content">
-                <div class="modal-header"><h2>🏰 Ma Guilde</h2><button class="close-btn" onclick="app.hideModals()">X</button></div>
-                <div class="settings-group">
-                    <input type="text" id="edit-guild-name" onchange="app.renameGuild()" style="margin-bottom:10px; font-weight:bold; width:100%;">
-                    <div style="font-size:0.8rem; margin-bottom:15px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                        <div>Visibilité : <select id="edit-guild-public" onchange="app.updateGuildSettings()"><option value="false">🔒 Privée</option><option value="true">🌍 Publique</option></select></div>
-                        <div>Accès : <select id="edit-guild-open" onchange="app.updateGuildSettings()"><option value="true">✅ Ouverte</option><option value="false">⛔ Fermée</option></select></div>
-                    </div>
-                    <h4>Membres</h4><div id="guild-members-list"></div>
-                    <button class="action-btn" onclick="app.copyInviteLink()" style="background-color:#27ae60; font-size:0.8rem; margin-bottom:10px;">🔗 Copier lien d'invitation</button>
-                    <button class="action-btn secondary-btn" onclick="app.openGuildSwitcher()" style="font-size:0.8rem; margin-bottom:10px;">🔄 Changer de Guilde</button>
-                    <button id="quit-guild-btn" class="action-btn danger-btn" onclick="app.leaveGuild()" style="font-size:0.8rem;">🚪 Quitter cette Guilde</button>
-                </div>
             </div>
         </div>
 
@@ -187,11 +154,11 @@
                     <div class="avatar-preview-container">
                         <div class="avatar-circle" id="edit-avatar-preview">👤</div>
                         <div class="style-selector">
-                            <button class="style-btn active" onclick="app.setAvatarStyle('adventurer')">Aventurier</button>
-                            <button class="style-btn" onclick="app.setAvatarStyle('pixel-art')">Rétro</button>
+                            <button class="style-btn active" onclick="app.setAvatarStyle('adventurer')">RPG</button>
+                            <button class="style-btn" onclick="app.setAvatarStyle('pixel-art')">Pixel</button>
                             <button class="style-btn" onclick="app.setAvatarStyle('miniavs')">Mignon</button>
                         </div>
-                        <input type="text" id="edit-avatar-seed" placeholder="Ton nom ou un mot magique..." oninput="app.updateAvatarPreview()" style="margin-top:10px;">
+                        <input type="text" id="edit-avatar-seed" placeholder="Mot magique..." oninput="app.updateAvatarPreview()" style="margin-top:10px;">
                         <button class="action-btn secondary-btn" onclick="app.randomAvatar()" style="padding:5px; font-size:0.7rem;">🎲 Aléatoire</button>
                     </div>
                     <input type="text" id="edit-user-name" onchange="app.updateCurrentUserInfo()" placeholder="Nom du Héros">
@@ -201,52 +168,49 @@
                     <div id="squire-list" style="margin-bottom:10px;"></div>
                     <button class="action-btn" style="background:#27ae60; font-size:0.7rem; width:auto; padding:5px 10px;" onclick="app.showModal('create-squire-modal')">+ Ajouter un Écuyer</button>
                 </div>
-                <button class="action-btn secondary-btn" onclick="auth.logout()" style="font-size:0.8rem; margin-top:10px;">Déconnexion</button>
+                <button class="action-btn secondary-btn" onclick="auth.logout()" style="font-size:0.8rem;">Déconnexion</button>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
                     <button class="action-btn" onclick="app.showModal('dev-modal'); app.renderDevMode();" style="background-color:#6c757d; font-size:0.7rem;">🛠️ Admin</button>
                     <button class="action-btn danger-btn" onclick="app.forceAppReset()" style="font-size:0.7rem;">⚠️ Réparer</button>
                 </div>
-                <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">v2.7.1</small>
+                <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">v2.8.2</small>
             </div>
         </div>
 
+        <!-- Squire Modal -->
         <div id="create-squire-modal" class="modal hidden">
             <div class="modal-content">
                 <h2>Nouvel Écuyer</h2>
-                <input type="text" id="squire-name" placeholder="Nom de l'enfant">
-                <select id="squire-avatar"><option value="👶">👶 Bébé</option><option value="🛡️">🛡️ Apprenti</option><option value="🎨">🎨 Artiste</option></select>
-                <button class="action-btn" onclick="app.addSquire()" style="background-color:#27ae60;">Ajouter</button>
+                <div class="avatar-preview-container">
+                    <div class="avatar-circle" id="squire-avatar-preview">👤</div>
+                    <input type="text" id="squire-avatar-seed" placeholder="Prénom de l'enfant..." oninput="app.updateAvatarPreview('squire')" style="margin-top:10px;">
+                </div>
+                <input type="text" id="squire-name" placeholder="Nom de l'écuyer">
+                <button class="action-btn" onclick="app.addSquire()" style="background-color:#27ae60;">Ajouter à ma suite</button>
                 <button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button>
             </div>
         </div>
 
-        <div id="guild-switcher-modal" class="modal hidden">
-            <div class="modal-content"><h2>Mes Guildes</h2><div id="guild-list-container"></div><hr style="border:0; border-top:1px solid #444; margin:1rem 0;"><h3>Rechercher</h3><div style="display:flex; gap:5px; margin-bottom:10px;"><input type="text" id="guild-search-input" placeholder="Nom..."><button class="action-btn" onclick="app.searchGuilds()" style="width:auto;">🔍</button></div><div id="guild-search-results"></div><button class="action-btn" onclick="app.showModal('create-guild-modal')" style="background-color:#27ae60; margin-bottom:10px;">➕ Créer une Guilde</button><button class="action-btn secondary-btn" onclick="app.hideModals()">Fermer</button></div>
+        <!-- Guild Modals -->
+        <div id="guild-settings-modal" class="modal hidden">
+            <div class="modal-content"><div class="modal-header"><h2>🏰 Ma Guilde</h2><button class="close-btn" onclick="app.hideModals()">X</button></div><div class="settings-group"><input type="text" id="edit-guild-name" onchange="app.renameGuild()" style="margin-bottom:10px; font-weight:bold; width:100%;"><div style="font-size:0.8rem; margin-bottom:15px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;"><div>Visibilité : <select id="edit-guild-public" onchange="app.updateGuildSettings()"><option value="false">🔒 Privée</option><option value="true">🌍 Publique</option></select></div><div>Accès : <select id="edit-guild-open" onchange="app.updateGuildSettings()"><option value="true">✅ Ouverte</option><option value="false">⛔ Fermée</option></select></div></div><h4>Membres</h4><div id="guild-members-list"></div><button class="action-btn" onclick="app.copyInviteLink()" style="background-color:#27ae60; font-size:0.8rem; margin-bottom:10px;">🔗 Copier lien d'invitation</button><button class="action-btn secondary-btn" onclick="app.openGuildSwitcher()" style="font-size:0.8rem; margin-bottom:10px;">🔄 Changer de Guilde</button><button id="quit-guild-btn" class="action-btn danger-btn" onclick="app.leaveGuild()" style="font-size:0.8rem;">🚪 Quitter cette Guilde</button></div></div>
         </div>
-
-        <div id="create-guild-modal" class="modal hidden">
-            <div class="modal-content"><h2>Nouvelle Guilde</h2><input type="text" id="new-guild-name" placeholder="Nom"><button class="action-btn" onclick="app.confirmCreateGuild()" style="background-color:#27ae60;">Créer</button><button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button></div>
-        </div>
-
-        <div id="onboarding-modal" class="modal hidden">
-            <div class="modal-content"><h2>Bienvenue</h2><p>Créez votre Héros.</p><input type="text" id="new-user-name" placeholder="Nom"><select id="new-user-avatar"><option value="🛡️">🛡️ Guerrier</option><option value="🔮">🔮 Mage</option></select><button class="action-btn" onclick="app.finishOnboarding()">Commencer</button></div>
-        </div>
-
-        <div id="dev-modal" class="modal hidden">
-            <div class="modal-content"><h2>🛠️ Admin</h2><code id="debug-guild-id"></code><div id="debug-users"></div><button class="action-btn secondary-btn" onclick="app.hideModals()">Fermer</button></div>
-        </div>
+        <div id="guild-switcher-modal" class="modal hidden"><div class="modal-content"><h2>Mes Guildes</h2><div id="guild-list-container"></div><hr style="border:0; border-top:1px solid #444; margin:1rem 0;"><h3>Rechercher</h3><div style="display:flex; gap:5px; margin-bottom:10px;"><input type="text" id="guild-search-input" placeholder="Nom..."><button class="action-btn" onclick="app.searchGuilds()" style="width:auto;">🔍</button></div><div id="guild-search-results"></div><button class="action-btn" onclick="app.showModal('create-guild-modal')" style="background-color:#27ae60; margin-bottom:10px;">➕ Créer une Guilde</button><button class="action-btn secondary-btn" onclick="app.hideModals()">Fermer</button></div></div>
+        <div id="create-guild-modal" class="modal hidden"><div class="modal-content"><h2>Nouvelle Guilde</h2><input type="text" id="new-guild-name" placeholder="Nom"><button class="action-btn" onclick="app.confirmCreateGuild()" style="background-color:#27ae60;">Créer</button><button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button></div></div>
+        <div id="dev-modal" class="modal hidden"><div class="modal-content"><h2>🛠️ Admin</h2><code id="debug-guild-id"></code><div id="debug-users"></div><button class="action-btn secondary-btn" onclick="app.hideModals()">Fermer</button></div></div>
     </div>
 
-    <div id="activity-toast" class="hidden"><span id="toast-icon">📜</span> <span id="toast-message">...</span></div>
+    <!-- Notifications UI -->
+    <div id="activity-toast" class="hidden"><div id="toast-avatar" class="assignee-badge" style="width:30px; height:30px;"></div> <span id="toast-message">...</span></div>
 
-    <script src="js/config.js?v=61"></script>
-    <script src="js/auth.js?v=61"></script>
-    <script src="js/firebase-db.js?v=61"></script>
-    <script src="js/app.js?v=61"></script>
+    <script src="js/config.js?v=64"></script>
+    <script src="js/auth.js?v=64"></script>
+    <script src="js/firebase-db.js?v=64"></script>
+    <script src="js/app.js?v=64"></script>
 
     <script>
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js?v=61'); });
+            window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js?v=64'); });
         }
     </script>
 </body>
