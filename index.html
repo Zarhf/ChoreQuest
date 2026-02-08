@@ -5,11 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChoreQuest</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=30">
+    <link rel="stylesheet" href="css/styles.css?v=31">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
 </head>
 <body>
+    <script>
+        async function handleNuke() {
+            if (window.location.search.includes('nuke=true')) {
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (let registration of registrations) { await registration.unregister(); }
+                }
+                const names = await caches.keys();
+                for (let name of names) { await caches.delete(name); }
+                alert('Application réinitialisée !');
+                window.location.href = window.location.pathname + '?v=' + Date.now();
+            }
+        }
+        handleNuke();
+    </script>
+
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -110,9 +126,9 @@
 
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                         <button class="action-btn" onclick="app.showModal('dev-modal'); app.renderDevMode();" style="background-color: #6c757d; font-size:0.7rem;">🛠️ Admin</button>
-                        <button class="action-btn danger-btn" onclick="app.forceAppReset()" style="font-size:0.7rem;">⚠️ Réinitialiser</button>
+                        <button class="action-btn danger-btn" onclick="app.forceAppReset()" style="font-size:0.7rem;">⚠️ Réparer</button>
                     </div>
-                    <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">ChoreQuest v2.0.0 (Firebase)</small>
+                    <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">v2.0.1 (Firebase)</small>
                 </div>
             </div>
         </div>
@@ -186,15 +202,15 @@
     </div>
 
     <!-- App Logic -->
-    <script src="js/config.js?v=30"></script>
-    <script src="js/auth.js?v=30"></script>
-    <script src="js/firebase-db.js?v=30"></script>
-    <script src="js/app.js?v=30"></script>
+    <script src="js/config.js?v=31"></script>
+    <script src="js/auth.js?v=31"></script>
+    <script src="js/firebase-db.js?v=31"></script>
+    <script src="js/app.js?v=31"></script>
 
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js?v=30').then(reg => {
+                navigator.serviceWorker.register('sw.js?v=31').then(reg => {
                     reg.addEventListener('updatefound', () => {
                         const newWorker = reg.installing;
                         newWorker.addEventListener('statechange', () => {
@@ -205,6 +221,11 @@
                                 };
                             }
                         });
+                    });
+                    
+                    setInterval(() => { reg.update(); }, 1000 * 60 * 15);
+                    document.addEventListener('visibilitychange', () => {
+                        if (document.visibilityState === 'visible') reg.update();
                     });
                 });
             });

@@ -1,12 +1,12 @@
-const CACHE_NAME = 'chorequest-v30'; 
+const CACHE_NAME = 'chorequest-v31'; 
 const ASSETS = [
     './',
     './index.html',
-    './css/styles.css?v=30',
-    './js/app.js?v=30',
-    './js/auth.js?v=30',
-    './js/firebase-db.js?v=30',
-    './js/config.js?v=30',
+    './css/styles.css?v=31',
+    './js/app.js?v=31',
+    './js/auth.js?v=31',
+    './js/firebase-db.js?v=31',
+    './js/config.js?v=31',
     './manifest.json'
 ];
 
