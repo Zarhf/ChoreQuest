@@ -1,0 +1,26 @@
+name: Deploy Version to Firestore
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'version.json' # Only run if version changes
+
+jobs:
+  update-db:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          
+      - name: Install Dependencies
+        run: npm install firebase-admin
+        
+      - name: Update Firestore Version
+        run: node scripts/update-db.js
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

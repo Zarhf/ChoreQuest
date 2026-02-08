@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>ChoreQuest Admin Console</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { background: #1a1a2e; color: #e0e0e0; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 2rem; }
+        h1 { color: #e94560; }
+        .card { background: #16213e; padding: 2rem; border-radius: 12px; border: 1px solid #4a90e2; text-align: center; }
+        button { background: #e94560; color: white; border: none; padding: 1rem 2rem; font-size: 1.2rem; border-radius: 8px; cursor: pointer; margin-top: 1rem; }
+        button:hover { background: #c0392b; }
+        code { background: #000; padding: 5px; display: block; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>⚠️ Console d'Urgence</h1>
+    <div class="card">
+        <p>Utilisez ce bouton pour forcer TOUS les appareils à se mettre à jour.</p>
+        <p>Version actuelle forcée : <strong>v72</strong></p>
+        <button onclick="forceUpdate()">🚀 FORCER LA MISE À JOUR (v72)</button>
+        <div id="status" style="margin-top:20px; opacity:0.7;">En attente...</div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="js/config.js"></script>
+    <script>
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        async function forceUpdate() {
+            const status = document.getElementById('status');
+            status.innerText = "Connexion...";
+            
+            try {
+                // Anonymous auth is enough if rules allow, otherwise trigger popup
+                await firebase.auth().signInAnonymously().catch(() => {
+                    return firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider());
+                });
+
+                status.innerText = "Écriture en cours...";
+                await db.collection('system').doc('config').set({
+                    minBuild: 72,
+                    lastUpdate: new Date().toISOString(),
+                    forcedBy: 'Admin Console'
+                }, { merge: true });
+
+                status.innerHTML = "✅ SUCCÈS ! Ordre envoyé.<br>Les clients vont redémarrer dans quelques secondes.";
+            } catch (e) {
+                status.innerText = "❌ ERREUR: " + e.message;
+                console.error(e);
+            }
+        }
+    </script>
+</body>
+</html>
