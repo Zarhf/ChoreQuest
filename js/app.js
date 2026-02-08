@@ -235,8 +235,8 @@ const app = {
             const freq = (def && def.frequency !== 'none') ? '🔄' : '';
             const time = q.timeSlot ? ` • 🕒 ${q.timeSlot.start}-${q.timeSlot.end}` : '';
             return `<div class="quest-card ${rarity} ${up ? 'upcoming' : ''}">
-                <div class="quest-info" onclick="${!up ? `app.openEditQuestModal('${q.id}')` : ''}" style="cursor:pointer">
-                    <h4>${freq} ${q.title} ${!up ? '✏️' : ''}</h4>
+                <div class="quest-info">
+                    <h4>${freq} ${q.title} ${!up ? `<span class="edit-icon" onclick="event.stopPropagation(); app.openEditQuestModal('${q.id}')">✏️</span>` : ''}</h4>
                     <span>💰 ${q.xp} XP${time}</span>
                 </div>
                 ${!up ? `<button class="complete-btn" onclick="app.completeTask('${q.id}')">Valider</button>` : ''}

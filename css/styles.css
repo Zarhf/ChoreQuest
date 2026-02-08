@@ -368,6 +368,22 @@ input, select {
     transition: transform 0.2s, box-shadow 0.2s;
     border: 1px solid rgba(255,255,255,0.1);
     color: white;
+    user-select: none; /* Empêche la sélection de texte */
+    -webkit-user-select: none;
+}
+
+.edit-icon {
+    display: inline-block;
+    padding: 5px 10px;
+    margin-left: 5px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.edit-icon:hover {
+    background: rgba(255,255,255,0.2);
 }
 
 .quest-card.rarity-common { background: linear-gradient(135deg, #4b5563, #2d3748); }
