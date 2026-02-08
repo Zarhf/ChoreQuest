@@ -123,25 +123,15 @@ const app = {
         window.location.reload();
     },
 
-    async joinGuildById() {
-        const id = prompt("Saisissez l'ID de la Guilde à rejoindre (donné par le propriétaire) :");
-        if (!id || id.length < 10) return;
-
-        this.showLoading(true);
+    async searchGuildOnDrive() {
         try {
-            const meta = await DriveAPI.getFileMetadata(id);
-            if (meta) {
-                this.switchGuild(id);
+            const fileId = await DriveAPI.showPicker();
+            if (fileId) {
+                this.switchGuild(fileId);
             }
         } catch (err) {
-            console.error("Join failed:", err);
-            let msg = "Impossible de trouver cette Guilde.";
-            if (err.status === 403) msg += "\nErreur 403 : Accès refusé. Vérifiez que le fichier a bien été partagé avec votre email et que vous avez accepté les permissions Drive.";
-            if (err.status === 404) msg += "\nErreur 404 : Fichier introuvable. Vérifiez l'ID.";
-            
-            alert(msg);
-        } finally {
-            this.showLoading(false);
+            console.error("Picker failed:", err);
+            alert("Impossible d'ouvrir l'explorateur Google Drive.");
         }
     },
 

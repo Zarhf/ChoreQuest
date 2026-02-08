@@ -48,7 +48,7 @@ function gapiLoaded() {
         waitForObject('gapi', gapiLoaded);
         return;
     }
-    gapi.load('client', initializeGapiClient);
+    gapi.load('client:picker', initializeGapiClient);
 }
 
 async function initializeGapiClient() {

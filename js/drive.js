@@ -37,6 +37,35 @@ const DriveAPI = {
         }
     },
 
+    // Open the official Google Drive Picker to find shared files
+    async showPicker() {
+        return new Promise((resolve, reject) => {
+            const token = gapi.client.getToken()?.access_token;
+            if (!token) return reject("Non connecté");
+
+            const view = new google.picker.DocsView(google.picker.ViewId.DOCS);
+            view.setMode(google.picker.DocsViewMode.LIST);
+            view.setQuery(CONFIG.DB_FILENAME); // Pre-search for our DB name
+            view.setOwnedByMe(false); // Focus on shared files
+
+            const picker = new google.picker.PickerBuilder()
+                .addView(view)
+                .addView(google.picker.ViewId.DOCS_SHARED_WITH_ME) // Second tab for shared files
+                .setOAuthToken(token)
+                .setDeveloperKey(CONFIG.API_KEY)
+                .setCallback((data) => {
+                    if (data.action === google.picker.Action.PICKED) {
+                        const fileId = data.docs[0].id;
+                        resolve(fileId);
+                    } else if (data.action === google.picker.Action.CANCEL) {
+                        resolve(null);
+                    }
+                })
+                .build();
+            picker.setVisible(true);
+        });
+    },
+
     // Get specific file info by ID (to "capture" a shared file)
     async getFileMetadata(fileId) {
         try {
