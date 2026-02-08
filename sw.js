@@ -1,12 +1,12 @@
-const CACHE_NAME = 'chorequest-v17'; 
+const CACHE_NAME = 'chorequest-v20'; 
 const ASSETS = [
     './',
     './index.html',
-    './css/styles.css?v=17',
-    './js/app.js?v=17',
-    './js/auth.js?v=17',
-    './js/drive.js?v=17',
-    './js/config.js?v=17',
+    './css/styles.css?v=20',
+    './js/app.js?v=20',
+    './js/auth.js?v=20',
+    './js/drive.js?v=20',
+    './js/config.js?v=20',
     './manifest.json'
 ];
 
@@ -35,33 +35,19 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (e) => {
     const url = new URL(e.request.url);
-    
-    // Stratégie différente selon le type de ressource
-    
-    // 1. Navigation (HTML) -> Network First (Toujours chercher la dernière version)
     if (e.request.mode === 'navigate') {
         e.respondWith(
-            fetch(e.request)
-                .then((response) => {
-                    return caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(e.request, response.clone());
-                        return response;
-                    });
-                })
-                .catch(() => {
-                    return caches.match(e.request);
-                })
+            fetch(e.request).then((response) => {
+                return caches.open(CACHE_NAME).then((cache) => {
+                    cache.put(e.request, response.clone());
+                    return response;
+                });
+            }).catch(() => caches.match(e.request))
         );
         return;
     }
-
-    // 2. Assets statiques (JS/CSS/Images) -> Cache First (Rapide)
     if (url.origin === location.origin) {
-        e.respondWith(
-            caches.match(e.request).then((response) => {
-                return response || fetch(e.request);
-            })
-        );
+        e.respondWith(caches.match(e.request).then((response) => response || fetch(e.request)));
     }
 });
 
