@@ -234,9 +234,10 @@ const app = {
             const def = this.data.questDefinitions.find(d => d.id === q.definitionId);
             const freq = (def && def.frequency !== 'none') ? '🔄' : '';
             const time = q.timeSlot ? ` • 🕒 ${q.timeSlot.start}-${q.timeSlot.end}` : '';
+            
             return `<div class="quest-card ${rarity} ${up ? 'upcoming' : ''}">
                 <div class="quest-info">
-                    <h4>${freq} ${q.title} ${!up ? `<span class="edit-icon" onclick="event.stopPropagation(); app.openEditQuestModal('${q.id}')">✏️</span>` : ''}</h4>
+                    <h4>${freq} ${q.title} <span class="edit-icon" onclick="event.stopPropagation(); app.openEditQuestModal('${q.id}')">✏️</span></h4>
                     <span>💰 ${q.xp} XP${time}</span>
                 </div>
                 ${!up ? `<button class="complete-btn" onclick="app.completeTask('${q.id}')">Valider</button>` : ''}
