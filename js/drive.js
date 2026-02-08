@@ -174,6 +174,8 @@ const DriveAPI = {
             return response.result;
         } catch (err) {
             console.error('Error reading file:', err);
+            // If 404, it might be a permission issue that readonly scope can fix, 
+            // or the file is genuinely gone.
             throw err;
         }
     },
