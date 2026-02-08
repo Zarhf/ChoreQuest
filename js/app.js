@@ -39,7 +39,6 @@ const app = {
                 localStorage.setItem('currentGuildId', id);
                 window.history.replaceState({}, document.title, window.location.pathname);
                 app.hideModals();
-                // Alert if it's a new join
                 if (!result.alreadyMember) alert("🛡️ Bienvenue dans cette nouvelle guilde !");
                 await app.loadGuild();
             } else {
@@ -56,7 +55,9 @@ const app = {
             const guilds = await db.getAvailableGuilds(auth.user.email);
             
             if (guilds.length > 0) {
-                app.guildId = guilds.find(g => g.id === savedId)?.id || guilds[0].id;
+                // If saved ID is valid, use it. Otherwise default to first one.
+                const targetGuild = guilds.find(g => g.id === savedId) || guilds[0];
+                app.guildId = targetGuild.id;
                 localStorage.setItem('currentGuildId', app.guildId);
                 
                 db.listenToGuild(app.guildId, (data) => {
@@ -79,16 +80,14 @@ const app = {
         app.mainUser = app.data.users.find(u => u.email === auth.user.email);
         
         if (!app.mainUser) {
-            // USER IN GUILD BUT NO HERO DATA -> Show Onboarding with Context
             app.currentUser = null;
             document.getElementById('new-user-name').value = auth.user.displayName || "";
             app.showView('content'); 
             app.showModal('onboarding-modal');
         } else {
-            // Admin push version
             if (app.data.meta.owner === auth.user.email) {
                 if (!sessionStorage.getItem('system_version_pushed')) {
-                    db.setSystemConfig(77); 
+                    db.setSystemConfig(78); // Push v78
                     sessionStorage.setItem('system_version_pushed', 'true');
                 }
             }
@@ -160,15 +159,11 @@ const app = {
         const seedInput = document.getElementById(`${prefix}-avatar-seed`);
         const seed = (seedInput && seedInput.value) ? seedInput.value : (app.currentUser?.name || auth.user?.displayName || 'Quest');
         const url = `https://api.dicebear.com/7.x/${app.currentAvatarStyle}/svg?seed=${encodeURIComponent(seed)}`;
-        
         const preview = document.getElementById(`${prefix}-avatar-preview`);
         if (preview) preview.innerHTML = `<img src="${url}" alt="Preview" style="width:100%; height:100%; object-fit:cover;">`;
-        
-        if (prefix === 'edit' && app.currentUser) {
-            if (forceSave || (seedInput && seedInput.value)) {
-                app.currentUser.avatar = url;
-                app.save();
-            }
+        if (prefix === 'edit' && app.currentUser && forceSave) {
+            app.currentUser.avatar = url;
+            app.save();
         }
     },
 
@@ -236,21 +231,21 @@ const app = {
         if (index === -1) return;
         const quest = app.data.activeQuests[index];
         const def = app.data.questDefinitions.find(d => d.id === quest.definitionId);
-        
         app.currentUser.xp += parseInt(quest.xp);
         const xpNeeded = (app.currentUser.level || 1) * 100;
         if (app.currentUser.xp >= xpNeeded) {
             app.currentUser.level = (app.currentUser.level || 1) + 1;
-            app.currentUser.xp -= (app.currentUser.level - 1) * 100;
+            app.currentUser.xp -= xpNeeded;
             alert(`🎊 LEVEL UP! ${app.currentUser.name} est Niveau ${app.currentUser.level} !`);
         }
-
         app.data.questLog.unshift({ id: 'log_'+Date.now(), type: 'completion', title: quest.title, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: quest.xp, instanceId: instanceId, definitionId: quest.definitionId });
         if (app.data.questLog.length > 50) app.data.questLog.pop();
         if (def && def.frequency && def.frequency !== 'none') {
             quest.dueDate = app.calculateNextDueDate(def).toISOString();
             quest.assignedTo = def.defaultAssignee || null;
-        } else app.data.activeQuests.splice(index, 1);
+        } else {
+            app.data.activeQuests.splice(index, 1);
+        }
         await app.save();
     },
 
@@ -382,6 +377,7 @@ const app = {
     // --- UI Rendering ---
     render() {
         if (!app.currentUser) return;
+        document.getElementById('content').classList.remove('hidden');
         const isSquire = app.currentUser.id !== app.mainUser.id;
         document.getElementById('user-name').innerText = (isSquire ? '📜 ' : '') + app.currentUser.name;
         document.getElementById('user-avatar-display').innerHTML = app.getAvatarHtml(app.currentUser.avatar, "80px");
@@ -447,7 +443,11 @@ const app = {
     showActivityToast(log) { const t = document.getElementById('activity-toast'); const user = app.data.users.find(u => u.id === log.completedBy || u.email === log.completedBy); const elAvatar = document.getElementById('toast-avatar'); if (elAvatar) elAvatar.innerHTML = app.getAvatarHtml(user ? user.avatar : '?', "30px"); let verb = log.type === 'system' ? "info :" : "a validé"; if (log.title.includes('Annulation')) verb = "a annulé"; document.getElementById('toast-message').innerText = `${user ? user.name : 'Un membre'} ${verb} : "${log.title}"`; t.classList.remove('hidden'); setTimeout(() => t.classList.add('hidden'), 5000); },
     syncSettingsUI() {
         const elName = document.getElementById('edit-guild-name'); if (elName) elName.value = app.data.meta.guildName;
+        const elPub = document.getElementById('edit-guild-public'); if (elPub) elPub.value = String(!!app.data.meta.isPublic);
+        const elOpen = document.getElementById('edit-guild-open'); if (elOpen) elOpen.value = String(!!app.data.meta.isOpen);
+        
         app.renderGuildMembers();
+        
         const memberOptions = `<option value="">❓ Pour tous</option>` + app.data.users.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
         const elQAssignee = document.getElementById('quest-assignee'); if (elQAssignee) elQAssignee.innerHTML = memberOptions;
         const elEditQAssignee = document.getElementById('edit-quest-assignee'); if (elEditQAssignee) elEditQAssignee.innerHTML = memberOptions;
@@ -457,6 +457,9 @@ const app = {
         const squires = app.data.users.filter(u => u.managedBy === app.mainUser.id);
         const impersonatedId = localStorage.getItem('impersonatedHeroId');
         const elSquireList = document.getElementById('squire-list'); if (elSquireList) elSquireList.innerHTML = squires.map(s => `<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; margin-bottom:5px;"><span>${app.getAvatarHtml(s.avatar, "20px")} <b>${s.name}</b></span>${impersonatedId === s.id ? `<button class="action-btn danger-btn" onclick="app.stopImpersonating()" style="width:auto; padding:2px 8px; font-size:0.7rem;">Quitter</button>` : `<button class="action-btn" onclick="app.impersonate('${s.id}')" style="width:auto; padding:2px 8px; font-size:0.7rem;">Incarner</button>`}</div>`).join('') || '<p style="font-size:0.7rem; opacity:0.5;">Aucun écuyer.</p>';
+        
+        const qBtn = document.getElementById('quit-guild-btn');
+        if (qBtn) qBtn.style.display = (app.data.meta.owner === auth.user.email) ? 'none' : 'block';
     },
     toggleRecurrenceUI(prefix) { const elFreq = document.getElementById(`${prefix}-frequency`); if (!elFreq) return; const val = elFreq.value; const intervalContainer = document.getElementById(`${prefix}-interval-container`); const daysSelector = document.getElementById(`${prefix}-days-selector`); if (intervalContainer) intervalContainer.classList.toggle('hidden', val === 'none'); if (daysSelector) daysSelector.classList.toggle('hidden', val !== 'weekly'); },
     renderGuildMembers() { const elList = document.getElementById('guild-members-list'); if (elList) elList.innerHTML = app.data.users.map(u => `<div style="display:flex; gap:10px; margin-bottom:5px;"><span>${app.getAvatarHtml(u.avatar, "20px")}</span><span>${u.name} (Lvl ${u.level || 1})</span></div>`).join(''); },
