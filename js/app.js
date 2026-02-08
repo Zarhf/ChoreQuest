@@ -75,8 +75,11 @@ const app = {
     // --- Avatar Management ---
     getAvatarHtml(avatarStr, size = "40px") {
         if (!avatarStr) return '👤';
-        if (avatarStr.length <= 8) return `<span style="font-size:calc(${size} * 0.8)">${avatarStr}</span>`; 
-        return `<img src="${avatarStr}" alt="Avatar" style="width:${size}; height:${size}; border-radius:50%; display:block;">`;
+        // Improved detection: URLs start with http
+        if (!avatarStr.startsWith('http')) {
+            return `<div style="width:${size}; height:${size}; display:flex; align-items:center; justify-content:center; font-size:calc(${size} * 0.6); background:#16213e; border-radius:50%;">${avatarStr}</div>`;
+        }
+        return `<img src="${avatarStr}" alt="Avatar" style="width:${size}; height:${size}; border-radius:50%; display:block; object-fit:cover;">`;
     },
 
     setAvatarStyle(style, prefix = 'edit') {
@@ -84,27 +87,31 @@ const app = {
         document.querySelectorAll(`#${prefix}-avatar-preview ~ .style-selector .style-btn`).forEach(btn => {
             btn.classList.toggle('active', btn.innerText.toLowerCase().includes(style.slice(0,3)));
         });
-        app.updateAvatarPreview(prefix);
+        app.updateAvatarPreview(prefix, true);
     },
 
-    updateAvatarPreview(prefix = 'edit') {
+    updateAvatarPreview(prefix = 'edit', forceSave = false) {
         const seedInput = document.getElementById(`${prefix}-avatar-seed`);
         const seed = (seedInput && seedInput.value) ? seedInput.value : (app.currentUser?.name || 'Quest');
         const url = `https://api.dicebear.com/7.x/${app.currentAvatarStyle}/svg?seed=${encodeURIComponent(seed)}`;
-        const preview = document.getElementById(`${prefix}-avatar-preview`);
-        if (preview) preview.innerHTML = `<img src="${url}" alt="Preview" style="width:100%; height:100%;">`;
         
-        // Auto-save main user
-        if (prefix === 'edit' && app.mainUser && document.getElementById('profile-modal').offsetParent) {
-            app.mainUser.avatar = url;
-            app.save();
+        const preview = document.getElementById(`${prefix}-avatar-preview`);
+        if (preview) preview.innerHTML = `<img src="${url}" alt="Preview" style="width:100%; height:100%; object-fit:cover;">`;
+        
+        // Auto-save the CURRENT user (Main OR Squire)
+        if (prefix === 'edit' && app.currentUser) {
+            if (forceSave || (seedInput && seedInput.value)) {
+                app.currentUser.avatar = url;
+                app.save();
+            }
         }
     },
 
     randomAvatar() {
         const rand = Math.random().toString(36).substring(7);
-        document.getElementById('edit-avatar-seed').value = rand;
-        app.updateAvatarPreview();
+        const el = document.getElementById('edit-avatar-seed');
+        if (el) el.value = rand;
+        app.updateAvatarPreview('edit', true);
     },
 
     // --- Hero & Squire Management ---
@@ -122,13 +129,12 @@ const app = {
 
     impersonate(heroId) {
         localStorage.setItem('impersonatedHeroId', heroId);
-        app.handleDataUpdate();
-        app.hideModals();
+        window.location.reload(); // Hard reload to clear UI state
     },
 
     stopImpersonating() {
         localStorage.removeItem('impersonatedHeroId');
-        app.handleDataUpdate();
+        window.location.reload();
     },
 
     rotateUser() {
@@ -342,11 +348,9 @@ const app = {
         document.getElementById('next-level-xp').innerText = xpNeeded;
         document.getElementById('xp-progress').style.width = `${(app.currentUser.xp / xpNeeded) * 100}%`;
 
-        // Profile Button miniature
         const profBtn = document.getElementById('profile-btn');
         if (profBtn) profBtn.innerHTML = app.getAvatarHtml(app.currentUser.avatar, "40px");
 
-        // Quick Switch Button
         const squires = app.data.users.filter(u => u.managedBy === app.mainUser.id);
         const switchBtn = document.getElementById('quick-switch-btn');
         if (squires.length > 0) {
@@ -437,7 +441,7 @@ const app = {
             const color = log.type === 'system' ? '#e94560' : '#4a90e2';
             return `<div class="history-item" style="border-left-color: ${color}"><div style="display:flex; justify-content:space-between; align-items:center;">
                 <div style="display:flex; align-items:center; gap:10px;">
-                    ${app.getAvatarHtml(user ? user.avatar : '🛡️', "30px")}
+                    ${app.getAvatarHtml(user ? user.avatar : '⚔️', "30px")}
                     <div><strong>${log.title}</strong><br><small>${user ? user.name : '??'} • ${new Date(log.completedAt).toLocaleString()}</small></div>
                 </div>
                 ${log.type === 'completion' ? `<button class="undo-btn" onclick="app.undoLog('${log.id}')">Annuler</button>` : ''}
@@ -460,11 +464,10 @@ const app = {
         const t = document.getElementById('activity-toast');
         const user = app.data.users.find(u => u.id === log.completedBy || u.email === log.completedBy);
         const elAvatar = document.getElementById('toast-avatar');
-        if (elAvatar) elAvatar.innerHTML = app.getAvatarHtml(user ? user.avatar : '🛡️', "30px");
-        
+        if (elAvatar) elAvatar.innerHTML = app.getAvatarHtml(user ? user.avatar : '⚔️', "30px");
         let verb = log.type === 'system' ? "info :" : "a validé";
         if (log.title.includes('Annulation')) verb = "a annulé";
-        document.getElementById('toast-message').innerText = `${user ? user.name : 'Quelqu\'un'} ${verb} : "${log.title}"`;
+        document.getElementById('toast-message').innerText = `${user ? user.name : 'Un membre'} ${verb} : "${log.title}"`;
         t.classList.remove('hidden'); setTimeout(() => t.classList.add('hidden'), 5000);
     },
 
@@ -472,21 +475,22 @@ const app = {
         const elName = document.getElementById('edit-guild-name');
         if (elName) elName.value = app.data.meta.guildName;
         app.renderGuildMembers();
+        
         const memberOptions = `<option value="">⚔️ Pour tous</option>` + app.data.users.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
         const elQAssignee = document.getElementById('quest-assignee');
         if (elQAssignee) elQAssignee.innerHTML = memberOptions;
         const elEditQAssignee = document.getElementById('edit-quest-assignee');
         if (elEditQAssignee) elEditQAssignee.innerHTML = memberOptions;
+
         const elUName = document.getElementById('edit-user-name');
-        if (elUName) elUName.value = app.mainUser.name;
+        if (elUName) elUName.value = app.currentUser.name;
         
-        // Seed initialization
         const elSeed = document.getElementById('edit-avatar-seed');
-        if (elSeed && !elSeed.value && app.mainUser.avatar.includes('seed=')) {
-            const urlParts = app.mainUser.avatar.split('seed=');
+        if (elSeed && !elSeed.value && app.currentUser.avatar.includes('seed=')) {
+            const urlParts = app.currentUser.avatar.split('seed=');
             if (urlParts.length > 1) elSeed.value = decodeURIComponent(urlParts[1]);
         }
-        app.updateAvatarPreview();
+        app.updateAvatarPreview('edit');
         
         const squires = app.data.users.filter(u => u.managedBy === app.mainUser.id);
         const impersonatedId = localStorage.getItem('impersonatedHeroId');
@@ -510,7 +514,7 @@ const app = {
         const elList = document.getElementById('guild-members-list');
         if (elList) elList.innerHTML = app.data.users.map(u => `<div style="display:flex; gap:10px; margin-bottom:5px;"><span>${app.getAvatarHtml(u.avatar, "20px")}</span><span>${u.name} (Lvl ${u.level || 1})</span></div>`).join(''); 
     },
-    updateCurrentUserInfo() { app.mainUser.name = document.getElementById('edit-user-name').value; app.save(); },
+    updateCurrentUserInfo() { app.currentUser.name = document.getElementById('edit-user-name').value; app.save(); },
     renderDevMode() { document.getElementById('debug-guild-id').innerText = app.guildId; document.getElementById('debug-users').innerHTML = `<h4>Membres</h4>` + app.data.users.map(u => `<div>${u.name}</div>`).join('') + `<h4>Définitions</h4>` + app.data.questDefinitions.map(d => `<div>${d.title}</div>`).join(''); },
     setView(v) { app.currentView = v; document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.id === `tab-${v}`)); app.render(); },
     showLoading(s) { const el = document.getElementById('loading'); if (el) el.classList.toggle('hidden', !s); },
@@ -525,7 +529,7 @@ const app = {
     },
     async searchGuilds() {
         const q = document.getElementById('guild-search-input').value; if (!q) return;
-        app.showLoading(true); const results = await db.searchPublicGuilds(q); app.showLoading(false);
+        app.showLoading(true); const guilds = await db.searchPublicGuilds(q); app.showLoading(false);
         document.getElementById('guild-search-results').innerHTML = results.length ? results.map(g => `<div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;"><span>${g.meta.guildName}</span><button class="action-btn" style="width:auto; padding:5px 10px;" onclick="app.handleJoinLink('${g.id}')">Rejoindre</button></div>`).join('') : "<p>Rien trouvé.</p>";
     },
     async copyInviteLink() { const url = `${window.location.origin}${window.location.pathname}?join=${app.guildId}`; await navigator.clipboard.writeText(url); alert("Lien copié !"); },
