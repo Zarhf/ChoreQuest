@@ -160,33 +160,49 @@ h2 {
     background: #f0f0f0;
 }
 
-/* Auth / Account Header */
-#auth-container button {
-    background: rgba(255,255,255,0.1);
-    color: white;
-    border: 1px solid rgba(255,255,255,0.3);
-    padding: 0.5rem 0.8rem;
-    border-radius: 20px;
+/* Header Actions */
+.header-actions {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    gap: 10px;
+}
+
+.icon-btn {
+    background: rgba(255,255,255,0.1);
+    border: none;
+    font-size: 1.5rem;
+    padding: 5px 10px;
+    border-radius: 8px;
     cursor: pointer;
-    font-family: inherit;
+    transition: background 0.2s;
 }
 
-#auth-container button:hover {
-    background-color: rgba(255,255,255,0.2);
+.icon-btn:hover {
+    background: rgba(255,255,255,0.2);
 }
 
-.account-status-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: #e94560; /* Red - Offline */
+/* Modals */
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 10px;
 }
 
-.account-status-dot.online {
-    background: #27ae60; /* Green - Online */
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.2rem;
+    border: none;
+}
+
+.close-btn {
+    background: transparent;
+    border: none;
+    color: #888;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0 10px;
 }
 
 /* Modals / Forms */

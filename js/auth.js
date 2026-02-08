@@ -8,16 +8,19 @@ const auth = {
         firebase.auth().onAuthStateChanged((user) => {
             this.user = user;
             const elEmail = document.getElementById('user-email-display');
-            const elAccountBtn = document.getElementById('account-btn');
+            const btnGuild = document.getElementById('guild-btn');
+            const btnProfile = document.getElementById('profile-btn');
             const elWelcome = document.getElementById('welcome-screen');
             const elContent = document.getElementById('content');
 
             if (user) {
                 if (elEmail) elEmail.innerText = user.email;
-                if (elAccountBtn) elAccountBtn.classList.remove('hidden');
+                if (btnGuild) btnGuild.classList.remove('hidden');
+                if (btnProfile) btnProfile.classList.remove('hidden');
                 if (elWelcome) elWelcome.classList.add('hidden');
             } else {
-                if (elAccountBtn) elAccountBtn.classList.add('hidden');
+                if (btnGuild) btnGuild.classList.add('hidden');
+                if (btnProfile) btnProfile.classList.add('hidden');
                 if (elWelcome) elWelcome.classList.remove('hidden');
                 if (elContent) elContent.classList.add('hidden');
             }

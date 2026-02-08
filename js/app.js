@@ -257,8 +257,9 @@ const app = {
     },
 
     syncSettingsUI() {
-        const elGuild = document.getElementById('edit-guild-name');
-        if (elGuild) elGuild.value = this.data.meta.guildName;
+        // Guild Modal
+        const elGuildName = document.getElementById('edit-guild-name');
+        if (elGuildName) elGuildName.value = this.data.meta.guildName;
         
         const elPublic = document.getElementById('edit-guild-public');
         if (elPublic) elPublic.value = String(!!this.data.meta.isPublic);
@@ -266,11 +267,27 @@ const app = {
         const elOpen = document.getElementById('edit-guild-open');
         if (elOpen) elOpen.value = String(!!this.data.meta.isOpen);
 
-        document.getElementById('edit-user-name').value = this.currentUser.name;
-        document.getElementById('edit-user-avatar').value = this.currentUser.avatar;
+        this.renderGuildMembers();
+
+        // Profile Modal
+        const elUserName = document.getElementById('edit-user-name');
+        if (elUserName) elUserName.value = this.currentUser.name;
         
-        const statusEl = document.getElementById('public-status');
-        if (statusEl) statusEl.innerText = this.data.meta.isPublic ? "Publique" : "Privée";
+        const elUserAvatar = document.getElementById('edit-user-avatar');
+        if (elUserAvatar) elUserAvatar.value = this.currentUser.avatar;
+    },
+
+    renderGuildMembers() {
+        const list = document.getElementById('guild-members-list');
+        if (!list) return;
+        
+        list.innerHTML = this.data.users.map(u => `
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:5px; font-size:0.9rem;">
+                <span style="font-size:1.2rem;">${u.avatar}</span>
+                <span style="flex-grow:1;">${u.name}</span>
+                <span style="opacity:0.6; font-size:0.8rem;">Lvl ${u.level || 1}</span>
+            </div>
+        `).join('');
     },
 
     updateCurrentUserInfo() { this.currentUser.name = document.getElementById('edit-user-name').value; this.currentUser.avatar = document.getElementById('edit-user-avatar').value; this.save(); },

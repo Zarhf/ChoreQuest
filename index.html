@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChoreQuest</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=34">
+    <link rel="stylesheet" href="css/styles.css?v=35">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
 </head>
@@ -34,10 +34,12 @@
     <div id="app">
         <header>
             <h1>🛡️ ChoreQuest</h1>
-            <div id="auth-container">
-                <button id="account-btn" class="hidden" onclick="app.showModal('account-modal')">
-                    <span id="account-status" class="account-status-dot online"></span>
-                    Mon Compte
+            <div id="auth-container" class="header-actions">
+                <button id="guild-btn" class="icon-btn hidden" onclick="app.showModal('guild-settings-modal')" title="Ma Guilde">
+                    🏰
+                </button>
+                <button id="profile-btn" class="icon-btn hidden" onclick="app.showModal('profile-modal')" title="Mon Profil">
+                    👤
                 </button>
             </div>
         </header>
@@ -47,7 +49,7 @@
             
             <section id="content" class="hidden">
                 <div id="user-profile">
-                    <div class="avatar-circle" id="user-avatar">👤</div>
+                    <div class="avatar-circle" id="user-avatar-display">👤</div>
                     <div class="user-stats">
                         <h3 id="user-name">Héros</h3>
                         <div>Niveau <span id="user-level">1</span></div>
@@ -83,84 +85,101 @@
             </section>
         </main>
 
-        <!-- Account Modal -->
-        <div id="account-modal" class="modal hidden">
+        <!-- Guild Settings Modal -->
+        <div id="guild-settings-modal" class="modal hidden">
             <div class="modal-content">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-                    <h2 style="margin:0;">Mon Compte</h2>
-                    <button class="action-btn secondary-btn" onclick="app.hideModals()" style="width:auto; padding:5px 15px; margin:0;">X</button>
+                <div class="modal-header">
+                    <h2>🏰 Ma Guilde</h2>
+                    <button class="close-btn" onclick="app.hideModals()">X</button>
                 </div>
 
-                <div class="settings-group" style="padding: 0.8rem;">
-                    <h4 style="margin:0 0 10px 0;">Guilde Actuelle</h4>
+                <div class="settings-group">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                        <input type="text" id="edit-guild-name" onchange="app.renameGuild()" style="margin:0; font-weight:bold; flex-grow:1; background:transparent; border:none; color:white; padding:5px;" placeholder="Nom de la Guilde">
+                        <input type="text" id="edit-guild-name" onchange="app.renameGuild()" style="margin:0; font-weight:bold; flex-grow:1; background:transparent; border:none; color:white; padding:5px; font-size:1.2rem;" placeholder="Nom de la Guilde">
+                        <button class="action-btn secondary-btn" onclick="app.renameGuild()" style="padding:5px; font-size:0.8rem; width:auto;">💾</button>
                     </div>
                     
-                    <div style="font-size:0.8rem; margin-bottom:10px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                    <div style="font-size:0.8rem; margin-bottom:15px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                         <div>
                             Visibilité : <br>
                             <select id="edit-guild-public" onchange="app.updateGuildSettings()" style="margin:5px 0; font-size:0.75rem;">
-                                <option value="false">Privée</option>
-                                <option value="true">Publique (Recherchable)</option>
+                                <option value="false">🔒 Privée</option>
+                                <option value="true">🌍 Publique</option>
                             </select>
                         </div>
                         <div>
                             Accès : <br>
                             <select id="edit-guild-open" onchange="app.updateGuildSettings()" style="margin:5px 0; font-size:0.75rem;">
-                                <option value="true">Ouverte</option>
-                                <option value="false">Fermée (Lien requis)</option>
+                                <option value="true">✅ Ouverte</option>
+                                <option value="false">⛔ Fermée</option>
                             </select>
                         </div>
                     </div>
 
-                    <button class="action-btn" onclick="app.copyInviteLink()" style="background-color:#27ae60; font-size:0.8rem; margin-bottom:10px;">🔗 Copier lien d'invitation</button>
-                    <button class="action-btn" onclick="app.openGuildSwitcher()" style="font-size:0.8rem;">🏰 Changer de Guilde</button>
-                </div>
+                    <h4>Membres</h4>
+                    <div id="guild-members-list" style="max-height:150px; overflow-y:auto; margin-bottom:15px; background:#0f3460; padding:10px; border-radius:5px;"></div>
 
-                <div id="user-settings">
-                    <div class="settings-group">
-                        <h4>Héros</h4>
-                        <div style="display:grid; grid-template-columns: 1fr 2fr; gap:10px;">
-                            <select id="edit-user-avatar" onchange="app.updateCurrentUserInfo()" style="margin:0;">
-                                <option value="🛡️">🛡️</option>
-                                <option value="🔮">🔮</option>
-                                <option value="🌿">🌿</option>
-                                <option value="⚡">⚡</option>
-                                <option value="🐱">🐱</option>
-                            </select>
-                            <input type="text" id="edit-user-name" onchange="app.updateCurrentUserInfo()" style="margin:0;" placeholder="Nom">
-                        </div>
-                    </div>
-
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                        <button class="action-btn" onclick="app.showModal('dev-modal'); app.renderDevMode();" style="background-color: #6c757d; font-size:0.7rem;">🛠️ Admin</button>
-                        <button class="action-btn secondary-btn" onclick="auth.logout()" style="font-size:0.7rem;">🚪 Déco</button>
-                    </div>
-                    <div id="user-email-display" style="font-size:0.6rem; opacity:0.3; text-align:center; margin-top:5px;">...</div>
-                    <button class="action-btn danger-btn" onclick="app.forceAppReset()" style="font-size:0.7rem; margin-top:10px;">⚠️ Réinitialiser App</button>
-                    <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">ChoreQuest v2.2.0</small>
+                    <button class="action-btn" onclick="app.copyInviteLink()" style="background-color:#27ae60; font-size:0.8rem; margin-bottom:10px;">🔗 Inviter un membre</button>
+                    <button class="action-btn secondary-btn" onclick="app.openGuildSwitcher()" style="font-size:0.8rem;">🔄 Changer de Guilde</button>
                 </div>
             </div>
         </div>
 
-        <!-- Guild Switcher Modal -->
-        <div id="guild-modal" class="modal hidden">
+        <!-- Profile Modal -->
+        <div id="profile-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>👤 Mon Profil</h2>
+                    <button class="close-btn" onclick="app.hideModals()">X</button>
+                </div>
+
+                <div class="settings-group">
+                    <h4>Héros</h4>
+                    <div style="display:grid; grid-template-columns: 1fr 2fr; gap:10px;">
+                        <select id="edit-user-avatar" onchange="app.updateCurrentUserInfo()" style="margin:0; font-size:1.5rem;">
+                            <option value="🛡️">🛡️</option>
+                            <option value="🔮">🔮</option>
+                            <option value="🌿">🌿</option>
+                            <option value="⚡">⚡</option>
+                            <option value="🐱">🐱</option>
+                            <option value="👑">👑</option>
+                            <option value="💀">💀</option>
+                        </select>
+                        <input type="text" id="edit-user-name" onchange="app.updateCurrentUserInfo()" style="margin:0;" placeholder="Nom">
+                    </div>
+                </div>
+
+                <div class="settings-group" style="background:transparent; border:1px dashed #444;">
+                    <h4>Session Google</h4>
+                    <div id="user-email-display" style="font-size:0.8rem; opacity:0.7; margin-bottom:10px;">...</div>
+                    <button class="action-btn secondary-btn" onclick="auth.logout()" style="font-size:0.8rem; padding:8px;">Déconnexion</button>
+                </div>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:20px;">
+                    <button class="action-btn" onclick="app.showModal('dev-modal'); app.renderDevMode();" style="background-color: #6c757d; font-size:0.7rem;">🛠️ Admin</button>
+                    <button class="action-btn danger-btn" onclick="app.forceAppReset()" style="font-size:0.7rem;">⚠️ Réinitialiser</button>
+                </div>
+                <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">ChoreQuest v2.3.0</small>
+            </div>
+        </div>
+
+        <!-- Guild Switcher Modal (Keep existing but simplified) -->
+        <div id="guild-switcher-modal" class="modal hidden">
             <div class="modal-content">
                 <h2>Mes Guildes</h2>
                 <div id="guild-list-container" style="max-height: 200px; overflow-y: auto; margin-bottom: 1rem;"></div>
                 
                 <hr style="border:0; border-top:1px solid #444; margin:1rem 0;">
                 
-                <h3>Rechercher une Guilde</h3>
+                <h3>Rechercher</h3>
                 <div style="display:flex; gap:5px; margin-bottom:10px;">
-                    <input type="text" id="guild-search-input" placeholder="Nom de la guilde..." style="margin:0; flex-grow:1;">
-                    <button class="action-btn" onclick="app.searchGuilds()" style="width:auto; padding:0 15px; margin:0;">Chercher</button>
+                    <input type="text" id="guild-search-input" placeholder="Nom..." style="margin:0; flex-grow:1;">
+                    <button class="action-btn" onclick="app.searchGuilds()" style="width:auto; padding:0 15px; margin:0;">🔍</button>
                 </div>
                 <div id="guild-search-results" style="max-height: 150px; overflow-y: auto; margin-bottom: 1rem; font-size:0.9rem;"></div>
 
                 <button class="action-btn" onclick="app.showModal('create-guild-modal')" style="background-color:#27ae60; margin-bottom:10px;">➕ Créer une nouvelle Guilde</button>
-                <button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button>
+                <button class="action-btn secondary-btn" onclick="app.hideModals()">Fermer</button>
             </div>
         </div>
 
@@ -172,14 +191,14 @@
                 
                 <label style="font-size:0.8rem; opacity:0.8;">Visibilité :</label>
                 <select id="new-guild-public">
-                    <option value="false">Privée (Cachee de la recherche)</option>
-                    <option value="true">Publique (Apparaît en recherche)</option>
+                    <option value="false">Privée (Cachée)</option>
+                    <option value="true">Publique (Recherchable)</option>
                 </select>
 
                 <label style="font-size:0.8rem; opacity:0.8;">Accès :</label>
                 <select id="new-guild-open">
                     <option value="true">Ouverte (Libre adhésion)</option>
-                    <option value="false">Fermée (Lien d'invitation requis)</option>
+                    <option value="false">Fermée (Invitation)</option>
                 </select>
 
                 <button class="action-btn" onclick="app.confirmCreateGuild()" style="background-color:#27ae60;">Créer la Guilde</button>
@@ -245,15 +264,15 @@
     </div>
 
     <!-- App Logic -->
-    <script src="js/config.js?v=34"></script>
-    <script src="js/auth.js?v=34"></script>
-    <script src="js/firebase-db.js?v=34"></script>
-    <script src="js/app.js?v=34"></script>
+    <script src="js/config.js?v=35"></script>
+    <script src="js/auth.js?v=35"></script>
+    <script src="js/firebase-db.js?v=35"></script>
+    <script src="js/app.js?v=35"></script>
 
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js?v=34').then(reg => {
+                navigator.serviceWorker.register('sw.js?v=35').then(reg => {
                     reg.addEventListener('updatefound', () => {
                         const newWorker = reg.installing;
                         newWorker.addEventListener('statechange', () => {
