@@ -42,15 +42,62 @@ main {
 }
 
 .avatar-circle {
-    font-size: 3rem;
-    background: #16213e;
     width: 80px;
     height: 80px;
+    background: #16213e;
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 50%;
+    font-size: 2.5rem;
     border: 3px solid #4a90e2;
+    overflow: hidden;
+}
+
+.avatar-circle img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.assignee-badge img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Customizer */
+.avatar-preview-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 1rem;
+    background: rgba(0,0,0,0.2);
+    padding: 1rem;
+    border-radius: 10px;
+}
+
+.style-selector {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+    margin-top: 10px;
+    width: 100%;
+}
+
+.style-btn {
+    background: #16213e;
+    border: 1px solid #444;
+    color: white;
+    padding: 5px;
+    font-size: 0.7rem;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.style-btn.active {
+    border-color: #4a90e2;
+    background: #4a90e2;
 }
 
 .user-stats {
@@ -367,6 +414,7 @@ input, select {
     font-size: 1.2rem;
     border: 2px solid rgba(255,255,255,0.2);
     flex-shrink: 0;
+    overflow: hidden;
 }
 
 .assignee-badge.empty {

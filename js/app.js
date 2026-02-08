@@ -5,6 +5,7 @@ const app = {
     mainUser: null,    
     currentView: 'board',
     lastLogId: null,
+    currentAvatarStyle: 'adventurer',
 
     async init() {
         auth.init(async (user) => {
@@ -71,6 +72,41 @@ const app = {
 
     async save() { if (this.guildId && this.data) await db.updateGuild(this.guildId, this.data); },
 
+    // --- Avatar Management ---
+    getAvatarHtml(avatarStr, size = "40px") {
+        if (!avatarStr) return '👤';
+        // Check if it's an emoji (old system) or a URL (new system)
+        if (avatarStr.length <= 4) return avatarStr; // Emoji
+        return `<img src="${avatarStr}" alt="Avatar" style="width:${size}; height:${size}; border-radius:50%;">`;
+    },
+
+    setAvatarStyle(style) {
+        this.currentAvatarStyle = style;
+        document.querySelectorAll('.style-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.innerText.toLowerCase().includes(style.split('-')[0]));
+        });
+        this.updateAvatarPreview();
+    },
+
+    updateAvatarPreview() {
+        const seed = document.getElementById('edit-avatar-seed').value || 'Quest';
+        const url = `https://api.dicebear.com/7.x/${this.currentAvatarStyle}/svg?seed=${encodeURIComponent(seed)}`;
+        const preview = document.getElementById('edit-avatar-preview');
+        if (preview) preview.innerHTML = `<img src="${url}" alt="Preview">`;
+        
+        // Auto-save if in profile modal
+        if (this.mainUser && document.getElementById('profile-modal').offsetParent) {
+            this.mainUser.avatar = url;
+            this.save();
+        }
+    },
+
+    randomAvatar() {
+        const rand = Math.random().toString(36).substring(7);
+        document.getElementById('edit-avatar-seed').value = rand;
+        this.updateAvatarPreview();
+    },
+
     // --- Hero & Squire Management ---
     async addSquire() {
         const name = document.getElementById('squire-name').value;
@@ -103,7 +139,7 @@ const app = {
         else this.impersonate(nextUser.id);
     },
 
-    // --- Quest Logic & Assignment ---
+    // --- Quest Logic ---
     async claimQuest(instanceId) {
         const quest = this.data.activeQuests.find(q => q.id === instanceId);
         if (!quest) return;
@@ -134,7 +170,6 @@ const app = {
 
         if (def && def.frequency && def.frequency !== 'none') {
             quest.dueDate = this.calculateNextDueDate(def).toISOString();
-            // Important: Reset assignee if default was "For all"
             quest.assignedTo = def.defaultAssignee || null;
         } else {
             this.data.activeQuests.splice(index, 1);
@@ -241,9 +276,7 @@ const app = {
         this.data.activeQuests.forEach(q => {
             if (q.definitionId === defId) {
                 q.title = title; q.xp = xp; q.timeSlot = timeSlot;
-                // If it's a new instance or we forced a reschedule
                 if (changedSchedule) q.dueDate = this.calculateFirstDueDate(this.data.questDefinitions[defIdx]).toISOString();
-                // Update assignment only if it wasn't manually claimed
                 if (!q.assignedTo || q.assignedTo === oldDef.defaultAssignee) q.assignedTo = assignee;
             }
         });
@@ -289,13 +322,14 @@ const app = {
         
         const isSquire = this.currentUser.id !== this.mainUser.id;
         document.getElementById('user-name').innerText = (isSquire ? '📜 ' : '') + this.currentUser.name;
-        document.getElementById('user-avatar-display').innerText = this.currentUser.avatar;
+        document.getElementById('user-avatar-display').innerHTML = this.getAvatarHtml(this.currentUser.avatar, "80px");
         document.getElementById('user-level').innerText = this.currentUser.level || 1;
         document.getElementById('user-xp').innerText = this.currentUser.xp;
         const xpNeeded = (this.currentUser.level || 1) * 100;
         document.getElementById('next-level-xp').innerText = xpNeeded;
         document.getElementById('xp-progress').style.width = `${(this.currentUser.xp / xpNeeded) * 100}%`;
 
+        // Quick Switch Button
         const squires = this.data.users.filter(u => u.managedBy === this.mainUser.id);
         const switchBtn = document.getElementById('quick-switch-btn');
         if (squires.length > 0) {
@@ -303,7 +337,7 @@ const app = {
             const rotationList = [this.mainUser, ...squires];
             const currentIndex = rotationList.findIndex(u => u.id === this.currentUser.id);
             const nextUser = rotationList[(currentIndex + 1) % rotationList.length];
-            switchBtn.innerText = nextUser.avatar;
+            switchBtn.innerHTML = this.getAvatarHtml(nextUser.avatar, "30px");
             switchBtn.title = `Passer à ${nextUser.name}`;
         } else {
             switchBtn.classList.add('hidden');
@@ -340,11 +374,8 @@ const app = {
             const freq = (def && def.frequency !== 'none') ? '🔄' : '';
             const time = q.timeSlot ? ` • 🕒 ${q.timeSlot.start}-${q.timeSlot.end}` : '';
             
-            // Assignee Badge
             const assignee = this.data.users.find(u => u.id === q.assignedTo);
-            const assigneeHtml = assignee ? `<span class="assignee-badge" title="Assigné à ${assignee.name}">${assignee.avatar}</span>` : `<span class="assignee-badge empty" title="Pour tous">⚔️</span>`;
-            
-            // Claim Button
+            const assigneeHtml = `<div class="assignee-badge ${!assignee ? 'empty' : ''}">${this.getAvatarHtml(assignee ? assignee.avatar : '⚔️')}</div>`;
             const canClaim = !q.assignedTo && !up;
 
             return `<div class="quest-card ${rarity} ${up ? 'upcoming' : ''}">
@@ -373,16 +404,6 @@ const app = {
         document.getElementById('upcoming-task-list').innerHTML = Object.keys(groups).map(day => `<div class="upcoming-day-group"><div class="upcoming-day-title">${day}</div>${groups[day].map(q => html(q, true)).join('')}</div>`).join('') || '<p style="text-align:center; opacity:0.2;">Rien de prévu.</p>';
     },
 
-    getQuestRarity(xp) {
-        const maxXP = Math.max(...this.data.questDefinitions.map(d => d.baseXp), 10);
-        const r = xp / maxXP;
-        if (r >= 0.9) return 'rarity-legendary';
-        if (r >= 0.7) return 'rarity-epic';
-        if (r >= 0.4) return 'rarity-rare';
-        if (r >= 0.2) return 'rarity-uncommon';
-        return 'rarity-common';
-    },
-
     renderHistory() {
         document.getElementById('history-list').innerHTML = this.data.questLog.map(log => {
             const user = this.data.users.find(u => u.id === log.completedBy || u.email === log.completedBy);
@@ -405,49 +426,65 @@ const app = {
     showActivityToast(log) {
         const t = document.getElementById('activity-toast');
         const user = this.data.users.find(u => u.id === log.completedBy || u.email === log.completedBy);
-        const name = user ? user.name : 'Un membre';
         let verb = log.type === 'system' ? "info :" : "a validé";
         if (log.title.includes('Annulation')) verb = "a annulé";
         document.getElementById('toast-icon').innerText = log.type === 'system' ? '🛡️' : '⚔️';
-        document.getElementById('toast-message').innerText = `${name} ${verb} : "${log.title}"`;
+        document.getElementById('toast-message').innerText = `${user ? user.name : 'Quelqu\'un'} ${verb} : "${log.title}"`;
         t.classList.remove('hidden'); setTimeout(() => t.classList.add('hidden'), 5000);
     },
 
     syncSettingsUI() {
-        document.getElementById('edit-guild-name').value = this.data.meta.guildName;
-        document.getElementById('edit-guild-public').value = String(!!this.data.meta.isPublic);
-        document.getElementById('edit-guild-open').value = String(!!this.data.meta.isOpen);
+        const elName = document.getElementById('edit-guild-name');
+        if (elName) elName.value = this.data.meta.guildName;
+        
+        const elPub = document.getElementById('edit-guild-public');
+        if (elPub) elPub.value = String(!!this.data.meta.isPublic);
+        
+        const elOpen = document.getElementById('edit-guild-open');
+        if (elOpen) elOpen.value = String(!!this.data.meta.isOpen);
+        
         this.renderGuildMembers();
         
-        // Update Assignee Selectors (with safety check)
-        const memberOptions = `<option value="">⚔️ Pour tous</option>` + this.data.users.map(u => `<option value="${u.id}">${u.avatar} ${u.name}</option>`).join('');
-        
-        const elQuestAssignee = document.getElementById('quest-assignee');
-        if (elQuestAssignee) elQuestAssignee.innerHTML = memberOptions;
-        
-        const elEditQuestAssignee = document.getElementById('edit-quest-assignee');
-        if (elEditQuestAssignee) elEditQuestAssignee.innerHTML = memberOptions;
+        // Update Assignee Selectors
+        const memberOptions = `<option value="">⚔️ Pour tous</option>` + this.data.users.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+        const elQAssignee = document.getElementById('quest-assignee');
+        if (elQAssignee) elQAssignee.innerHTML = memberOptions;
+        const elEditQAssignee = document.getElementById('edit-quest-assignee');
+        if (elEditQAssignee) elEditQAssignee.innerHTML = memberOptions;
 
+        // Profile Info
         const elUName = document.getElementById('edit-user-name');
         if (elUName) elUName.value = this.mainUser.name;
-        document.getElementById('edit-user-avatar').value = this.mainUser.avatar;
+        
+        // Initialize Avatar Preview
+        this.updateAvatarPreview();
         
         const squires = this.data.users.filter(u => u.managedBy === this.mainUser.id);
         const impersonatedId = localStorage.getItem('impersonatedHeroId');
-        document.getElementById('squire-list').innerHTML = squires.map(s => `<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; margin-bottom:5px;"><span>${s.avatar} <b>${s.name}</b></span>${impersonatedId === s.id ? `<button class="action-btn danger-btn" onclick="app.stopImpersonating()" style="width:auto; padding:2px 8px; font-size:0.7rem;">Quitter</button>` : `<button class="action-btn" onclick="app.impersonate('${s.id}')" style="width:auto; padding:2px 8px; font-size:0.7rem;">Incarner</button>`}</div>`).join('') || '<p style="font-size:0.7rem; opacity:0.5;">Aucun écuyer.</p>';
-        const qBtn = document.getElementById('quit-guild-btn'); if (qBtn) qBtn.style.display = (this.data.meta.owner === auth.user.email) ? 'none' : 'block';
+        const elSquireList = document.getElementById('squire-list');
+        if (elSquireList) {
+            elSquireList.innerHTML = squires.map(s => `<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; margin-bottom:5px;"><span>${this.getAvatarHtml(s.avatar, "20px")} <b>${s.name}</b></span>${impersonatedId === s.id ? `<button class="action-btn danger-btn" onclick="app.stopImpersonating()" style="width:auto; padding:2px 8px; font-size:0.7rem;">Quitter</button>` : `<button class="action-btn" onclick="app.impersonate('${s.id}')" style="width:auto; padding:2px 8px; font-size:0.7rem;">Incarner</button>`}</div>`).join('') || '<p style="font-size:0.7rem; opacity:0.5;">Aucun écuyer.</p>';
+        }
+
+        const qBtn = document.getElementById('quit-guild-btn');
+        if (qBtn) qBtn.style.display = (this.data.meta.owner === auth.user.email) ? 'none' : 'block';
     },
 
     toggleRecurrenceUI(prefix) {
-        const val = document.getElementById(`${prefix}-frequency`).value;
+        const elFreq = document.getElementById(`${prefix}-frequency`);
+        if (!elFreq) return;
+        const val = elFreq.value;
         const intervalContainer = document.getElementById(`${prefix}-interval-container`);
         const daysSelector = document.getElementById(`${prefix}-days-selector`);
         if (intervalContainer) intervalContainer.classList.toggle('hidden', val === 'none');
         if (daysSelector) daysSelector.classList.toggle('hidden', val !== 'weekly');
     },
 
-    renderGuildMembers() { document.getElementById('guild-members-list').innerHTML = this.data.users.map(u => `<div style="display:flex; gap:10px; margin-bottom:5px;"><span>${u.avatar}</span><span>${u.name} (Lvl ${u.level || 1})</span></div>`).join(''); },
-    updateCurrentUserInfo() { this.mainUser.name = document.getElementById('edit-user-name').value; this.mainUser.avatar = document.getElementById('edit-user-avatar').value; this.save(); },
+    renderGuildMembers() { 
+        const elList = document.getElementById('guild-members-list');
+        if (elList) elList.innerHTML = this.data.users.map(u => `<div style="display:flex; gap:10px; margin-bottom:5px;"><span>${this.getAvatarHtml(u.avatar, "20px")}</span><span>${u.name} (Lvl ${u.level || 1})</span></div>`).join(''); 
+    },
+    updateCurrentUserInfo() { this.mainUser.name = document.getElementById('edit-user-name').value; this.save(); },
     renderDevMode() { document.getElementById('debug-guild-id').innerText = this.guildId; document.getElementById('debug-users').innerHTML = `<h4>Membres</h4>` + this.data.users.map(u => `<div>${u.name}</div>`).join('') + `<h4>Définitions</h4>` + this.data.questDefinitions.map(d => `<div>${d.title}</div>`).join(''); },
     setView(v) { this.currentView = v; document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.id === `tab-${v}`)); this.render(); },
     showLoading(s) { const el = document.getElementById('loading'); if (el) el.classList.toggle('hidden', !s); },
@@ -462,8 +499,8 @@ const app = {
     },
     async searchGuilds() {
         const q = document.getElementById('guild-search-input').value; if (!q) return;
-        this.showLoading(true); const guilds = await db.searchPublicGuilds(q); this.showLoading(false);
-        document.getElementById('guild-search-results').innerHTML = guilds.length ? guilds.map(g => `<div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;"><span>${g.meta.guildName}</span><button class="action-btn" style="width:auto; padding:5px 10px;" onclick="app.handleJoinLink('${g.id}')">Rejoindre</button></div>`).join('') : "<p>Rien trouvé.</p>";
+        this.showLoading(true); const results = await db.searchPublicGuilds(q); this.showLoading(false);
+        document.getElementById('guild-search-results').innerHTML = results.length ? results.map(g => `<div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;"><span>${g.meta.guildName}</span><button class="action-btn" style="width:auto; padding:5px 10px;" onclick="app.handleJoinLink('${g.id}')">Rejoindre</button></div>`).join('') : "<p>Rien trouvé.</p>";
     },
     async copyInviteLink() { const url = `${window.location.origin}${window.location.pathname}?join=${this.guildId}`; await navigator.clipboard.writeText(url); alert("Lien copié !"); },
     switchGuild(id) { localStorage.setItem('currentGuildId', id); window.location.reload(); },

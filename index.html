@@ -184,10 +184,17 @@
                 <div class="modal-header"><h2>👤 Mon Profil</h2><button class="close-btn" onclick="app.hideModals()">X</button></div>
                 <div class="settings-group">
                     <h4>Mon Héros</h4>
-                    <div style="display:grid; grid-template-columns: 1fr 2fr; gap:10px;">
-                        <select id="edit-user-avatar" onchange="app.updateCurrentUserInfo()"><option value="🛡️">🛡️</option><option value="🔮">🔮</option><option value="🌿">🌿</option><option value="⚡">⚡</option><option value="🐱">🐱</option></select>
-                        <input type="text" id="edit-user-name" onchange="app.updateCurrentUserInfo()" placeholder="Nom">
+                    <div class="avatar-preview-container">
+                        <div class="avatar-circle" id="edit-avatar-preview">👤</div>
+                        <div class="style-selector">
+                            <button class="style-btn active" onclick="app.setAvatarStyle('adventurer')">Aventurier</button>
+                            <button class="style-btn" onclick="app.setAvatarStyle('pixel-art')">Rétro</button>
+                            <button class="style-btn" onclick="app.setAvatarStyle('miniavs')">Mignon</button>
+                        </div>
+                        <input type="text" id="edit-avatar-seed" placeholder="Ton nom ou un mot magique..." oninput="app.updateAvatarPreview()" style="margin-top:10px;">
+                        <button class="action-btn secondary-btn" onclick="app.randomAvatar()" style="padding:5px; font-size:0.7rem;">🎲 Aléatoire</button>
                     </div>
+                    <input type="text" id="edit-user-name" onchange="app.updateCurrentUserInfo()" placeholder="Nom du Héros">
                 </div>
                 <div class="settings-group">
                     <h4>Mes Écuyers (Enfants)</h4>
