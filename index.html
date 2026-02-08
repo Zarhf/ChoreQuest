@@ -33,7 +33,7 @@
 
     <div id="app">
         <header>
-            <h1>🛡️ ChoreQuest</h1>
+            <h1>🛡️ ChoreQuest <span id="sync-indicator" title="Synchronisé"></span></h1>
             <div id="auth-container" class="header-actions">
                 <button id="guild-btn" class="icon-btn hidden" onclick="app.showModal('guild-settings-modal')" title="Ma Guilde">🏰</button>
                 <button id="profile-btn" class="icon-btn hidden" onclick="app.showModal('profile-modal')" title="Mon Profil">👤</button>
@@ -41,7 +41,10 @@
         </header>
 
         <main>
-            <div id="loading" class="hidden">Chargement...</div>
+            <div id="loading" class="hidden">
+                <div class="loader-shield">🛡️</div>
+                <div style="margin-top:10px; font-variant:small-caps; letter-spacing:2px;">Chargement...</div>
+            </div>
             
             <section id="content" class="hidden">
                 <div id="user-profile">

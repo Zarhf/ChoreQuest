@@ -30,7 +30,8 @@ const app = {
     },
 
     async loadGuild() {
-        this.showLoading(true);
+        if (!this.data) this.showLoading(true); // Only full load on first time
+        
         try {
             let savedId = localStorage.getItem('currentGuildId');
             const guilds = await db.getAvailableGuilds(auth.user.email);
@@ -41,10 +42,21 @@ const app = {
                 this.guildId = await db.createGuild(auth.user.email, "Ma Guilde");
             }
             localStorage.setItem('currentGuildId', this.guildId);
+            
             db.listenToGuild(this.guildId, (data) => {
+                const indicator = document.getElementById('sync-indicator');
+                if (indicator) indicator.classList.add('syncing');
+                
                 this.data = data;
                 this.handleDataUpdate();
+                
+                // Hide loader after first data
                 this.showLoading(false);
+                
+                // Remove sync pulse after a delay
+                setTimeout(() => {
+                    if (indicator) indicator.classList.remove('syncing');
+                }, 1000);
             });
         } catch (err) { console.error(err); this.showLoading(false); }
     },
@@ -58,7 +70,7 @@ const app = {
         } else {
             this.currentUser = matchedUser;
             this.syncSettingsUI();
-            this.render();
+            this.render(); // This now updates UI smoothly
         }
     },
 
