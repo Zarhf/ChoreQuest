@@ -5,28 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChoreQuest</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=64">
+    <link rel="stylesheet" href="css/styles.css?v=69">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
 </head>
 <body>
     <script>
-        async function handleNuke() {
-            if (window.location.search.includes('nuke=true')) {
+        // Force migration for v69 (fixes mobile cache issues)
+        async function forceV69Sync() {
+            const lastBuild = localStorage.getItem('app_build');
+            if (lastBuild && parseInt(lastBuild) < 69) {
+                console.log("Forcing major update to v69...");
                 if ('serviceWorker' in navigator) {
                     const registrations = await navigator.serviceWorker.getRegistrations();
-                    for (let registration of registrations) { await registration.unregister(); }
+                    for (let r of registrations) await r.unregister();
                 }
                 const names = await caches.keys();
-                for (let name of names) { await caches.delete(name); }
-                alert('Application réinitialisée !');
-                window.location.href = window.location.pathname + '?force_v=' + Date.now();
+                for (let n of names) await caches.delete(n);
+                localStorage.setItem('app_build', '69');
+                window.location.reload(true);
             }
         }
-        handleNuke();
+        forceV69Sync();
     </script>
 
-    <script src="js/version-manager.js?v=64"></script>
+    <script src="js/version-manager.js?v=69"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -86,7 +89,6 @@
             </section>
         </main>
 
-        <!-- Onboarding Modal (NEW: With customizer) -->
         <div id="onboarding-modal" class="modal hidden">
             <div class="modal-content">
                 <h2>Crée ton Héros</h2>
@@ -104,11 +106,11 @@
             </div>
         </div>
 
-        <!-- Quest Modal -->
+        <!-- Create Quest Modal -->
         <div id="quest-modal" class="modal hidden">
             <div class="modal-content">
                 <h2>Nouvelle Quête</h2>
-                <input type="text" id="quest-title" placeholder="Titre de la quête">
+                <input type="text" id="quest-title" placeholder="Titre">
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                     <div><label style="font-size:0.7rem;">XP :</label><input type="number" id="quest-difficulty" value="50"></div>
                     <div><label style="font-size:0.7rem;">Horaires :</label><div style="display:flex; gap:2px;"><input type="time" id="quest-time-start"><input type="time" id="quest-time-end"></div></div>
@@ -127,7 +129,7 @@
         <!-- Edit Quest Modal -->
         <div id="edit-quest-modal" class="modal hidden">
             <div class="modal-content">
-                <div class="modal-header"><h2>Modifier</h2><button class="close-btn" onclick="app.hideModals()">X</button></div>
+                <div class="modal-header"><h2>Modifier la Quête</h2><button class="close-btn" onclick="app.hideModals()">X</button></div>
                 <input type="hidden" id="edit-quest-id">
                 <input type="text" id="edit-quest-title">
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
@@ -173,11 +175,10 @@
                     <button class="action-btn" onclick="app.showModal('dev-modal'); app.renderDevMode();" style="background-color:#6c757d; font-size:0.7rem;">🛠️ Admin</button>
                     <button class="action-btn danger-btn" onclick="app.forceAppReset()" style="font-size:0.7rem;">⚠️ Réparer</button>
                 </div>
-                <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">v2.8.2</small>
+                <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">v2.8.6 (Build 69)</small>
             </div>
         </div>
 
-        <!-- Squire Modal -->
         <div id="create-squire-modal" class="modal hidden">
             <div class="modal-content">
                 <h2>Nouvel Écuyer</h2>
@@ -186,12 +187,12 @@
                     <input type="text" id="squire-avatar-seed" placeholder="Prénom de l'enfant..." oninput="app.updateAvatarPreview('squire')" style="margin-top:10px;">
                 </div>
                 <input type="text" id="squire-name" placeholder="Nom de l'écuyer">
-                <button class="action-btn" onclick="app.addSquire()" style="background-color:#27ae60;">Ajouter à ma suite</button>
+                <button class="action-btn" onclick="app.addSquire()" style="background-color:#27ae60;">Ajouter</button>
                 <button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button>
             </div>
         </div>
 
-        <!-- Guild Modals -->
+        <!-- System Modals -->
         <div id="guild-settings-modal" class="modal hidden">
             <div class="modal-content"><div class="modal-header"><h2>🏰 Ma Guilde</h2><button class="close-btn" onclick="app.hideModals()">X</button></div><div class="settings-group"><input type="text" id="edit-guild-name" onchange="app.renameGuild()" style="margin-bottom:10px; font-weight:bold; width:100%;"><div style="font-size:0.8rem; margin-bottom:15px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;"><div>Visibilité : <select id="edit-guild-public" onchange="app.updateGuildSettings()"><option value="false">🔒 Privée</option><option value="true">🌍 Publique</option></select></div><div>Accès : <select id="edit-guild-open" onchange="app.updateGuildSettings()"><option value="true">✅ Ouverte</option><option value="false">⛔ Fermée</option></select></div></div><h4>Membres</h4><div id="guild-members-list"></div><button class="action-btn" onclick="app.copyInviteLink()" style="background-color:#27ae60; font-size:0.8rem; margin-bottom:10px;">🔗 Copier lien d'invitation</button><button class="action-btn secondary-btn" onclick="app.openGuildSwitcher()" style="font-size:0.8rem; margin-bottom:10px;">🔄 Changer de Guilde</button><button id="quit-guild-btn" class="action-btn danger-btn" onclick="app.leaveGuild()" style="font-size:0.8rem;">🚪 Quitter cette Guilde</button></div></div>
         </div>
@@ -200,17 +201,18 @@
         <div id="dev-modal" class="modal hidden"><div class="modal-content"><h2>🛠️ Admin</h2><code id="debug-guild-id"></code><div id="debug-users"></div><button class="action-btn secondary-btn" onclick="app.hideModals()">Fermer</button></div></div>
     </div>
 
-    <!-- Notifications UI -->
+    <!-- Notifications -->
     <div id="activity-toast" class="hidden"><div id="toast-avatar" class="assignee-badge" style="width:30px; height:30px;"></div> <span id="toast-message">...</span></div>
 
-    <script src="js/config.js?v=64"></script>
-    <script src="js/auth.js?v=64"></script>
-    <script src="js/firebase-db.js?v=64"></script>
-    <script src="js/app.js?v=64"></script>
+    <!-- App Logic -->
+    <script src="js/config.js?v=69"></script>
+    <script src="js/auth.js?v=69"></script>
+    <script src="js/firebase-db.js?v=69"></script>
+    <script src="js/app.js?v=69"></script>
 
     <script>
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js?v=64'); });
+            window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js?v=69'); });
         }
     </script>
 </body>
