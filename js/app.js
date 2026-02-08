@@ -172,6 +172,26 @@ const app = {
         this.showModal('guild-modal');
     },
 
+    async joinExistingGuild() {
+        const id = prompt("Saisissez l'ID de la Guilde à rejoindre :");
+        if (!id || id.length < 10) return;
+
+        this.showLoading(true);
+        try {
+            const success = await db.joinGuild(id, auth.user.email);
+            if (success) {
+                this.switchGuild(id);
+            } else {
+                alert("Guilde introuvable.");
+            }
+        } catch (err) {
+            console.error("Join failed", err);
+            alert("Erreur lors de l'adhésion à la guilde.");
+        } finally {
+            this.showLoading(false);
+        }
+    },
+
     switchGuild(id) {
         localStorage.setItem('currentGuildId', id);
         window.location.reload();
