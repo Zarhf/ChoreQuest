@@ -1,8 +1,8 @@
 const app = {
     guildId: null,
     data: null,
-    currentUser: null, // Hero being played
-    mainUser: null,    // Hero linked to Google account
+    currentUser: null,
+    mainUser: null,
     currentView: 'board',
     lastLogId: null,
 
@@ -26,14 +26,10 @@ const app = {
                 window.history.replaceState({}, document.title, window.location.pathname);
                 window.location.reload();
             } else {
-                alert("Impossible de rejoindre cette guilde.");
+                alert("Impossible de rejoindre.");
                 await this.loadGuild();
             }
-        } catch (err) {
-            console.error(err);
-            alert("Erreur lors de l'adhésion.");
-            await this.loadGuild();
-        }
+        } catch (err) { console.error(err); await this.loadGuild(); }
     },
 
     async loadGuild() {
@@ -56,7 +52,7 @@ const app = {
                 this.showLoading(false);
                 setTimeout(() => { if (indicator) indicator.classList.remove('syncing'); }, 1000);
             });
-        } catch (err) { console.error("Load Guild Error:", err); this.showLoading(false); }
+        } catch (err) { console.error(err); this.showLoading(false); }
     },
 
     handleDataUpdate() {
@@ -104,6 +100,7 @@ const app = {
         const currentIndex = rotationList.findIndex(u => u.id === this.currentUser.id);
         const nextIndex = (currentIndex + 1) % rotationList.length;
         const nextUser = rotationList[nextIndex];
+        
         if (nextUser.id === this.mainUser.id) this.stopImpersonating();
         else this.impersonate(nextUser.id);
     },
@@ -221,7 +218,6 @@ const app = {
         const tEnd = document.getElementById('edit-quest-time-end').value;
         const days = Array.from(document.querySelectorAll('input[name="edit-quest-day"]:checked')).map(cb => cb.value);
 
-        if (!title || isNaN(xp)) return;
         const defIdx = this.data.questDefinitions.findIndex(d => d.id === defId);
         if (defIdx === -1) return;
 
@@ -271,13 +267,21 @@ const app = {
         await this.save();
     },
 
-    // --- UI Rendering ---
+    // --- UI ---
+    getQuestRarity(xp) {
+        const maxXP = Math.max(...this.data.questDefinitions.map(d => d.baseXp), 10);
+        const r = xp / maxXP;
+        if (r >= 0.9) return 'rarity-legendary';
+        if (r >= 0.7) return 'rarity-epic';
+        if (r >= 0.4) return 'rarity-rare';
+        if (r >= 0.2) return 'rarity-uncommon';
+        return 'rarity-common';
+    },
+
     render() {
         if (!this.currentUser) return;
         document.getElementById('content').classList.remove('hidden');
-        
-        const isSquire = this.currentUser.id !== this.mainUser.id;
-        document.getElementById('user-name').innerText = (isSquire ? '📜 ' : '') + this.currentUser.name;
+        document.getElementById('user-name').innerText = (this.currentUser.id !== this.mainUser.id ? '📜 ' : '') + this.currentUser.name;
         document.getElementById('user-avatar-display').innerText = this.currentUser.avatar;
         document.getElementById('user-level').innerText = this.currentUser.level || 1;
         document.getElementById('user-xp').innerText = this.currentUser.xp;
@@ -299,13 +303,13 @@ const app = {
             switchBtn.classList.add('hidden');
         }
         
+        const elBoard = document.getElementById('quest-board');
+        const elHistory = document.getElementById('history-board');
         if (this.currentView === 'board') {
-            document.getElementById('quest-board').classList.remove('hidden');
-            document.getElementById('history-board').classList.add('hidden');
+            elBoard.classList.remove('hidden'); elHistory.classList.add('hidden');
             this.renderBoard();
         } else {
-            document.getElementById('quest-board').classList.add('hidden');
-            document.getElementById('history-board').classList.remove('hidden');
+            elBoard.classList.add('hidden'); elHistory.classList.remove('hidden');
             this.renderHistory();
         }
     },
@@ -338,7 +342,7 @@ const app = {
             </div>`;
         };
 
-        document.getElementById('task-list').innerHTML = active.map(q => html(q, false)).join('') || '<p style="text-align:center; opacity:0.5;">Repos...</p>';
+        document.getElementById('task-list').innerHTML = active.map(q => html(q, false)).join('') || '<p style="text-align:center; opacity:0.5;">Tout est fait !</p>';
         const groups = {};
         upcoming.forEach(q => {
             const d = new Date(q.dueDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -347,21 +351,13 @@ const app = {
         document.getElementById('upcoming-task-list').innerHTML = Object.keys(groups).map(day => `<div class="upcoming-day-group"><div class="upcoming-day-title">${day}</div>${groups[day].map(q => html(q, true)).join('')}</div>`).join('') || '<p style="text-align:center; opacity:0.2;">Rien de prévu.</p>';
     },
 
-    getQuestRarity(xp) {
-        const maxXP = Math.max(...this.data.questDefinitions.map(d => d.baseXp), 10);
-        const r = xp / maxXP;
-        if (r >= 0.9) return 'rarity-legendary';
-        if (r >= 0.7) return 'rarity-epic';
-        if (r >= 0.4) return 'rarity-rare';
-        if (r >= 0.2) return 'rarity-uncommon';
-        return 'rarity-common';
-    },
-
     renderHistory() {
         document.getElementById('history-list').innerHTML = this.data.questLog.map(log => {
             const user = this.data.users.find(u => u.id === log.completedBy || u.email === log.completedBy);
             const color = log.type === 'system' ? '#e94560' : '#4a90e2';
-            return `<div class="history-item" style="border-left-color: ${color}"><div style="display:flex; justify-content:space-between; align-items:start;"><div><strong>${log.title}</strong><br><small>${user ? user.name : '??'} • ${new Date(log.completedAt).toLocaleString()}</small></div>${log.type === 'completion' ? `<button class="undo-btn" onclick="app.undoLog('${log.id}')">Annuler</button>` : ''}</div></div>`;
+            let verb = log.type === 'completion' ? "a triomphé de" : "a effectué";
+            if (log.title.includes('Annulation')) verb = "a annulé";
+            return `<div class="history-item" style="border-left-color: ${color}"><div style="display:flex; justify-content:space-between; align-items:start;"><div><strong>${log.title}</strong><br><small>${user ? user.name : 'Système'} ${verb} • ${new Date(log.completedAt).toLocaleString()}</small></div>${log.type === 'completion' ? `<button class="undo-btn" onclick="app.undoLog('${log.id}')">Annuler</button>` : ''}</div></div>`;
         }).join('');
     },
 
@@ -379,11 +375,11 @@ const app = {
     showActivityToast(log) {
         const t = document.getElementById('activity-toast');
         const user = this.data.users.find(u => u.id === log.completedBy || u.email === log.completedBy);
-        const name = user ? user.name : 'Un membre';
-        let verb = log.type === 'system' ? "info :" : "a validé";
+        let verb = "a triomphé de";
+        if (log.type === 'system') verb = "info :";
         if (log.title.includes('Annulation')) verb = "a annulé";
         document.getElementById('toast-icon').innerText = log.type === 'system' ? '🛡️' : '⚔️';
-        document.getElementById('toast-message').innerText = `${name} ${verb} : "${log.title}"`;
+        document.getElementById('toast-message').innerText = `${user ? user.name : 'Quelqu\'un'} ${verb} : "${log.title}"`;
         t.classList.remove('hidden'); setTimeout(() => t.classList.add('hidden'), 5000);
     },
 
@@ -396,7 +392,7 @@ const app = {
         document.getElementById('edit-user-avatar').value = this.mainUser.avatar;
         const squires = this.data.users.filter(u => u.managedBy === this.mainUser.id);
         const impersonatedId = localStorage.getItem('impersonatedHeroId');
-        document.getElementById('squire-list').innerHTML = squires.map(s => `<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; margin-bottom:5px;"><span>${s.avatar} <b>${s.name}</b></span>${impersonatedId === s.id ? `<button class="action-btn danger-btn" onclick="app.stopImpersonating()" style="width:auto; padding:2px 8px; font-size:0.7rem;">Quitter</button>` : `<button class="action-btn" onclick="app.impersonate('${s.id}')" style="width:auto; padding:2px 8px; font-size:0.7rem;">Incarner</button>`}</div>`).join('') || '<p style="font-size:0.7rem; opacity:0.5;">Aucun écuyer.</p>';
+        document.getElementById('squire-list').innerHTML = squires.map(s => `<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; margin-bottom:5px;"><span>${s.avatar} <b>${s.name}</b> (Lvl ${s.level})</span>${impersonatedId === s.id ? `<button class="action-btn" onclick="app.stopImpersonating()" style="width:auto; padding:2px 8px; font-size:0.7rem; background:#e94560;">Quitter</button>` : `<button class="action-btn" onclick="app.impersonate('${s.id}')" style="width:auto; padding:2px 8px; font-size:0.7rem;">Incarner</button>`}</div>`).join('') || '<p style="font-size:0.7rem; opacity:0.5;">Aucun écuyer.</p>';
         const qBtn = document.getElementById('quit-guild-btn'); if (qBtn) qBtn.style.display = (this.data.meta.owner === auth.user.email) ? 'none' : 'block';
     },
 
@@ -424,8 +420,8 @@ const app = {
     },
     async searchGuilds() {
         const q = document.getElementById('guild-search-input').value; if (!q) return;
-        this.showLoading(true); const guilds = await db.searchPublicGuilds(q); this.showLoading(false);
-        document.getElementById('guild-search-results').innerHTML = guilds.length ? guilds.map(g => `<div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;"><span>${g.meta.guildName}</span><button class="action-btn" style="width:auto; padding:5px 10px;" onclick="app.handleJoinLink('${g.id}')">Rejoindre</button></div>`).join('') : "<p>Rien trouvé.</p>";
+        this.showLoading(true); const results = await db.searchPublicGuilds(q); this.showLoading(false);
+        document.getElementById('guild-search-results').innerHTML = results.length ? results.map(g => `<div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;"><span>${g.meta.guildName}</span><button class="action-btn" style="width:auto; padding:5px 10px;" onclick="app.handleJoinLink('${g.id}')">Rejoindre</button></div>`).join('') : "<p>Rien trouvé.</p>";
     },
     async copyInviteLink() { const url = `${window.location.origin}${window.location.pathname}?join=${this.guildId}`; await navigator.clipboard.writeText(url); alert("Lien copié !"); },
     switchGuild(id) { localStorage.setItem('currentGuildId', id); window.location.reload(); },
