@@ -92,12 +92,8 @@ const app = {
             // Check if I am Admin/Owner -> Update System Version
             // This is how the PC updates the rest of the world
             if (app.data.meta.owner === auth.user.email) {
-                // Hardcoded current build target: 71
-                // We only write if DB is behind
-                // We rely on "listenToSystemConfig" to know DB state? No, simply blind write periodically or once is safer?
-                // Let's write it once per session to be sure.
                 if (!sessionStorage.getItem('system_version_pushed')) {
-                    db.setSystemConfig(71); 
+                    db.setSystemConfig(74); 
                     sessionStorage.setItem('system_version_pushed', 'true');
                 }
             }

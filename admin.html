@@ -27,7 +27,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <script src="js/config.js"></script>
     <script>
-        firebase.initializeApp(firebaseConfig);
+        firebase.initializeApp(CONFIG.firebase);
         const db = firebase.firestore();
 
         async function forceUpdate() {
@@ -42,7 +42,7 @@
 
                 status.innerText = "Écriture en cours...";
                 await db.collection('system').doc('config').set({
-                    minBuild: 72,
+                    minBuild: 74,
                     lastUpdate: new Date().toISOString(),
                     forcedBy: 'Admin Console'
                 }, { merge: true });
