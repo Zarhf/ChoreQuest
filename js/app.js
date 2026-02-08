@@ -59,12 +59,24 @@ const app = {
     handleDataUpdate() {
         app.watchForToasts();
         app.mainUser = app.data.users.find(u => u.email === auth.user.email);
+        
         if (!app.mainUser) {
             app.currentUser = null;
             app.showModal('onboarding-modal');
         } else {
+            // --- FORCED MIGRATION: Convert emoji avatars to DiceBear URLs ---
+            let needsSave = false;
+            app.data.users.forEach(u => {
+                if (!u.avatar || !u.avatar.startsWith('http')) {
+                    u.avatar = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(u.name || 'Hero')}`;
+                    needsSave = true;
+                }
+            });
+            if (needsSave) app.save();
+
             const impersonatedId = localStorage.getItem('impersonatedHeroId');
             app.currentUser = impersonatedId ? (app.data.users.find(u => u.id === impersonatedId) || app.mainUser) : app.mainUser;
+            
             app.syncSettingsUI();
             app.render();
         }
@@ -74,12 +86,12 @@ const app = {
 
     // --- Avatar Management ---
     getAvatarHtml(avatarStr, size = "40px") {
-        if (!avatarStr) return '👤';
-        // Improved detection: URLs start with http
-        if (!avatarStr.startsWith('http')) {
-            return `<div style="width:${size}; height:${size}; display:flex; align-items:center; justify-content:center; font-size:calc(${size} * 0.6); background:#16213e; border-radius:50%;">${avatarStr}</div>`;
+        if (!avatarStr || !avatarStr.startsWith('http')) {
+            // Fallback if migration failed or URL invalid
+            const seed = app.currentUser?.name || 'Hero';
+            avatarStr = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`;
         }
-        return `<img src="${avatarStr}" alt="Avatar" style="width:${size}; height:${size}; border-radius:50%; display:block; object-fit:cover;">`;
+        return `<img src="${avatarStr}" alt="Avatar" style="width:${size}; height:${size}; border-radius:50%; display:block; object-fit:cover; border: 1px solid rgba(255,255,255,0.1);">`;
     },
 
     setAvatarStyle(style, prefix = 'edit') {
@@ -98,7 +110,7 @@ const app = {
         const preview = document.getElementById(`${prefix}-avatar-preview`);
         if (preview) preview.innerHTML = `<img src="${url}" alt="Preview" style="width:100%; height:100%; object-fit:cover;">`;
         
-        // Auto-save the CURRENT user (Main OR Squire)
+        // Auto-save for the current context
         if (prefix === 'edit' && app.currentUser) {
             if (forceSave || (seedInput && seedInput.value)) {
                 app.currentUser.avatar = url;
@@ -125,11 +137,12 @@ const app = {
         await app.save();
         app.hideModals();
         document.getElementById('squire-name').value = '';
+        document.getElementById('squire-avatar-seed').value = '';
     },
 
     impersonate(heroId) {
         localStorage.setItem('impersonatedHeroId', heroId);
-        window.location.reload(); // Hard reload to clear UI state
+        window.location.reload(); 
     },
 
     stopImpersonating() {
@@ -529,7 +542,7 @@ const app = {
     },
     async searchGuilds() {
         const q = document.getElementById('guild-search-input').value; if (!q) return;
-        app.showLoading(true); const guilds = await db.searchPublicGuilds(q); app.showLoading(false);
+        app.showLoading(true); const results = await db.searchPublicGuilds(q); app.showLoading(false);
         document.getElementById('guild-search-results').innerHTML = results.length ? results.map(g => `<div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;"><span>${g.meta.guildName}</span><button class="action-btn" style="width:auto; padding:5px 10px;" onclick="app.handleJoinLink('${g.id}')">Rejoindre</button></div>`).join('') : "<p>Rien trouvé.</p>";
     },
     async copyInviteLink() { const url = `${window.location.origin}${window.location.pathname}?join=${app.guildId}`; await navigator.clipboard.writeText(url); alert("Lien copié !"); },
