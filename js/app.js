@@ -48,9 +48,6 @@ const app = {
                 const matched = guilds.find(g => g.id === savedId);
                 this.guildId = matched ? matched.id : guilds[0].id;
             } else {
-                // No guild at all, we don't auto-create anymore, 
-                // we'll let the user choose or create in the welcome screen logic
-                // But for now, to avoid blocking, let's create a default one if absolutely none found
                 this.guildId = await db.createGuild(auth.user.email, "Ma Guilde");
             }
             
@@ -205,6 +202,14 @@ const app = {
         this.syncSettingsUI();
     },
 
+    async leaveGuild() {
+        if (!confirm("Voulez-vous vraiment quitter cette guilde ?")) return;
+        this.showLoading(true);
+        await db.leaveGuild(this.guildId, auth.user.email);
+        localStorage.removeItem('currentGuildId');
+        window.location.reload();
+    },
+
     setView(v) {
         this.currentView = v;
         document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.id === `tab-${v}`));
@@ -263,14 +268,6 @@ const app = {
                 </div>`).join('');
     },
 
-    async leaveGuild() {
-        if (!confirm("Voulez-vous vraiment quitter cette guilde ?")) return;
-        this.showLoading(true);
-        await db.leaveGuild(this.guildId, auth.user.email);
-        localStorage.removeItem('currentGuildId');
-        window.location.reload();
-    },
-
     renderHistory() {
         const list = document.getElementById('history-list');
         list.innerHTML = this.data.questLog.map(log => {
@@ -302,21 +299,14 @@ const app = {
 
     watchForToasts() {
         if (!this.data || !this.data.questLog || this.data.questLog.length === 0) return;
-        
         const latestLog = this.data.questLog[0];
-        
-        // First run: just store the ID
         if (!this.lastLogId) {
             this.lastLogId = latestLog.id;
             return;
         }
-
-        // New log detected!
         if (latestLog.id !== this.lastLogId) {
             this.lastLogId = latestLog.id;
-            // Don't toast for my own actions (avoid double feedback)
             if (latestLog.completedBy === this.currentUser.id || latestLog.completedBy === auth.user.email) return;
-
             this.showToastNotification(latestLog);
         }
     },
@@ -325,36 +315,18 @@ const app = {
         const toast = document.getElementById('update-toast');
         const btn = document.getElementById('update-btn');
         const span = toast.querySelector('span');
-        
-        // Find user name
         const user = this.data.users.find(u => u.id === log.completedBy || u.email === log.completedBy);
         const userName = user ? user.name : 'Quelqu\'un';
-
         span.innerText = `${userName} : ${log.title}`;
-        btn.style.display = 'none'; // No button for info toast
-        
+        if (btn) btn.style.display = 'none';
         toast.classList.remove('hidden');
-        
-        // Hide after 4s
         setTimeout(() => {
             toast.classList.add('hidden');
-            btn.style.display = 'inline-block'; // Restore for updates
+            if (btn) btn.style.display = 'inline-block';
         }, 4000);
     },
 
     syncSettingsUI() {
-        // ... existing syncSettingsUI code ...
-        // Add Quit Button if not owner
-        const isOwner = this.data.meta.owner === auth.user.email;
-        const quitBtn = document.getElementById('quit-guild-btn');
-        if (quitBtn) {
-            if (isOwner) {
-                quitBtn.style.display = 'none';
-            } else {
-                quitBtn.style.display = 'block';
-            }
-        }
-    },
         // Guild Modal
         const elGuildName = document.getElementById('edit-guild-name');
         if (elGuildName) elGuildName.value = this.data.meta.guildName;
@@ -373,19 +345,24 @@ const app = {
         
         const elUserAvatar = document.getElementById('edit-user-avatar');
         if (elUserAvatar) elUserAvatar.value = this.currentUser.avatar;
+
+        // Add Quit Button if not owner
+        const isOwner = this.data.meta.owner === auth.user.email;
+        const quitBtn = document.getElementById('quit-guild-btn');
+        if (quitBtn) {
+            quitBtn.style.display = isOwner ? 'none' : 'block';
+        }
     },
 
     renderGuildMembers() {
         const list = document.getElementById('guild-members-list');
         if (!list) return;
-        
         list.innerHTML = this.data.users.map(u => `
             <div style="display:flex; align-items:center; gap:10px; margin-bottom:5px; font-size:0.9rem;">
                 <span style="font-size:1.2rem;">${u.avatar}</span>
                 <span style="flex-grow:1;">${u.name}</span>
                 <span style="opacity:0.6; font-size:0.8rem;">Lvl ${u.level || 1}</span>
-            </div>
-        `).join('');
+            </div>`).join('');
     },
 
     updateCurrentUserInfo() { this.currentUser.name = document.getElementById('edit-user-name').value; this.currentUser.avatar = document.getElementById('edit-user-avatar').value; this.save(); },
@@ -397,19 +374,12 @@ const app = {
         const el = document.getElementById('loading');
         if (el) el.classList.toggle('hidden', !s); 
     },
-    
     showModal(id) { 
         const el = document.getElementById(id);
-        if (el) {
-            el.classList.remove('hidden');
-        } else {
-            console.error(`Modal with ID '${id}' not found!`);
-        }
+        if (el) el.classList.remove('hidden');
+        else console.error(`Modal with ID '${id}' not found!`);
     },
-    
-    hideModals() { 
-        document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')); 
-    },
+    hideModals() { document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')); },
     forceAppReset() { if(confirm('Réinitialiser ?')) { localStorage.clear(); window.location.reload(); } }
 };
 app.init();
