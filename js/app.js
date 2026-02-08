@@ -419,12 +419,17 @@ const app = {
         document.getElementById('edit-guild-open').value = String(!!this.data.meta.isOpen);
         this.renderGuildMembers();
         
-        // Update Assignee Selectors
+        // Update Assignee Selectors (with safety check)
         const memberOptions = `<option value="">⚔️ Pour tous</option>` + this.data.users.map(u => `<option value="${u.id}">${u.avatar} ${u.name}</option>`).join('');
-        document.getElementById('quest-assignee').innerHTML = memberOptions;
-        document.getElementById('edit-quest-assignee').innerHTML = memberOptions;
+        
+        const elQuestAssignee = document.getElementById('quest-assignee');
+        if (elQuestAssignee) elQuestAssignee.innerHTML = memberOptions;
+        
+        const elEditQuestAssignee = document.getElementById('edit-quest-assignee');
+        if (elEditQuestAssignee) elEditQuestAssignee.innerHTML = memberOptions;
 
-        document.getElementById('edit-user-name').value = this.mainUser.name;
+        const elUName = document.getElementById('edit-user-name');
+        if (elUName) elUName.value = this.mainUser.name;
         document.getElementById('edit-user-avatar').value = this.mainUser.avatar;
         
         const squires = this.data.users.filter(u => u.managedBy === this.mainUser.id);
