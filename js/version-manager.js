@@ -1,16 +1,15 @@
 const VersionManager = {
     async check() {
         try {
-            const response = await fetch('version.json?t=' + Date.now(), { cache: "no-store" });
+            // Fetch v.json with cache busting
+            const response = await fetch('v.json?t=' + Date.now(), { cache: "no-store" });
             const serverConfig = await response.json();
             
-            const localBuild = localStorage.getItem('app_build');
+            const localBuild = parseInt(localStorage.getItem('app_build') || '0');
 
-            if (localBuild && parseInt(localBuild) < serverConfig.build) {
-                console.log(`Auto-Update: New version detected (Build ${serverConfig.build}). Reloading...`);
+            if (serverConfig.build > localBuild) {
+                console.log(`Auto-Update: Detected Build ${serverConfig.build}. Updating from ${localBuild}...`);
                 await this.update(serverConfig.build);
-            } else {
-                localStorage.setItem('app_build', serverConfig.build);
             }
         } catch (e) {
             console.warn("Version check failed", e);
@@ -18,7 +17,7 @@ const VersionManager = {
     },
 
     async update(newBuild) {
-        localStorage.setItem('app_build', newBuild);
+        localStorage.setItem('app_build', newBuild.toString());
 
         if ('serviceWorker' in navigator) {
             const registrations = await navigator.serviceWorker.getRegistrations();
@@ -34,18 +33,13 @@ const VersionManager = {
             }
         }
 
-        // Silent reload with unique timestamp
-        window.location.href = window.location.origin + window.location.pathname + '?force_v=' + Date.now();
+        // Nuclear reload
+        window.location.href = window.location.origin + window.location.pathname + '?v80_sync=' + Date.now();
     }
 };
 
-// Check on load
 VersionManager.check();
-
-// Check every 5 minutes
 setInterval(() => VersionManager.check(), 1000 * 60 * 5);
-
-// Check when app comes back from background
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') VersionManager.check();
 });
