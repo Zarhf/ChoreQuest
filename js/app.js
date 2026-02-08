@@ -93,7 +93,7 @@ const app = {
             // This is how the PC updates the rest of the world
             if (app.data.meta.owner === auth.user.email) {
                 if (!sessionStorage.getItem('system_version_pushed')) {
-                    db.setSystemConfig(74); 
+                    db.setSystemConfig(75); 
                     sessionStorage.setItem('system_version_pushed', 'true');
                 }
             }

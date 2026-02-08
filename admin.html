@@ -2,24 +2,22 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>ChoreQuest Admin Console</title>
+    <title>ChoreQuest Admin</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { background: #1a1a2e; color: #e0e0e0; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 2rem; }
-        h1 { color: #e94560; }
-        .card { background: #16213e; padding: 2rem; border-radius: 12px; border: 1px solid #4a90e2; text-align: center; }
-        button { background: #e94560; color: white; border: none; padding: 1rem 2rem; font-size: 1.2rem; border-radius: 8px; cursor: pointer; margin-top: 1rem; }
-        button:hover { background: #c0392b; }
-        code { background: #000; padding: 5px; display: block; margin: 10px 0; }
+        body { background: #1a1a2e; color: white; font-family: sans-serif; text-align: center; padding: 2rem; }
+        .card { background: #16213e; padding: 2rem; border-radius: 12px; border: 2px solid #e94560; max-width: 400px; margin: 0 auto; }
+        button { background: #e94560; color: white; border: none; padding: 1rem; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 1rem; }
+        input { width: 100%; padding: 0.8rem; margin-top: 10px; background: #0f3460; border: 1px solid #4a90e2; color: white; border-radius: 4px; box-sizing: border-box; }
     </style>
 </head>
 <body>
-    <h1>⚠️ Console d'Urgence</h1>
+    <h1>🛡️ Console d'Urgence</h1>
     <div class="card">
-        <p>Utilisez ce bouton pour forcer TOUS les appareils à se mettre à jour.</p>
-        <p>Version actuelle forcée : <strong>v72</strong></p>
-        <button onclick="forceUpdate()">🚀 FORCER LA MISE À JOUR (v72)</button>
-        <div id="status" style="margin-top:20px; opacity:0.7;">En attente...</div>
+        <p>Forcer une version globale :</p>
+        <input type="number" id="build-num" value="75">
+        <button onclick="forceUpdate()">🚀 DÉPLOYER LA VERSION</button>
+        <p id="status" style="margin-top:20px; opacity:0.7; font-size:0.8rem;"></p>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -31,26 +29,24 @@
         const db = firebase.firestore();
 
         async function forceUpdate() {
+            const build = document.getElementById('build-num').value;
             const status = document.getElementById('status');
-            status.innerText = "Connexion...";
+            status.innerText = "Tentative de connexion...";
             
             try {
-                // Anonymous auth is enough if rules allow, otherwise trigger popup
-                await firebase.auth().signInAnonymously().catch(() => {
-                    return firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider());
-                });
+                // Try anonymous first, if fails, it will use existing session or fail
+                await firebase.auth().signInAnonymously().catch(e => console.warn("Anon auth disabled"));
 
-                status.innerText = "Écriture en cours...";
+                status.innerText = "Émission de l'ordre build " + build + "...";
                 await db.collection('system').doc('config').set({
-                    minBuild: 74,
+                    minBuild: parseInt(build),
                     lastUpdate: new Date().toISOString(),
-                    forcedBy: 'Admin Console'
+                    source: 'Emergency Console'
                 }, { merge: true });
 
-                status.innerHTML = "✅ SUCCÈS ! Ordre envoyé.<br>Les clients vont redémarrer dans quelques secondes.";
+                status.innerHTML = "✅ ORDRE ENVOYÉ !<br>Tous les appareils connectés vont redémarrer.";
             } catch (e) {
-                status.innerText = "❌ ERREUR: " + e.message;
-                console.error(e);
+                status.innerText = "❌ ERREUR : " + e.message + "\n(Vérifiez que l'auth ANONYME est activée dans Firebase)";
             }
         }
     </script>
