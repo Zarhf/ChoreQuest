@@ -9,28 +9,15 @@ const app = {
     _pendingAction: null,
 
     async init() {
-        // --- KILL SWITCH LOGIC ---
-        // 1. Listen to Firestore System Config
-        // This will trigger instantly on any device connected to DB
-        // But we need to initialize DB first. DB init happens in auth.init implicitly via firebase access.
-        
         auth.init(async (user) => {
             if (user) {
                 // Initialize DB monitoring immediately
                 db.listenToSystemConfig((config) => {
                     if (config && config.minBuild) {
-                        // We check against local build stored in localStorage
-                        // Note: VersionManager stores 'app_build'
                         const localBuild = parseInt(localStorage.getItem('app_build') || '0');
                         if (config.minBuild > localBuild) {
-                            console.log(`🔥 KILL SWITCH ACTIVATED: Remote ${config.minBuild} > Local ${localBuild}`);
-                            // Direct call to VersionManager update logic
                             if (window.VersionManager) window.VersionManager.update(config.minBuild);
-                            else {
-                                // Fallback if VersionManager not loaded
-                                localStorage.setItem('app_build', config.minBuild);
-                                window.location.reload(true);
-                            }
+                            else { localStorage.setItem('app_build', config.minBuild); window.location.reload(true); }
                         }
                     }
                 });
@@ -39,6 +26,8 @@ const app = {
                 const joinId = params.get('join');
                 if (joinId) await app.handleJoinLink(joinId);
                 else await app.loadGuild();
+            } else {
+                app.showView('welcome-screen');
             }
         });
     },
@@ -50,34 +39,38 @@ const app = {
             if (success) {
                 localStorage.setItem('currentGuildId', id);
                 window.history.replaceState({}, document.title, window.location.pathname);
-                window.location.reload();
+                // After join, reload guild normally to trigger onboarding if needed
+                await app.loadGuild();
             } else {
-                alert("Impossible de rejoindre.");
+                alert("Impossible de rejoindre cette guilde.");
                 await app.loadGuild();
             }
         } catch (err) { console.error(err); await app.loadGuild(); }
     },
 
     async loadGuild() {
-        if (!app.data) app.showLoading(true); 
+        app.showLoading(true); 
         try {
             let savedId = localStorage.getItem('currentGuildId');
             const guilds = await db.getAvailableGuilds(auth.user.email);
+            
             if (guilds.length > 0) {
-                const matched = guilds.find(g => g.id === savedId);
-                app.guildId = matched ? matched.id : guilds[0].id;
+                app.guildId = guilds.find(g => g.id === savedId)?.id || guilds[0].id;
+                localStorage.setItem('currentGuildId', app.guildId);
+                
+                db.listenToGuild(app.guildId, (data) => {
+                    const indicator = document.getElementById('sync-indicator');
+                    if (indicator) indicator.classList.add('syncing');
+                    app.data = data;
+                    app.handleDataUpdate();
+                    app.showLoading(false);
+                    setTimeout(() => { if (indicator) indicator.classList.remove('syncing'); }, 1000);
+                });
             } else {
-                app.guildId = await db.createGuild(auth.user.email, "Ma Guilde");
-            }
-            localStorage.setItem('currentGuildId', app.guildId);
-            db.listenToGuild(app.guildId, (data) => {
-                const indicator = document.getElementById('sync-indicator');
-                if (indicator) indicator.classList.add('syncing');
-                app.data = data;
-                app.handleDataUpdate();
+                // NO GUILDS FOUND -> Show Choice Screen
+                app.showView('entry-choice-screen');
                 app.showLoading(false);
-                setTimeout(() => { if (indicator) indicator.classList.remove('syncing'); }, 1000);
-            });
+            }
         } catch (err) { console.error("Load Guild Error:", err); app.showLoading(false); }
     },
 
@@ -86,33 +79,47 @@ const app = {
         app.mainUser = app.data.users.find(u => u.email === auth.user.email);
         
         if (!app.mainUser) {
+            // USER IN GUILD BUT NO HERO DATA -> Start Onboarding
             app.currentUser = null;
+            app.showView('content'); // Show background but overlay onboarding
             app.showModal('onboarding-modal');
         } else {
-            // Check if I am Admin/Owner -> Update System Version
-            // This is how the PC updates the rest of the world
+            // Check if I am Admin/Owner -> Push Version
             if (app.data.meta.owner === auth.user.email) {
                 if (!sessionStorage.getItem('system_version_pushed')) {
-                    db.setSystemConfig(75); 
+                    db.setSystemConfig(76); 
                     sessionStorage.setItem('system_version_pushed', 'true');
                 }
             }
 
-            let needsSave = false;
-            app.data.users.forEach(u => {
-                if (!u.avatar || !u.avatar.startsWith('http')) {
-                    u.avatar = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(u.name || 'Hero')}`;
-                    needsSave = true;
-                }
-            });
-            if (needsSave) app.save();
-
             const impersonatedId = localStorage.getItem('impersonatedHeroId');
             app.currentUser = impersonatedId ? (app.data.users.find(u => u.id === impersonatedId) || app.mainUser) : app.mainUser;
             
+            app.showView('content');
             app.syncSettingsUI();
             app.render();
         }
+    },
+
+    showView(viewId) {
+        document.getElementById('welcome-screen').classList.add('hidden');
+        document.getElementById('entry-choice-screen').classList.add('hidden');
+        document.getElementById('content').classList.add('hidden');
+        document.getElementById(viewId).classList.remove('hidden');
+    },
+
+    async confirmCreateGuild() {
+        const name = document.getElementById('new-guild-name').value;
+        if (!name) return alert("Donne un nom à ta guilde !");
+        
+        app.showLoading(true);
+        const pub = document.getElementById('new-guild-public').value === 'true';
+        const open = document.getElementById('new-guild-open').value === 'true';
+        
+        const newId = await db.createGuild(auth.user.email, name, pub, open);
+        localStorage.setItem('currentGuildId', newId);
+        app.hideModals();
+        await app.loadGuild();
     },
 
     async save() { if (app.guildId && app.data) await db.updateGuild(app.guildId, app.data); },
@@ -207,7 +214,8 @@ const app = {
         const name = document.getElementById('new-user-name').value;
         const seed = document.getElementById('onboard-avatar-seed').value || name;
         const avatar = `https://api.dicebear.com/7.x/${app.currentAvatarStyle}/svg?seed=${encodeURIComponent(seed)}`;
-        if (!name) return;
+        if (!name) return alert("Donne un nom à ton Héros !");
+        
         app.data.users.push({ id: 'u_' + Date.now(), name, avatar, email: auth.user.email, xp: 0, level: 1 });
         await app.save();
         app.hideModals();
@@ -231,7 +239,7 @@ const app = {
         const xpNeeded = (app.currentUser.level || 1) * 100;
         if (app.currentUser.xp >= xpNeeded) {
             app.currentUser.level = (app.currentUser.level || 1) + 1;
-            app.currentUser.xp -= xpNeeded;
+            app.currentUser.xp -= (app.currentUser.level - 1) * 100;
             alert(`🎊 LEVEL UP! ${app.currentUser.name} est Niveau ${app.currentUser.level} !`);
         }
 
@@ -398,7 +406,6 @@ const app = {
     // --- UI Rendering ---
     render() {
         if (!app.currentUser) return;
-        document.getElementById('content').classList.remove('hidden');
         
         const isSquire = app.currentUser.id !== app.mainUser.id;
         document.getElementById('user-name').innerText = (isSquire ? '📜 ' : '') + app.currentUser.name;

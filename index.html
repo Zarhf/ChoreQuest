@@ -5,31 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChoreQuest</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=69">
+    <link rel="stylesheet" href="css/styles.css?v=76">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
 </head>
 <body>
     <script>
-        // Force migration for v69 (fixes mobile cache issues)
-        async function forceV69Sync() {
+        async function forceV76Sync() {
             const lastBuild = localStorage.getItem('app_build');
-            if (lastBuild && parseInt(lastBuild) < 69) {
-                console.log("Forcing major update to v69...");
+            if (lastBuild && parseInt(lastBuild) < 76) {
                 if ('serviceWorker' in navigator) {
                     const registrations = await navigator.serviceWorker.getRegistrations();
                     for (let r of registrations) await r.unregister();
                 }
                 const names = await caches.keys();
                 for (let n of names) await caches.delete(n);
-                localStorage.setItem('app_build', '69');
+                localStorage.setItem('app_build', '76');
                 window.location.reload(true);
             }
         }
-        forceV69Sync();
+        forceV76Sync();
     </script>
 
-    <script src="js/version-manager.js?v=69"></script>
+    <script src="js/version-manager.js?v=76"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -49,6 +47,27 @@
                 <div style="margin-top:10px; font-variant:small-caps; letter-spacing:2px;">Chargement...</div>
             </div>
             
+            <!-- Écran de Bienvenue / Connexion -->
+            <section id="welcome-screen" class="hidden">
+                <div style="text-align: center; margin-top: 2rem;">
+                    <h2 style="border:none;">Bienvenue, Aventurier</h2>
+                    <p>Connecte-toi pour commencer ta quête domestique.</p>
+                    <button class="action-btn" onclick="auth.login()">Se connecter avec Google</button>
+                </div>
+            </section>
+
+            <!-- Écran de Choix (Si pas de guilde) -->
+            <section id="entry-choice-screen" class="hidden">
+                <div style="text-align: center; margin-top: 2rem;">
+                    <h2 style="border:none;">Quelle est ta destination ?</h2>
+                    <p style="opacity:0.7;">Tu n'appartiens à aucune guilde pour le moment.</p>
+                    <button class="action-btn" onclick="app.openGuildSwitcher()" style="margin-top:1rem;">🔍 Rejoindre une Guilde</button>
+                    <button class="action-btn secondary-btn" onclick="app.showModal('create-guild-modal')">🏰 Créer ma propre Guilde</button>
+                    <button class="action-btn danger-btn" onclick="auth.logout()" style="margin-top:2rem; font-size:0.8rem; border:none;">Se déconnecter</button>
+                </div>
+            </section>
+
+            <!-- Dashboard Principal -->
             <section id="content" class="hidden">
                 <div id="user-profile">
                     <div style="position:relative;">
@@ -80,18 +99,13 @@
                     <div id="history-list"></div>
                 </div>
             </section>
-            
-            <section id="welcome-screen" class="hidden">
-                <div style="text-align: center; margin-top: 2rem;">
-                    <p>Bienvenue dans la Guilde, aventurier !</p>
-                    <button class="action-btn" onclick="auth.login()">Se connecter avec Google</button>
-                </div>
-            </section>
         </main>
 
+        <!-- Modale : Création de Héros (Obligatoire à l'entrée d'une guilde) -->
         <div id="onboarding-modal" class="modal hidden">
             <div class="modal-content">
-                <h2>Crée ton Héros</h2>
+                <h2>Forge ton Héros</h2>
+                <p style="font-size:0.8rem; opacity:0.7;">Personnalise ton apparence pour cette guilde.</p>
                 <div class="avatar-preview-container">
                     <div class="avatar-circle" id="onboard-avatar-preview">👤</div>
                     <div class="style-selector">
@@ -102,11 +116,50 @@
                     <input type="text" id="onboard-avatar-seed" placeholder="Ton nom..." oninput="app.updateAvatarPreview('onboard')" style="margin-top:10px;">
                 </div>
                 <input type="text" id="new-user-name" placeholder="Nom du Héros">
-                <button class="action-btn" onclick="app.finishOnboarding()" style="background-color:#27ae60;">Commencer l'Aventure</button>
+                <button class="action-btn" onclick="app.finishOnboarding()" style="background-color:#27ae60;">Entrer dans la Guilde</button>
             </div>
         </div>
 
-        <!-- Create Quest Modal -->
+        <!-- Modale : Création de Guilde -->
+        <div id="create-guild-modal" class="modal hidden">
+            <div class="modal-content">
+                <h2>Fonder une Guilde</h2>
+                <input type="text" id="new-guild-name" placeholder="Nom de la guilde (ex: Maison Gras)">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:1rem;">
+                    <div><label style="font-size:0.7rem;">Visibilité :</label><select id="new-guild-public"><option value="false">Privée</option><option value="true">Publique</option></select></div>
+                    <div><label style="font-size:0.7rem;">Accès :</label><select id="new-guild-open"><option value="true">Ouverte</option><option value="false">Fermée</option></select></div>
+                </div>
+                <button class="action-btn" onclick="app.confirmCreateGuild()" style="background-color:#27ae60;">Créer la Guilde</button>
+                <button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button>
+            </div>
+        </div>
+
+        <!-- Modale : Sélecteur / Recherche de Guilde -->
+        <div id="guild-switcher-modal" class="modal hidden">
+            <div class="modal-content">
+                <h2>Tes Guildes</h2>
+                <div id="guild-list-container"></div>
+                <hr style="border:0; border-top:1px solid #444; margin:1rem 0;">
+                <h3>Rechercher une Guilde</h3>
+                <div style="display:flex; gap:5px; margin-bottom:10px;"><input type="text" id="guild-search-input" placeholder="Nom..."><button class="action-btn" onclick="app.searchGuilds()" style="width:auto;">🔍</button></div>
+                <div id="guild-search-results"></div>
+                <button class="action-btn secondary-btn" onclick="app.hideModals()">Fermer</button>
+            </div>
+        </div>
+
+        <!-- Confirm Modal -->
+        <div id="confirm-modal" class="modal hidden" style="z-index: 5000;">
+            <div class="modal-content" style="max-width: 300px; text-align: center; border: 2px solid #4a90e2;">
+                <h3 id="confirm-title" style="margin-top:0;">🛡️ Confirmation</h3>
+                <p id="confirm-message" style="font-size:0.9rem; margin-bottom:1.5rem;"></p>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                    <button class="action-btn secondary-btn" onclick="app.hideModals()" style="padding:10px; margin:0; font-size:0.8rem;">Annuler</button>
+                    <button id="confirm-yes-btn" class="action-btn" style="padding:10px; margin:0; font-size:0.8rem; background:#27ae60;">Confirmer</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Other Modals (Quest, Edit, Profile, Admin) -->
         <div id="quest-modal" class="modal hidden">
             <div class="modal-content">
                 <h2>Nouvelle Quête</h2>
@@ -126,10 +179,9 @@
             </div>
         </div>
 
-        <!-- Edit Quest Modal -->
         <div id="edit-quest-modal" class="modal hidden">
             <div class="modal-content">
-                <div class="modal-header"><h2>Modifier la Quête</h2><button class="close-btn" onclick="app.hideModals()">X</button></div>
+                <div class="modal-header"><h2>Modifier</h2><button class="close-btn" onclick="app.hideModals()">X</button></div>
                 <input type="hidden" id="edit-quest-id">
                 <input type="text" id="edit-quest-title">
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
@@ -147,7 +199,6 @@
             </div>
         </div>
 
-        <!-- Profile Modal -->
         <div id="profile-modal" class="modal hidden">
             <div class="modal-content">
                 <div class="modal-header"><h2>👤 Mon Profil</h2><button class="close-btn" onclick="app.hideModals()">X</button></div>
@@ -175,7 +226,7 @@
                     <button class="action-btn" onclick="app.showModal('dev-modal'); app.renderDevMode();" style="background-color:#6c757d; font-size:0.7rem;">🛠️ Admin</button>
                     <button class="action-btn danger-btn" onclick="app.forceAppReset()" style="font-size:0.7rem;">⚠️ Réparer</button>
                 </div>
-                <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">v2.8.6 (Build 69)</small>
+                <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">v2.10.0</small>
             </div>
         </div>
 
@@ -187,44 +238,26 @@
                     <input type="text" id="squire-avatar-seed" placeholder="Prénom de l'enfant..." oninput="app.updateAvatarPreview('squire')" style="margin-top:10px;">
                 </div>
                 <input type="text" id="squire-name" placeholder="Nom de l'écuyer">
-                <button class="action-btn" onclick="app.addSquire()" style="background-color:#27ae60;">Ajouter</button>
+                <button class="action-btn" onclick="app.addSquire()" style="background-color:#27ae60;">Ajouter à ma suite</button>
                 <button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button>
             </div>
         </div>
 
-        <!-- System Modals -->
-        <div id="guild-settings-modal" class="modal hidden">
-            <div class="modal-content"><div class="modal-header"><h2>🏰 Ma Guilde</h2><button class="close-btn" onclick="app.hideModals()">X</button></div><div class="settings-group"><input type="text" id="edit-guild-name" onchange="app.renameGuild()" style="margin-bottom:10px; font-weight:bold; width:100%;"><div style="font-size:0.8rem; margin-bottom:15px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;"><div>Visibilité : <select id="edit-guild-public" onchange="app.updateGuildSettings()"><option value="false">🔒 Privée</option><option value="true">🌍 Publique</option></select></div><div>Accès : <select id="edit-guild-open" onchange="app.updateGuildSettings()"><option value="true">✅ Ouverte</option><option value="false">⛔ Fermée</option></select></div></div><h4>Membres</h4><div id="guild-members-list"></div><button class="action-btn" onclick="app.copyInviteLink()" style="background-color:#27ae60; font-size:0.8rem; margin-bottom:10px;">🔗 Copier lien d'invitation</button><button class="action-btn secondary-btn" onclick="app.openGuildSwitcher()" style="font-size:0.8rem; margin-bottom:10px;">🔄 Changer de Guilde</button><button id="quit-guild-btn" class="action-btn danger-btn" onclick="app.leaveGuild()" style="font-size:0.8rem;">🚪 Quitter cette Guilde</button></div></div>
-        </div>
-        <div id="guild-switcher-modal" class="modal hidden"><div class="modal-content"><h2>Mes Guildes</h2><div id="guild-list-container"></div><hr style="border:0; border-top:1px solid #444; margin:1rem 0;"><h3>Rechercher</h3><div style="display:flex; gap:5px; margin-bottom:10px;"><input type="text" id="guild-search-input" placeholder="Nom..."><button class="action-btn" onclick="app.searchGuilds()" style="width:auto;">🔍</button></div><div id="guild-search-results"></div><button class="action-btn" onclick="app.showModal('create-guild-modal')" style="background-color:#27ae60; margin-bottom:10px;">➕ Créer une Guilde</button><button class="action-btn secondary-btn" onclick="app.hideModals()">Fermer</button></div></div>
-        <div id="create-guild-modal" class="modal hidden"><div class="modal-content"><h2>Nouvelle Guilde</h2><input type="text" id="new-guild-name" placeholder="Nom"><button class="action-btn" onclick="app.confirmCreateGuild()" style="background-color:#27ae60;">Créer</button><button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button></div></div>
         <div id="dev-modal" class="modal hidden"><div class="modal-content"><h2>🛠️ Admin</h2><code id="debug-guild-id"></code><div id="debug-users"></div><button class="action-btn secondary-btn" onclick="app.hideModals()">Fermer</button></div></div>
-
-        <!-- NEW: Quick Confirm Modal -->
-        <div id="confirm-modal" class="modal hidden" style="z-index: 5000;">
-            <div class="modal-content" style="max-width: 300px; text-align: center; border: 2px solid #4a90e2;">
-                <h3 id="confirm-title" style="margin-top:0;">🛡️ Confirmation</h3>
-                <p id="confirm-message" style="font-size:0.9rem; margin-bottom:1.5rem;"></p>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                    <button class="action-btn secondary-btn" onclick="app.hideModals()" style="padding:10px; margin:0; font-size:0.8rem;">Annuler</button>
-                    <button id="confirm-yes-btn" class="action-btn" style="padding:10px; margin:0; font-size:0.8rem; background:#27ae60;">Confirmer</button>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Notifications -->
     <div id="activity-toast" class="hidden"><div id="toast-avatar" class="assignee-badge" style="width:30px; height:30px;"></div> <span id="toast-message">...</span></div>
 
     <!-- App Logic -->
-    <script src="js/config.js?v=69"></script>
-    <script src="js/auth.js?v=69"></script>
-    <script src="js/firebase-db.js?v=69"></script>
-    <script src="js/app.js?v=69"></script>
+    <script src="js/config.js?v=76"></script>
+    <script src="js/auth.js?v=76"></script>
+    <script src="js/firebase-db.js?v=76"></script>
+    <script src="js/app.js?v=76"></script>
 
     <script>
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js?v=69'); });
+            window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js?v=76'); });
         }
     </script>
 </body>
