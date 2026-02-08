@@ -23,21 +23,56 @@ const db = {
     },
 
     async getAvailableGuilds(userEmail) {
-        // Find guilds where user is a member or owner
+        // Find guilds where user is a member
         const snapshot = await this.firestore.collection('guilds')
             .where('memberEmails', 'array-contains', userEmail)
             .get();
-        
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     },
 
-    async createGuild(ownerEmail, name) {
+    async searchPublicGuilds(queryText) {
+        // Simple search: find guilds that are public OR match exactly by ID
+        // Note: Firestore doesn't support full-text search natively without Algolia/Typesense.
+        // We'll search by exact ID first, then scan public guilds (limit 20)
+        
+        const results = [];
+
+        // 1. Try exact ID match
+        const docRef = await this.firestore.collection('guilds').doc(queryText).get();
+        if (docRef.exists) {
+            const data = docRef.data();
+            if (data.meta.isPublic || data.meta.isOpen) {
+                results.push({ id: docRef.id, ...data });
+            }
+        }
+
+        // 2. If text search (simulation for small scale app)
+        if (queryText.length > 2) {
+            const snapshot = await this.firestore.collection('guilds')
+                .where('meta.isPublic', '==', true)
+                .limit(20)
+                .get();
+            
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.meta.guildName.toLowerCase().includes(queryText.toLowerCase()) && doc.id !== queryText) {
+                    results.push({ id: doc.id, ...data });
+                }
+            });
+        }
+
+        return results;
+    },
+
+    async createGuild(ownerEmail, name, isPublic = false) {
         const newGuild = {
             meta: {
                 version: 3,
                 created_at: new Date().toISOString(),
-                guildName: name || "Ma Guilde",
-                owner: ownerEmail
+                guildName: name || "Nouvelle Guilde",
+                owner: ownerEmail,
+                isPublic: isPublic, // Visible in search
+                isOpen: true        // Can be joined
             },
             memberEmails: [ownerEmail],
             users: [],

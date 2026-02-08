@@ -7,9 +7,39 @@ const app = {
     async init() {
         auth.init(async (user) => {
             if (user) {
-                await this.loadGuild();
+                // Check for Invitation Link
+                const urlParams = new URLSearchParams(window.location.search);
+                const joinId = urlParams.get('join');
+                
+                if (joinId) {
+                    await this.handleJoinLink(joinId);
+                } else {
+                    await this.loadGuild();
+                }
             }
         });
+    },
+
+    async handleJoinLink(guildId) {
+        if (confirm("Voulez-vous rejoindre cette Guilde ?")) {
+            this.showLoading(true);
+            try {
+                const success = await db.joinGuild(guildId, auth.user.email);
+                if (success) {
+                    localStorage.setItem('currentGuildId', guildId);
+                    window.history.replaceState({}, document.title, "/ChoreQuest/"); // Clean URL
+                    window.location.reload();
+                } else {
+                    alert("Impossible de rejoindre (Guilde fermée ou introuvable).");
+                    await this.loadGuild();
+                }
+            } catch (e) {
+                console.error(e);
+                await this.loadGuild();
+            }
+        } else {
+            await this.loadGuild();
+        }
     },
 
     async loadGuild() {
