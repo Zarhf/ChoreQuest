@@ -43,14 +43,21 @@ const DriveAPI = {
             const token = gapi.client.getToken()?.access_token;
             if (!token) return reject("Non connecté");
 
-            const view = new google.picker.DocsView(google.picker.ViewId.DOCS);
-            view.setMode(google.picker.DocsViewMode.LIST);
-            view.setQuery(CONFIG.DB_FILENAME); // Pre-search for our DB name
-            view.setOwnedByMe(false); // Focus on shared files
+            if (typeof google === 'undefined' || !google.picker) {
+                return reject("Librairie Picker non chargée");
+            }
+
+            // View 1: Search for specific filename
+            const view1 = new google.picker.DocsView(google.picker.ViewId.DOCS);
+            view1.setQuery(CONFIG.DB_FILENAME);
+            
+            // View 2: Shared with me
+            const view2 = new google.picker.DocsView(google.picker.ViewId.DOCS);
+            view2.setOwnedByMe(false);
 
             const picker = new google.picker.PickerBuilder()
-                .addView(view)
-                .addView(google.picker.ViewId.DOCS_SHARED_WITH_ME) // Second tab for shared files
+                .addView(view1)
+                .addView(view2)
                 .setOAuthToken(token)
                 .setDeveloperKey(CONFIG.API_KEY)
                 .setCallback((data) => {
