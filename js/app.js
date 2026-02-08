@@ -172,7 +172,7 @@ const app = {
                  onclick="app.switchGuild('${g.id}')">
                 <strong>${g.meta.guildName}</strong>
             </div>`).join('');
-        this.showModal('guild-modal');
+        this.showModal('guild-switcher-modal');
     },
 
     async searchGuilds() {
