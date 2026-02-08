@@ -1,13 +1,13 @@
-const CACHE_NAME = 'chorequest-v49'; 
+const CACHE_NAME = 'chorequest-v53'; 
 const ASSETS = [
     './',
     './index.html',
-    './css/styles.css?v=49',
-    './js/app.js?v=49',
-    './js/auth.js?v=49',
-    './js/firebase-db.js?v=49',
-    './js/config.js?v=49',
-    './js/version-manager.js?v=49',
+    './css/styles.css?v=53',
+    './js/app.js?v=53',
+    './js/auth.js?v=53',
+    './js/firebase-db.js?v=53',
+    './js/config.js?v=53',
+    './js/version-manager.js?v=53',
     './manifest.json',
     './icons/icon.svg'
 ];
@@ -32,14 +32,30 @@ self.addEventListener('fetch', (e) => {
         return;
     }
     if (e.request.mode === 'navigate') {
-        e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+        e.respondWith(
+            fetch(e.request).catch(() => caches.match(e.request))
+        );
         return;
     }
     if (url.origin === location.origin) {
-        e.respondWith(caches.match(e.request).then((res) => res || fetch(e.request)));
+        e.respondWith(
+            caches.match(e.request).then((cachedResponse) => {
+                const fetchPromise = fetch(e.request).then((networkResponse) => {
+                    if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+                        return networkResponse;
+                    }
+                    const responseToCache = networkResponse.clone();
+                    caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(e.request, responseToCache);
+                    });
+                    return networkResponse;
+                }).catch(() => null);
+                return cachedResponse || fetchPromise;
+            })
+        );
     }
 });
 
-self.addEventListener('message', (e) => {
-    if (e.data.action === 'skipWaiting') self.skipWaiting();
+self.addEventListener('message', (event) => {
+    if (event.data.action === 'skipWaiting') self.skipWaiting();
 });
