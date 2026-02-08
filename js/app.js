@@ -43,21 +43,42 @@ const app = {
 
             await this.checkAndMigrateData(); 
 
+            // Logic: Find user by Google Email first
+            const googleEmail = localStorage.getItem('google_email');
+            
             if (this.data.users.length === 0) {
                 this.showModal('onboarding-modal');
             } else {
-                // IMPORTANT: Reset current user if not found in this guild
-                const lastUserId = localStorage.getItem('lastUserId');
-                this.currentUser = this.data.users.find(u => u.id === lastUserId);
+                // Try to find hero linked to this email
+                let matchedUser = null;
                 
-                // If user not found in this DB (switching guilds), pick the first one or ask to join
-                if (!this.currentUser && this.data.users.length > 0) {
-                     // For now, auto-pick first user to avoid being blocked
-                     this.currentUser = this.data.users[0];
+                if (googleEmail) {
+                    matchedUser = this.data.users.find(u => u.email === googleEmail);
                 }
-                
-                this.syncSettingsUI();
-                this.render();
+
+                // Fallback to local storage ID if no email match (legacy)
+                if (!matchedUser) {
+                    const lastUserId = localStorage.getItem('lastUserId');
+                    matchedUser = this.data.users.find(u => u.id === lastUserId);
+                }
+
+                if (matchedUser) {
+                    this.currentUser = matchedUser;
+                    // Ensure email is saved in DB if missing (migration)
+                    if (googleEmail && !this.currentUser.email) {
+                        this.currentUser.email = googleEmail;
+                        this.saveAndRender();
+                    }
+                    this.syncSettingsUI();
+                    this.render();
+                } else {
+                    // New user in this guild!
+                    // Show onboarding to create a new hero linked to this email
+                    console.log("Nouveau joueur dans cette guilde !");
+                    this.currentUser = null;
+                    document.getElementById('new-user-name').value = ''; // Reset form
+                    this.showModal('onboarding-modal');
+                }
             }
         } catch (err) {
             console.error("Initialization failed:", err);
@@ -188,7 +209,15 @@ const app = {
     },
 
     addUser(name, avatar) {
-        const newUser = { id: 'u' + Date.now(), name, avatar, xp: 0, level: 1 };
+        const googleEmail = localStorage.getItem('google_email');
+        const newUser = { 
+            id: 'u' + Date.now(), 
+            name, 
+            avatar, 
+            xp: 0, 
+            level: 1,
+            email: googleEmail // Link to Google Account
+        };
         this.data.users.push(newUser);
         this.currentUser = newUser;
         localStorage.setItem('lastUserId', newUser.id);

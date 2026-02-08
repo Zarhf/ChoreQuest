@@ -111,9 +111,28 @@ function updateUIForAuth(loggedIn) {
     }
 }
 
+async function getUserProfile() {
+    try {
+        const response = await gapi.client.request({
+            'path': 'https://www.googleapis.com/oauth2/v3/userinfo',
+        });
+        return response.result;
+    } catch (err) {
+        console.error("Error getting user profile", err);
+        return null;
+    }
+}
+
 async function onLoginSuccess() {
     updateUIForAuth(true);
     document.getElementById('welcome-screen').classList.add('hidden');
+    
+    // Fetch and store user email for logic mapping
+    const profile = await getUserProfile();
+    if (profile && profile.email) {
+        localStorage.setItem('google_email', profile.email);
+    }
+    
     await app.init();
 }
 

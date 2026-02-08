@@ -1,12 +1,12 @@
-const CACHE_NAME = 'chorequest-v21'; 
+const CACHE_NAME = 'chorequest-v23'; 
 const ASSETS = [
     './',
     './index.html',
-    './css/styles.css?v=21',
-    './js/app.js?v=21',
-    './js/auth.js?v=21',
-    './js/drive.js?v=21',
-    './js/config.js?v=21',
+    './css/styles.css?v=23',
+    './js/app.js?v=23',
+    './js/auth.js?v=23',
+    './js/drive.js?v=23',
+    './js/config.js?v=23',
     './manifest.json'
 ];
 
