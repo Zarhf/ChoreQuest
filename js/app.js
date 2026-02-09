@@ -54,7 +54,7 @@ const app = {
     ],
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 126 starting...");
+        console.log("🛡️ ChoreQuest Build 127 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -180,7 +180,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(126); 
+                db.setSystemConfig(127); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -197,6 +197,7 @@ const app = {
     },
 
     startTutorial() {
+        app.hideModals();
         app.currentTutorialStep = 0;
         app.renderTutorialStep();
         const backdrop = document.getElementById('tutorial-backdrop');
