@@ -9,7 +9,7 @@ const app = {
     _pendingAction: null,
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 100 starting...");
+        console.log("🛡️ ChoreQuest Build 101 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -106,7 +106,7 @@ const app = {
         } else {
             if (app.isAdmin()) {
                 if (!sessionStorage.getItem('system_version_pushed')) {
-                    db.setSystemConfig(100); 
+                    db.setSystemConfig(101); 
                     sessionStorage.setItem('system_version_pushed', 'true');
                 }
             }
@@ -209,6 +209,10 @@ const app = {
     async unclaimQuest(instanceId) {
         const quest = app.data.activeQuests.find(q => q.id === instanceId);
         if (!quest) return;
+        
+        const def = app.data.questDefinitions.find(d => d.id === quest.definitionId);
+        if (def && def.defaultAssignee) return alert("Désolé, tu ne peux pas abandonner un ordre direct !");
+
         const oldTitle = quest.title;
         quest.assignedTo = null; 
         app.data.questLog.unshift({ id: 'log_un_'+Date.now(), type: 'system', title: `Quête abandonnée : ${oldTitle}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
@@ -734,8 +738,12 @@ const app = {
             
             let actionButtons = '';
             if (!up) {
+                const def = app.data.questDefinitions.find(d => d.id === q.definitionId);
+                const isMandatory = def && def.defaultAssignee;
+
                 if (isMe || isNobody) actionButtons += `<button class="quest-action-btn btn-complete" onclick="event.stopPropagation(); app.askConfirm('Terminer ?', () => app.completeTask('${q.id}'))" title="Valider">✅</button>`;
-                if (isMe) actionButtons += `<button class="quest-action-btn btn-abandon" onclick="event.stopPropagation(); app.askConfirm('Abandonner ?', () => app.unclaimQuest('${q.id}'))" title="Abandonner">❌</button>`;
+                
+                if (isMe && !isMandatory) actionButtons += `<button class="quest-action-btn btn-abandon" onclick="event.stopPropagation(); app.askConfirm('Abandonner ?', () => app.unclaimQuest('${q.id}'))" title="Abandonner">❌</button>`;
                 else if (isNobody) actionButtons += `<button class="quest-action-btn btn-claim" onclick="event.stopPropagation(); app.askConfirm('Prendre ?', () => app.claimQuest('${q.id}'))" title="☝️ Je prends">☝️</button>`;
                 else if (isStealable) actionButtons += `<button class="quest-action-btn btn-steal" onclick="event.stopPropagation(); app.askConfirm('🥷 VOLER ?', () => app.claimQuest('${q.id}'))" title="🥷 Voler">🥷</button>`;
             }
