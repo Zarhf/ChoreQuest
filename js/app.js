@@ -54,7 +54,7 @@ const app = {
     ],
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 124 starting...");
+        console.log("🛡️ ChoreQuest Build 125 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -180,7 +180,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(124); 
+                db.setSystemConfig(125); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -199,6 +199,8 @@ const app = {
     startTutorial() {
         app.currentTutorialStep = 0;
         app.renderTutorialStep();
+        const backdrop = document.getElementById('tutorial-backdrop');
+        if (backdrop) backdrop.classList.remove('hidden');
         app.showModal('tutorial-modal');
     },
 
@@ -247,6 +249,8 @@ const app = {
     skipTutorial() {
         localStorage.setItem(`tutorial_seen_${app.mainUser.id}`, 'true');
         document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
+        const backdrop = document.getElementById('tutorial-backdrop');
+        if (backdrop) backdrop.classList.add('hidden');
         app.hideModals();
         app.setView('board');
     },

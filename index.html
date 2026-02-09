@@ -8,11 +8,11 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>ChoreQuest</title>
         <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=124">
+    <link rel="stylesheet" href="css/styles.css?v=125">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
     <script>
-        // --- NUCLEAIRE CACHE KILLER (Build 124) ---
+        // --- NUCLEAIRE CACHE KILLER (Build 125) ---
         (async function() {
             try {
                 const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
@@ -356,8 +356,9 @@
         </div>
 
         <!-- Tutoriel Modal -->
-        <div id="tutorial-modal" class="modal hidden" style="z-index: 6000;">
-            <div class="modal-content" style="border: 2px solid #4a90e2; box-shadow: 0 0 20px #4a90e2;">
+        <div id="tutorial-backdrop" class="tutorial-backdrop hidden"></div>
+        <div id="tutorial-modal" class="modal hidden" style="z-index: 7000;">
+            <div class="modal-content" style="border: 2px solid #4a90e2; box-shadow: 0 0 20px #4a90e2; position: relative; z-index: 7001;">
                 <div class="modal-header">
                     <h2 id="tutorial-title">🏰 Tutoriel : Étape 1</h2>
                     <button class="close-btn" onclick="app.skipTutorial()">Skip</button>
