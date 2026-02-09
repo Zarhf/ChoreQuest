@@ -54,7 +54,7 @@ const app = {
     ],
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 125 starting...");
+        console.log("🛡️ ChoreQuest Build 126 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -180,7 +180,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(125); 
+                db.setSystemConfig(126); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -228,18 +228,45 @@ const app = {
         // Dots
         const dots = document.getElementById('tutorial-dots');
         dots.innerHTML = app.tutorialSteps.map((_, i) => 
-            `<div style="width:8px; height:8px; border-radius:50%; background:${i === app.currentTutorialStep ? '#4a90e2' : '#444'}"></div>`
+            `<div style="width:6px; height:6px; border-radius:50%; background:${i === app.currentTutorialStep ? '#4a90e2' : '#444'}"></div>`
         ).join('');
 
-        // Action
+        // Action (View Switch)
         if (step.action) step.action();
 
         // Highlight
         document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
-        if (step.highlight) {
-            const el = document.querySelector(step.highlight);
-            if (el) el.classList.add('tutorial-highlight');
-        }
+        
+        const modalContent = document.querySelector('#tutorial-modal .modal-content');
+        if (!modalContent) return;
+
+        setTimeout(() => {
+            if (step.highlight) {
+                const target = document.querySelector(step.highlight);
+                if (target) {
+                    target.classList.add('tutorial-highlight');
+                    
+                    // Positionnement dynamique
+                    const rect = target.getBoundingClientRect();
+                    const screenHeight = window.innerHeight;
+                    
+                    // Si l'élément est en haut de l'écran, on met le modal en bas, et inversement
+                    if (rect.top < screenHeight / 2) {
+                        modalContent.style.marginTop = "auto";
+                        modalContent.style.marginBottom = "20px";
+                    } else {
+                        modalContent.style.marginTop = "20px";
+                        modalContent.style.marginBottom = "auto";
+                    }
+
+                    // Scrolling auto vers l'élément
+                    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            } else {
+                modalContent.style.marginTop = "100px";
+                modalContent.style.marginBottom = "auto";
+            }
+        }, 100);
 
         // Button text
         const btn = document.getElementById('tutorial-next-btn');
