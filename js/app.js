@@ -9,7 +9,7 @@ const app = {
     _pendingAction: null,
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 109 starting...");
+        console.log("🛡️ ChoreQuest Build 111 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -135,7 +135,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(109); 
+                db.setSystemConfig(111); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -541,6 +541,19 @@ const app = {
         } else if (type === 'reject') {
             const idxDef = app.data.questDefinitions.findIndex(d => d.id === quest.definitionId);
             const idxInst = app.data.activeQuests.findIndex(q => q.id === instanceId);
+            
+            // Remboursement si c'est une mission royale payée
+            if (def.isRoyal && def.baseGold > 0) {
+                const creator = app.data.users.find(u => u.id === def.createdBy);
+                // On ne rembourse que si le créateur n'est pas admin (les admins ne paient pas)
+                // Note: On simplifie en vérifiant si le créateur est le propriétaire de la guilde
+                const isOwner = app.data.meta.owner === creator?.email || creator?.email === 'yohann.gras@gmail.com';
+                if (!isOwner && creator) {
+                    creator.gold = (creator.gold || 0) + def.baseGold;
+                    app.data.questLog.unshift({ id: 'log_refund_'+Date.now(), type: 'system', title: `Remboursement Mission Royale : ${def.baseGold} ${app.data.currency.symbol}`, completedBy: creator.id, completedAt: new Date().toISOString(), xpEarned: 0 });
+                }
+            }
+
             if (idxDef !== -1) app.data.questDefinitions.splice(idxDef, 1);
             if (idxInst !== -1) app.data.activeQuests.splice(idxInst, 1);
             app.data.questLog.unshift({ id: 'log_council_rej_'+Date.now(), type: 'system', title: `Le Conseil a rejeté : ${quest.title}`, completedBy: 'Council', completedAt: new Date().toISOString(), xpEarned: 0 });
