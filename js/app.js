@@ -9,7 +9,7 @@ const app = {
     _pendingAction: null,
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 98 starting...");
+        console.log("🛡️ ChoreQuest Build 99 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -106,7 +106,7 @@ const app = {
         } else {
             if (app.isAdmin()) {
                 if (!sessionStorage.getItem('system_version_pushed')) {
-                    db.setSystemConfig(98); 
+                    db.setSystemConfig(99); 
                     sessionStorage.setItem('system_version_pushed', 'true');
                 }
             }
@@ -290,7 +290,9 @@ const app = {
     },
 
     isAdmin() {
-        return (app.data && app.data.meta && app.data.meta.owner === auth.user.email) || (auth.user && auth.user.email === 'yohann.gras@gmail.com');
+        const isMainAdmin = (app.data && app.data.meta && app.data.meta.owner === auth.user.email) || (auth.user && auth.user.email === 'yohann.gras@gmail.com');
+        const isImpersonating = app.currentUser && app.mainUser && app.currentUser.id !== app.mainUser.id;
+        return isMainAdmin && !isImpersonating;
     },
 
     async addRoyalQuest() {
@@ -367,6 +369,7 @@ const app = {
     },
 
     openEditQuestModal(instanceId) {
+        if (!app.isAdmin()) return;
         const realId = instanceId.replace('virtual_', '');
         let quest = app.data.activeQuests.find(q => q.id === realId);
         let defId = quest ? quest.definitionId : realId;
@@ -426,6 +429,7 @@ const app = {
     },
 
     async undoLog(logId) {
+        if (!app.isAdmin()) return;
         app.askConfirm("Annuler ?", async () => {
             const idx = app.data.questLog.findIndex(l => l.id === logId); if (idx === -1) return;
             const log = app.data.questLog[idx]; const user = app.data.users.find(u => u.id === log.completedBy);
@@ -740,7 +744,8 @@ const app = {
                 else if (isNobody) actionButtons += `<button class="quest-action-btn btn-claim" onclick="event.stopPropagation(); app.askConfirm('Prendre ?', () => app.claimQuest('${q.id}'))" title="☝️ Je prends">☝️</button>`;
                 else if (isStealable) actionButtons += `<button class="quest-action-btn btn-steal" onclick="event.stopPropagation(); app.askConfirm('🥷 VOLER ?', () => app.claimQuest('${q.id}'))" title="🥷 Voler">🥷</button>`;
             }
-            return `<div class="quest-card ${rarity} ${up ? 'upcoming' : ''}"><div class="quest-body" onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer">${assigneeHtml}<div class="quest-info"><h4>${freq} ${q.title}</h4><span>💰 ${q.xp} XP${q.gold ? ' • ' + app.data.currency.symbol + ' ' + q.gold : ''}${time}</span></div></div><div class="quest-actions-container">${actionButtons}</div></div>`;
+            const canEdit = app.isAdmin();
+            return `<div class="quest-card ${rarity} ${up ? 'upcoming' : ''}"><div class="quest-body" ${canEdit ? `onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer"` : ''}>${assigneeHtml}<div class="quest-info"><h4>${freq} ${q.title}</h4><span>💰 ${q.xp} XP${q.gold ? ' • ' + app.data.currency.symbol + ' ' + q.gold : ''}${time}</span></div></div><div class="quest-actions-container">${actionButtons}</div></div>`;
         };
         document.getElementById('task-list').innerHTML = active.map(q => html(q, false)).join('') || '<p style="text-align:center; opacity:0.5;">Tout est fait !</p>';
         const groups = {}; upcoming.forEach(q => { const d = new Date(q.dueDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); if (!groups[d]) groups[d] = []; groups[d].push(q); });
@@ -753,7 +758,8 @@ const app = {
         histList.innerHTML = app.data.questLog.map(log => {
             const user = app.data.users.find(u => u.id === log.completedBy || u.email === log.completedBy);
             const color = log.type === 'system' ? '#e94560' : '#4a90e2';
-            return `<div class="history-item" style="border-left-color: ${color}"><div style="display:flex; justify-content:space-between; align-items:center;"><div style="display:flex; align-items:center; gap:10px;">${app.getAvatarHtml(user ? user.avatar : '?', "30px")}<div><strong>${log.title}</strong><br><small>${user ? user.name : '??'} • ${new Date(log.completedAt).toLocaleString()}</small></div></div>${log.type === 'completion' ? `<button class="undo-btn" onclick="app.undoLog('${log.id}')">Annuler</button>` : ''}</div></div>`;
+            const canUndo = app.isAdmin();
+            return `<div class="history-item" style="border-left-color: ${color}"><div style="display:flex; justify-content:space-between; align-items:center;"><div style="display:flex; align-items:center; gap:10px;">${app.getAvatarHtml(user ? user.avatar : '?', "30px")}<div><strong>${log.title}</strong><br><small>${user ? user.name : '??'} • ${new Date(log.completedAt).toLocaleString()}</small></div></div>${(log.type === 'completion' && canUndo) ? `<button class="undo-btn" onclick="app.undoLog('${log.id}')">Annuler</button>` : ''}</div></div>`;
         }).join('');
     },
 
