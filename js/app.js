@@ -106,7 +106,7 @@ const app = {
         } else {
             if (app.data.meta.owner === auth.user.email) {
                 if (!sessionStorage.getItem('system_version_pushed')) {
-                    db.setSystemConfig(95); 
+                    db.setSystemConfig(96); 
                     sessionStorage.setItem('system_version_pushed', 'true');
                 }
             }
