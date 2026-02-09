@@ -412,7 +412,7 @@ const app = {
             return `<div class="quest-card ${rarity} ${up ? 'upcoming' : ''}">
                 <div class="quest-body" onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer">
                     ${assigneeHtml}
-                    <div class="quest-info"><h4>${freq} ${q.title} <span class="edit-icon">✏️</span></h4><span>💰 ${q.xp} XP${time}</span></div>
+                    <div class="quest-info"><h4>${freq} ${q.title}</h4><span>💰 ${q.xp} XP${time}</span></div>
                 </div>
                 <div class="quest-actions-container">${actionButtons}</div>
             </div>`;
