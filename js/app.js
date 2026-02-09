@@ -54,7 +54,7 @@ const app = {
     ],
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 127 starting...");
+        console.log("🛡️ ChoreQuest Build 128 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -180,7 +180,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(127); 
+                db.setSystemConfig(128); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -1250,6 +1250,12 @@ const app = {
     },
 
     syncSettingsUI() {
+        // En-tête de Guilde
+        document.getElementById('guild-name-display').innerText = app.data.meta.guildName;
+        const memberCount = app.data.users.length;
+        document.getElementById('guild-stats-display').innerText = `${memberCount} Membre${memberCount>1?'s':''} • ${app.data.meta.isPublic ? '🌍 Publique' : '🔒 Privée'}`;
+
+        // Admin Edit Fields
         document.getElementById('edit-guild-name').value = app.data.meta.guildName;
         document.getElementById('edit-guild-public').value = app.data.meta.isPublic.toString();
         document.getElementById('edit-guild-open').value = app.data.meta.isOpen.toString();
@@ -1271,12 +1277,9 @@ const app = {
         
         const isAdmin = app.isAdmin();
         
-        // Disable/Hide inputs for non-admins
-        const adminInputs = ['edit-guild-name', 'edit-guild-public', 'edit-guild-open', 'guild-currency-name', 'guild-currency-symbol'];
-        adminInputs.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.disabled = !isAdmin;
-        });
+        // Toggle Admin Zone
+        const adminZone = document.getElementById('guild-admin-zone');
+        if (adminZone) adminZone.classList.toggle('hidden', !isAdmin);
 
         // Hide Admin Buttons
         const btnAdmin = document.querySelector('button[onclick*="renderDevMode"]');
@@ -1285,10 +1288,6 @@ const app = {
         const btnAddMarket = document.getElementById('add-market-item-btn');
         if (btnAddMarket) btnAddMarket.style.display = isAdmin ? 'block' : 'none';
         
-        // Hide Rank Add/Remove buttons for non-admins (handled in renderGuildRanks too)
-        const rankBtn = document.querySelector('button[onclick*="addRankRow"]');
-        if (rankBtn) rankBtn.style.display = isAdmin ? 'block' : 'none';
-
         // Update labels
         document.querySelectorAll('.currency-name-label').forEach(el => el.innerText = app.data.currency.name);
     },
@@ -1359,7 +1358,78 @@ const app = {
 
     // --- Utils ---
     toggleRecurrenceUI(prefix) { const elFreq = document.getElementById(`${prefix}-frequency`); if (!elFreq) return; const val = elFreq.value; const intervalContainer = document.getElementById(`${prefix}-interval-container`); const daysSelector = document.getElementById(`${prefix}-days-selector`); if (intervalContainer) intervalContainer.classList.toggle('hidden', val === 'none'); if (daysSelector) daysSelector.classList.toggle('hidden', val !== 'weekly'); },
-    renderGuildMembers() { const elList = document.getElementById('guild-members-list'); if (elList) elList.innerHTML = app.data.users.map(u => `<div style="display:flex; gap:10px; margin-bottom:5px;"><span>${app.getAvatarHtml(u.avatar, "20px")}</span><span>${u.name} (Lvl ${u.level || 1})</span></div>`).join(''); },
+    renderGuildMembers() {
+        const elList = document.getElementById('guild-members-list');
+        if (!elList) return;
+        
+        // Tri : Level DESC, puis XP DESC
+        const sortedUsers = [...app.data.users].sort((a, b) => {
+            const lvlA = a.level || 1, lvlB = b.level || 1;
+            if (lvlA !== lvlB) return lvlB - lvlA;
+            return (b.xp || 0) - (a.xp || 0);
+        });
+
+        const ownerEmail = app.data.meta.owner;
+        const currentIsAdmin = app.isAdmin();
+
+        elList.innerHTML = sortedUsers.map(u => {
+            const isOwner = u.email === ownerEmail || u.id === app.data.meta.createdBy; // Fallback ID if email missing
+            const isAdmin = isOwner; // Pour l'instant owner = admin
+            const rankTitle = app.getRank(u.level || 1);
+            const isMe = u.id === app.currentUser.id;
+            
+            let actionBtn = '';
+            if (currentIsAdmin && !isMe) {
+                actionBtn = `<button class="kick-btn" onclick="app.kickMember('${u.id}')" title="Exclure">Bannir</button>`;
+            }
+
+            return `
+                <div class="member-card-detailed ${isAdmin ? 'is-admin' : ''}">
+                    ${app.getAvatarHtml(u.avatar, "40px")}
+                    <div class="member-info">
+                        <div class="member-name-row">
+                            ${u.name}
+                            ${isAdmin ? '<span class="admin-badge">Chef</span>' : ''}
+                        </div>
+                        <div class="member-title">${rankTitle}</div>
+                        <div class="member-stats-row">
+                            <span>Lvl ${u.level || 1}</span>
+                            <span>•</span>
+                            <span>${u.xp || 0} XP</span>
+                            <span>•</span>
+                            <span style="color:#f1c40f">${u.gold || 0} ${app.data.currency.symbol}</span>
+                        </div>
+                    </div>
+                    ${actionBtn}
+                </div>
+            `;
+        }).join('');
+    },
+
+    async kickMember(userId) {
+        if (!app.isAdmin()) return;
+        const user = app.data.users.find(u => u.id === userId);
+        if (!user) return;
+
+        if (confirm(`Êtes-vous sûr de vouloir bannir ${user.name} du royaume ? Cette action est irréversible.`)) {
+            app.data.users = app.data.users.filter(u => u.id !== userId);
+            // On pourrait aussi nettoyer les quêtes assignées, mais gardons simple pour l'instant
+            app.data.activeQuests.forEach(q => { if(q.assignedTo === userId) q.assignedTo = null; });
+            
+            app.data.questLog.unshift({ 
+                id: 'log_ban_'+Date.now(), 
+                type: 'system', 
+                title: `Bannissement : ${user.name}`, 
+                completedBy: app.currentUser.id, 
+                completedAt: new Date().toISOString(), 
+                xpEarned: 0 
+            });
+
+            await app.save();
+            app.renderGuildMembers();
+        }
+    },
+
     updateCurrentUserInfo() { app.currentUser.name = document.getElementById('edit-user-name').value; app.save(); },
     setView(v) { app.currentView = v; document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.id === `tab-${v}`)); app.render(); },
     showLoading(s) { const el = document.getElementById('loading'); if (el) el.classList.toggle('hidden', !s); },
@@ -1373,6 +1443,7 @@ const app = {
         if (!newName) return; 
         app.data.meta.guildName = newName; 
         await app.save(); 
+        app.syncSettingsUI(); // Refresh title
     },
     async openGuildSwitcher() { app.showLoading(true); const guilds = await db.getAvailableGuilds(auth.user.email); app.showLoading(false); const cont = document.getElementById('guild-list-container'); if (cont) cont.innerHTML = guilds.map(g => `<div style="background:${g.id === app.guildId ? '#4a90e2' : '#0f3460'}; padding:10px; margin-bottom:5px; border-radius:5px; cursor:pointer;" onclick="app.switchGuild('${g.id}')"><strong>${g.meta.guildName}</strong></div>`).join(''); app.showModal('guild-switcher-modal'); },
     async searchGuilds() { const qIn = document.getElementById('guild-search-input'); const q = qIn ? qIn.value : ''; if (!q) return; app.showLoading(true); const results = await db.searchPublicGuilds(q); app.showLoading(false); const resEl = document.getElementById('guild-search-results'); if (resEl) resEl.innerHTML = results.length ? results.map(g => `<div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;"><span>${g.meta.guildName}</span><button class="action-btn" style="width:auto; padding:5px 10px;" onclick="app.handleJoinLink('${g.id}')">Rejoindre</button></div>`).join('') : "<p>Rien trouvé.</p>"; },
@@ -1383,7 +1454,7 @@ const app = {
     async updateGuildSettings() { 
         if (!app.isAdmin()) return;
         if (!app.data) return; 
-        app.data.meta.guildName = document.getElementById('edit-guild-name').value; 
+        // Name updated via renameGuild
         app.data.meta.isPublic = document.getElementById('edit-guild-public').value === 'true'; 
         app.data.meta.isOpen = document.getElementById('edit-guild-open').value === 'true'; 
         await app.save(); 

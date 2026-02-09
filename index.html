@@ -8,11 +8,11 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>ChoreQuest</title>
         <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=127">
+    <link rel="stylesheet" href="css/styles.css?v=128">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
     <script>
-        // --- NUCLEAIRE CACHE KILLER (Build 127) ---
+        // --- NUCLEAIRE CACHE KILLER (Build 128) ---
         (async function() {
             try {
                 const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
@@ -235,8 +235,31 @@
         <div id="guild-settings-modal" class="modal hidden">
             <div class="modal-content">
                 <div class="modal-header"><h2>🏰 Ma Guilde</h2><button class="close-btn" onclick="app.hideModals()">X</button></div>
-                <div class="settings-group">
-                    <input type="text" id="edit-guild-name" onchange="app.renameGuild()" style="margin-bottom:10px; font-weight:bold; width:100%;">
+                
+                <!-- En-tête Classe -->
+                <div class="guild-header-banner">
+                    <h1 id="guild-name-display">Nom de la Guilde</h1>
+                    <div id="guild-stats-display" style="font-size: 0.8rem; opacity: 0.7; margin-top: 5px;"></div>
+                </div>
+
+                <!-- Liste des Membres (Cartes) -->
+                <h3 style="margin: 20px 0 10px 0; font-size: 1rem; color: #4a90e2; border-bottom: 1px solid rgba(74, 144, 226, 0.3); padding-bottom: 5px;">Membres du Royaume</h3>
+                <div id="guild-members-list" class="members-list-detailed"></div>
+
+                <!-- Section Invite & Quitter -->
+                <div style="display:flex; gap:10px; margin-top:15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+                    <button class="action-btn" onclick="app.copyInviteLink()" style="background-color:#27ae60; font-size:0.8rem; flex:1;">🔗 Inviter</button>
+                    <button class="action-btn secondary-btn" onclick="app.openGuildSwitcher()" style="font-size:0.8rem; flex:1;">🔄 Changer</button>
+                </div>
+                <button id="quit-guild-btn" class="action-btn danger-btn" onclick="app.leaveGuild()" style="font-size:0.8rem; margin-top: 10px;">🚪 Quitter cette Guilde</button>
+
+                <!-- Zone Admin (Cachée par défaut) -->
+                <div id="guild-admin-zone" class="hidden" style="margin-top: 30px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; border: 1px solid rgba(74, 144, 226, 0.2);">
+                    <h4 style="margin-top:0; color:#f39c12;">🛠️ Administration</h4>
+                    
+                    <label style="font-size:0.7rem;">Renommer la Guilde :</label>
+                    <input type="text" id="edit-guild-name" onchange="app.renameGuild()" style="margin-bottom:10px;">
+                    
                     <div style="font-size:0.8rem; margin-bottom:15px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                         <div>Visibilité : <select id="edit-guild-public" onchange="app.updateGuildSettings()"><option value="false">🔒 Privée</option><option value="true">🌍 Publique</option></select></div>
                         <div>Accès : <select id="edit-guild-open" onchange="app.updateGuildSettings()"><option value="true">✅ Ouverte</option><option value="false">⛔ Fermée</option></select></div>
@@ -247,16 +270,10 @@
                         <div><label style="font-size:0.7rem;">Nom de la monnaie :</label><input type="text" id="guild-currency-name" placeholder="Écus" onchange="app.updateGuildEconomy()"></div>
                         <div><label style="font-size:0.7rem;">Icône :</label><select id="guild-currency-symbol" onchange="app.updateGuildEconomy()"><option value="🪙">🪙</option><option value="💰">💰</option><option value="💎">💎</option><option value="🌕">🌕</option><option value="🎟️">🎟️</option><option value="🍪">🍪</option><option value="🍬">🍬</option><option value="🛡️">🛡️</option><option value="⚔️">⚔️</option><option value="📜">📜</option></select></div>
                     </div>
-
-                    <h4>🛡️ Dashboard des Membres</h4>
-                    <div id="guild-members-list" class="members-dashboard"></div>
-                    <div style="display:flex; gap:10px; margin-bottom:15px;">
-                        <button class="action-btn" onclick="app.copyInviteLink()" style="background-color:#27ae60; font-size:0.7rem; flex:1;">🔗 Inviter</button>
-                        <button class="action-btn secondary-btn" onclick="app.openGuildSwitcher()" style="font-size:0.7rem; flex:1;">🔄 Changer</button>
-                    </div>
-
+                    
                     <h4>Hiérarchie (Titres)</h4>
-                    <button id="quit-guild-btn" class="action-btn danger-btn" onclick="app.leaveGuild()" style="font-size:0.8rem;">🚪 Quitter cette Guilde</button>
+                    <div id="guild-ranks-list"></div>
+                    <button class="action-btn secondary-btn" onclick="app.addRankRow()" style="font-size:0.7rem; margin-top:5px;">+ Ajouter un rang</button>
                 </div>
             </div>
         </div>

@@ -393,6 +393,108 @@ input, select {
     letter-spacing: 1px;
 }
 
+/* Guild Settings & Members */
+.guild-header-banner {
+    text-align: center;
+    padding: 20px 0;
+    margin-bottom: 20px;
+    background: radial-gradient(circle, rgba(74, 144, 226, 0.2) 0%, rgba(26, 26, 46, 0) 70%);
+}
+
+.guild-header-banner h1 {
+    font-family: 'Cinzel', serif; /* Si dispo, sinon fallback */
+    font-size: 2rem;
+    color: #f1c40f;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    margin: 0;
+}
+
+.members-list-detailed {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.member-card-detailed {
+    background: #222;
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    position: relative;
+    transition: transform 0.2s;
+}
+
+.member-card-detailed:hover {
+    transform: translateX(5px);
+    border-color: #4a90e2;
+}
+
+.member-card-detailed.is-admin {
+    border-left: 3px solid #f1c40f;
+}
+
+.member-info {
+    flex: 1;
+}
+
+.member-name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: bold;
+    font-size: 1rem;
+}
+
+.member-title {
+    font-size: 0.75rem;
+    color: #4a90e2;
+    font-variant: small-caps;
+    letter-spacing: 0.5px;
+}
+
+.member-stats-row {
+    font-size: 0.8rem;
+    opacity: 0.8;
+    margin-top: 3px;
+    display: flex;
+    gap: 10px;
+}
+
+.kick-btn {
+    background: transparent;
+    border: 1px solid #e74c3c;
+    color: #e74c3c;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    cursor: pointer;
+    opacity: 0; /* Caché par défaut */
+    transition: opacity 0.2s, background 0.2s;
+}
+
+.member-card-detailed:hover .kick-btn {
+    opacity: 1;
+}
+
+.kick-btn:hover {
+    background: #e74c3c;
+    color: white;
+}
+
+.admin-badge {
+    font-size: 0.7rem;
+    background: #f1c40f;
+    color: #000;
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
 /* Header Actions */
 .header-actions { display: flex; gap: 10px; }
 .icon-btn {
