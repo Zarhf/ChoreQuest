@@ -9,7 +9,7 @@ const app = {
     _pendingAction: null,
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 99 starting...");
+        console.log("🛡️ ChoreQuest Build 100 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -106,7 +106,7 @@ const app = {
         } else {
             if (app.isAdmin()) {
                 if (!sessionStorage.getItem('system_version_pushed')) {
-                    db.setSystemConfig(99); 
+                    db.setSystemConfig(100); 
                     sessionStorage.setItem('system_version_pushed', 'true');
                 }
             }
@@ -260,81 +260,42 @@ const app = {
 
     isStealable(q) {
         if (!q.assignedTo || q.assignedTo === app.currentUser.id) return false;
-        const now = new Date(); const due = new Date(q.dueDate);
-        if (q.timeSlot && q.timeSlot.end) { const [h, m] = q.timeSlot.end.split(':'); due.setHours(parseInt(h), parseInt(m), 0, 0); } else due.setHours(23, 59, 59, 999);
+        
+        const now = new Date();
+        const due = new Date(q.dueDate);
+        const def = app.data.questDefinitions.find(d => d.id === q.definitionId);
+        const isOneTime = !def || def.frequency === 'none';
+
+        // Une quête ponctuelle sans date ni heure ne peut pas être volée
+        if (isOneTime && !q.dueDate && (!q.timeSlot || !q.timeSlot.end)) return false;
+
+        // Si une heure de fin est définie, on l'utilise
+        if (q.timeSlot && q.timeSlot.end) {
+            const [h, m] = q.timeSlot.end.split(':');
+            due.setHours(parseInt(h), parseInt(m), 0, 0);
+        } else {
+            // Sinon par défaut fin de journée (23:59)
+            due.setHours(23, 59, 59, 999);
+        }
+
         return now > due;
     },
 
-    calculateNextDueDate(def, fromDate = new Date()) {
-        let next = new Date(fromDate); const int = parseInt(def.interval || 1); const now = new Date(); now.setHours(0,0,0,0);
-        const add = (d) => {
-            if (def.frequency === 'daily') d.setDate(d.getDate() + int);
-            else if (def.frequency === 'weekly') {
-                let found = false;
-                for (let i = 1; i <= 7 * int; i++) {
-                    let check = new Date(d); check.setDate(d.getDate() + i);
-                    if (def.days && def.days.includes(check.getDay().toString())) { d.setTime(check.getTime()); found = true; break; }
-                }
-                if (!found) d.setDate(d.getDate() + 7 * int);
-            } else if (def.frequency === 'monthly') d.setMonth(d.getMonth() + int);
-        };
-        add(next); let safety = 0; while (next < now && safety < 100) { safety++; add(next); }
-        next.setHours(4, 0, 0, 0); return next;
-    },
-
-    calculateFirstDueDate(def) {
-        const now = new Date(); now.setHours(0,0,0,0);
-        if (def.frequency === 'weekly' && def.days && def.days.length > 0) { if (def.days.includes(now.getDay().toString())) { const today = new Date(now); today.setHours(4,0,0,0); return today; } }
-        const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
-        return app.calculateNextDueDate(def, yesterday);
-    },
-
-    isAdmin() {
-        const isMainAdmin = (app.data && app.data.meta && app.data.meta.owner === auth.user.email) || (auth.user && auth.user.email === 'yohann.gras@gmail.com');
-        const isImpersonating = app.currentUser && app.mainUser && app.currentUser.id !== app.mainUser.id;
-        return isMainAdmin && !isImpersonating;
-    },
-
-    async addRoyalQuest() {
-        const title = document.getElementById('royal-quest-title').value;
-        const xp = parseInt(document.getElementById('royal-quest-xp').value || 0);
-        const gold = parseInt(document.getElementById('royal-quest-gold').value || 0);
-        const assignee = document.getElementById('royal-quest-assignee').value || null;
+    updateTimeEnablement(prefix) {
+        const freq = document.getElementById(`${prefix}-frequency`).value;
+        const dateVal = document.getElementById(`${prefix}-date`).value;
+        const start = document.getElementById(`${prefix}-time-start`);
+        const end = document.getElementById(`${prefix}-time-end`);
         
-        if (!title) return alert("Titre requis !");
-
-        const isAdmin = app.isAdmin();
-        if (!isAdmin) {
-            if (app.currentUser.gold < gold) return alert("Pas assez de monnaie pour financer cette Mission Royale !");
-            app.currentUser.gold -= gold;
+        if (freq === 'none') {
+            const hasDate = !!dateVal;
+            start.disabled = !hasDate;
+            end.disabled = !hasDate;
+            if (!hasDate) { start.value = ''; end.value = ''; }
+        } else {
+            start.disabled = false;
+            end.disabled = false;
         }
-
-        const defId = 'def_royal_'+Date.now();
-        const def = { id: defId, title, baseXp: xp, baseGold: gold, frequency: 'none', defaultAssignee: assignee, isRoyal: true };
-        
-        app.data.questDefinitions.push(def);
-        app.data.activeQuests.push({ 
-            id: 'inst_royal_'+Date.now(), 
-            definitionId: defId, 
-            title, 
-            xp, 
-            gold, 
-            dueDate: new Date().toISOString(), 
-            assignedTo: assignee, 
-            isRoyal: true 
-        });
-        
-        await app.save(); 
-        app.hideModals();
-        app.setView('board');
-    },
-
-    openRoyalMissionModal() {
-        const memberOptions = `<option value="">❓ Pour tous</option>` + app.data.users.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
-        const select = document.getElementById('royal-quest-assignee');
-        if (select) select.innerHTML = memberOptions;
-        document.querySelectorAll('.currency-name-label').forEach(el => el.innerText = app.data.currency.name);
-        app.showModal('royal-mission-modal');
     },
 
     async addQuest() {
@@ -342,7 +303,7 @@ const app = {
         const xpEl = document.getElementById('quest-difficulty');
         const goldEl = document.getElementById('quest-gold');
         const freqEl = document.getElementById('quest-frequency');
-        const intervalEl = document.getElementById('quest-interval');
+        const dateEl = document.getElementById('quest-date');
         const assigneeEl = document.getElementById('quest-assignee');
         
         if (!titleEl || !xpEl) return;
@@ -351,7 +312,6 @@ const app = {
         const xp = parseInt(xpEl.value);
         const gold = parseInt(goldEl ? goldEl.value : 0) || 0;
         const freq = freqEl ? freqEl.value : 'none';
-        const interval = intervalEl ? intervalEl.value : 1;
         const assignee = assigneeEl ? assigneeEl.value : null;
         
         const tStart = document.getElementById('quest-time-start').value;
@@ -361,10 +321,20 @@ const app = {
         if (!title || isNaN(xp)) return;
 
         const defId = 'def_'+Date.now();
-        const timeSlot = (tStart && tEnd) ? { start: tStart, end: tEnd } : null;
-        const def = { id: defId, title, baseXp: xp, baseGold: gold, frequency: freq, interval, days, timeSlot, defaultAssignee: assignee, isRoyal: false };
+        const timeSlot = (tStart || tEnd) ? { start: tStart, end: tEnd } : null;
+        
+        // Calcul de la première date
+        let dueDate = null;
+        if (freq === 'none') {
+            dueDate = dateEl.value ? new Date(dateEl.value).toISOString() : null;
+        } else {
+            const def = { frequency: freq, days, interval: 1 };
+            dueDate = app.calculateFirstDueDate(def).toISOString();
+        }
+
+        const def = { id: defId, title, baseXp: xp, baseGold: gold, frequency: freq, interval: 1, days, timeSlot, defaultAssignee: assignee, isRoyal: false };
         app.data.questDefinitions.push(def);
-        app.data.activeQuests.push({ id: 'inst_'+Date.now(), definitionId: defId, title, xp, gold, dueDate: app.calculateFirstDueDate(def).toISOString(), timeSlot, assignedTo: assignee, isRoyal: false });
+        app.data.activeQuests.push({ id: 'inst_'+Date.now(), definitionId: defId, title, xp, gold, dueDate, timeSlot, assignedTo: assignee, isRoyal: false });
         await app.save(); app.hideModals();
     },
 
@@ -723,20 +693,45 @@ const app = {
 
     renderBoard() {
         if (!app.data || !app.data.activeQuests) return;
-        const now = new Date(); const endOfToday = new Date(now); endOfToday.setHours(23,59,59,999);
-        const active = app.data.activeQuests.filter(q => new Date(q.dueDate) <= endOfToday);
-        let upcoming = app.data.activeQuests.filter(q => new Date(q.dueDate) > endOfToday);
-        active.forEach(q => { const def = app.data.questDefinitions.find(d => d.id === q.definitionId); if (def && def.frequency && def.frequency !== 'none') upcoming.push({ ...q, id: 'virtual_' + q.id, dueDate: app.calculateNextDueDate(def, new Date(q.dueDate)).toISOString(), isVirtual: true }); });
-        upcoming.sort((a,b) => a.dueDate.localeCompare(b.dueDate));
+        const now = new Date(); 
+        const endOfToday = new Date(now); endOfToday.setHours(23,59,59,999);
+        
+        const active = app.data.activeQuests.filter(q => {
+            if (!q.dueDate) return true;
+            const due = new Date(q.dueDate);
+            if (due > endOfToday) return false;
+            
+            // Si c'est aujourd'hui, vérifier l'heure de début
+            if (due.toDateString() === now.toDateString() && q.timeSlot && q.timeSlot.start) {
+                const [h, m] = q.timeSlot.start.split(':');
+                const startTime = new Date(now);
+                startTime.setHours(parseInt(h), parseInt(m), 0, 0);
+                return now >= startTime;
+            }
+            return true;
+        });
+
+        let upcoming = app.data.activeQuests.filter(q => !active.includes(q));
+        
+        active.forEach(q => { 
+            const def = app.data.questDefinitions.find(d => d.id === q.definitionId); 
+            if (def && def.frequency && def.frequency !== 'none') {
+                upcoming.push({ ...q, id: 'virtual_' + q.id, dueDate: app.calculateNextDueDate(def, new Date(q.dueDate)).toISOString(), isVirtual: true }); 
+            }
+        });
+        
+        upcoming.sort((a,b) => (a.dueDate || '').localeCompare(b.dueDate || ''));
+        
         const html = (q, up) => {
             const isRoyal = q.isRoyal;
             const rarity = isRoyal ? 'rarity-legendary royal-quest' : app.getQuestRarity(q.xp);
             const def = app.data.questDefinitions.find(d => d.id === q.definitionId);
             const freq = (def && def.frequency !== 'none') ? '🔄' : '';
-            const time = q.timeSlot ? ` • 🕒 ${q.timeSlot.start}-${q.timeSlot.end}` : '';
+            const time = q.timeSlot ? ` • 🕒 ${q.timeSlot.start || ''}${q.timeSlot.end ? '-' + q.timeSlot.end : ''}` : '';
             const assignee = app.data.users.find(u => u.id === q.assignedTo);
             const assigneeHtml = `<div class="assignee-badge ${!assignee ? 'empty' : ''}">${app.getAvatarHtml(assignee ? assignee.avatar : '?', "36px")}</div>`;
             const isMe = q.assignedTo === app.currentUser.id; const isNobody = !q.assignedTo; const isStealable = !up && app.isStealable(q);
+            
             let actionButtons = '';
             if (!up) {
                 if (isMe || isNobody) actionButtons += `<button class="quest-action-btn btn-complete" onclick="event.stopPropagation(); app.askConfirm('Terminer ?', () => app.completeTask('${q.id}'))" title="Valider">✅</button>`;
@@ -748,7 +743,10 @@ const app = {
             return `<div class="quest-card ${rarity} ${up ? 'upcoming' : ''}"><div class="quest-body" ${canEdit ? `onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer"` : ''}>${assigneeHtml}<div class="quest-info"><h4>${freq} ${q.title}</h4><span>💰 ${q.xp} XP${q.gold ? ' • ' + app.data.currency.symbol + ' ' + q.gold : ''}${time}</span></div></div><div class="quest-actions-container">${actionButtons}</div></div>`;
         };
         document.getElementById('task-list').innerHTML = active.map(q => html(q, false)).join('') || '<p style="text-align:center; opacity:0.5;">Tout est fait !</p>';
-        const groups = {}; upcoming.forEach(q => { const d = new Date(q.dueDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); if (!groups[d]) groups[d] = []; groups[d].push(q); });
+        const groups = {}; upcoming.forEach(q => { 
+            const d = q.dueDate ? new Date(q.dueDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) : 'Plus tard'; 
+            if (!groups[d]) groups[d] = []; groups[d].push(q); 
+        });
         document.getElementById('upcoming-task-list').innerHTML = Object.keys(groups).map(day => `<div class="upcoming-day-group"><div class="upcoming-day-title">${day}</div>${groups[day].map(q => html(q, true)).join('')}</div>`).join('') || '<p style="text-align:center; opacity:0.2;">Rien de prévu.</p>';
     },
 
