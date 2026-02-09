@@ -94,7 +94,8 @@ const app = {
     },
 
     isAdmin() {
-        const isMainAdmin = (app.data && app.data.meta && app.data.meta.owner === auth.user.email) || (auth.user && auth.user.email === 'yohann.gras@gmail.com');
+        if (!app.data || !app.data.meta || !app.mainUser) return false;
+        const isMainAdmin = app.data.meta.owner === auth.user.email || auth.user && auth.user.email === 'yohann.gras@gmail.com';
         const isImpersonating = app.currentUser && app.mainUser && app.currentUser.id !== app.mainUser.id;
         return isMainAdmin && !isImpersonating;
     },
@@ -102,6 +103,21 @@ const app = {
     handleDataUpdate() {
         app.watchForToasts();
         if (!app.data || !app.data.users) return;
+
+        app.mainUser = app.data.users.find(u => u.email === auth.user.email);
+        
+        if (!app.mainUser) {
+            app.currentUser = null;
+            const onboardName = document.getElementById('new-user-name');
+            if (onboardName) onboardName.value = auth.user.displayName || "";
+            app.showView('content'); app.showModal('onboarding-modal');
+            return;
+        }
+
+        const impersonatedId = localStorage.getItem('impersonatedHeroId');
+        app.currentUser = impersonatedId ? (app.data.users.find(u => u.id === impersonatedId) || app.mainUser) : app.mainUser;
+
+        app.checkDeadlines();
 
         // Migration/Initialization for new features
         if (!app.data.currency) app.data.currency = { name: "Écus", symbol: "🪙" };
@@ -117,29 +133,16 @@ const app = {
             if (u.inventory === undefined) u.inventory = [];
         });
 
-        app.mainUser = app.data.users.find(u => u.email === auth.user.email);
-        
-        if (!app.mainUser) {
-            app.currentUser = null;
-            const onboardName = document.getElementById('new-user-name');
-            if (onboardName) onboardName.value = auth.user.displayName || "";
-            app.showView('content'); app.showModal('onboarding-modal');
-        } else {
-            // Ensure currentUser is set before checking isAdmin
-            const impersonatedId = localStorage.getItem('impersonatedHeroId');
-            app.currentUser = impersonatedId ? (app.data.users.find(u => u.id === impersonatedId) || app.mainUser) : app.mainUser;
-
-            if (app.isAdmin()) {
-                if (!sessionStorage.getItem('system_version_pushed')) {
-                    db.setSystemConfig(103); 
-                    sessionStorage.setItem('system_version_pushed', 'true');
-                }
+        if (app.isAdmin()) {
+            if (!sessionStorage.getItem('system_version_pushed')) {
+                db.setSystemConfig(104); 
+                sessionStorage.setItem('system_version_pushed', 'true');
             }
-            
-            app.showView('content');
-            app.syncSettingsUI();
-            app.render();
         }
+        
+        app.showView('content');
+        app.syncSettingsUI();
+        app.render();
     },
 
     showView(viewId) {
@@ -225,20 +228,47 @@ const app = {
     async claimQuest(instanceId) {
         const quest = app.data.activeQuests.find(q => q.id === instanceId);
         if (!quest) return;
+        
+        const isSteal = quest.assignedTo && quest.assignedTo !== app.currentUser.id;
         quest.assignedTo = app.currentUser.id;
-        app.data.questLog.unshift({ id: 'log_cl_'+Date.now(), type: 'system', title: `Quête acceptée : ${quest.title}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
+        
+        if (isSteal) {
+            quest.stealDeadline = Date.now() + 15 * 60 * 1000;
+            app.data.questLog.unshift({ id: 'log_steal_'+Date.now(), type: 'system', title: `Quête VOLÉE : ${quest.title}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
+        } else {
+            delete quest.stealDeadline;
+            app.data.questLog.unshift({ id: 'log_cl_'+Date.now(), type: 'system', title: `Quête acceptée : ${quest.title}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
+        }
+        
         await app.save();
+    },
+
+    checkDeadlines() {
+        if (!app.data || !app.data.activeQuests) return;
+        let changed = false;
+        const now = Date.now();
+        app.data.activeQuests.forEach(q => {
+            if (q.stealDeadline && now > q.stealDeadline) {
+                const oldAssignee = q.assignedTo;
+                q.assignedTo = null; // Retour au pot commun
+                delete q.stealDeadline;
+                app.data.questLog.unshift({ id: 'log_fail_'+Date.now(), type: 'system', title: `Échec du vol (temps écoulé) : ${q.title}`, completedBy: oldAssignee, completedAt: new Date().toISOString(), xpEarned: 0 });
+                changed = true;
+            }
+        });
+        if (changed) app.save();
     },
 
     async unclaimQuest(instanceId) {
         const quest = app.data.activeQuests.find(q => q.id === instanceId);
         if (!quest) return;
         
-        const def = app.data.questDefinitions.find(d => d.id === quest.definitionId);
+        const def = app.data.questDefinitions.find(d => d.id === q.definitionId);
         if (def && def.defaultAssignee) return alert("Désolé, tu ne peux pas abandonner un ordre direct !");
 
         const oldTitle = quest.title;
         quest.assignedTo = null; 
+        delete quest.stealDeadline;
         app.data.questLog.unshift({ id: 'log_un_'+Date.now(), type: 'system', title: `Quête abandonnée : ${oldTitle}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
         await app.save();
     },
@@ -282,6 +312,7 @@ const app = {
         if (def && def.frequency && def.frequency !== 'none') {
             quest.dueDate = app.calculateNextDueDate(def, new Date(quest.dueDate)).toISOString();
             quest.assignedTo = def.defaultAssignee || null;
+            delete quest.stealDeadline;
         } else app.data.activeQuests.splice(index, 1);
         await app.save();
     },
@@ -289,20 +320,20 @@ const app = {
     isStealable(q) {
         if (!q.assignedTo || q.assignedTo === app.currentUser.id) return false;
         
+        // Protection du voleur pendant 15min
+        if (q.stealDeadline && Date.now() < q.stealDeadline) return false;
+
         const now = new Date();
         const due = new Date(q.dueDate);
         const def = app.data.questDefinitions.find(d => d.id === q.definitionId);
         const isOneTime = !def || def.frequency === 'none';
 
-        // Une quête ponctuelle sans date ni heure ne peut pas être volée
         if (isOneTime && !q.dueDate && (!q.timeSlot || !q.timeSlot.end)) return false;
 
-        // Si une heure de fin est définie, on l'utilise
         if (q.timeSlot && q.timeSlot.end) {
             const [h, m] = q.timeSlot.end.split(':');
             due.setHours(parseInt(h), parseInt(m), 0, 0);
         } else {
-            // Sinon par défaut fin de journée (23:59)
             due.setHours(23, 59, 59, 999);
         }
 
@@ -756,6 +787,13 @@ const app = {
             const def = app.data.questDefinitions.find(d => d.id === q.definitionId);
             const freq = (def && def.frequency !== 'none') ? '🔄' : '';
             const time = q.timeSlot ? ` • 🕒 ${q.timeSlot.start || ''}${q.timeSlot.end ? '-' + q.timeSlot.end : ''}` : '';
+            
+            let timerHtml = '';
+            if (q.stealDeadline) {
+                const mins = Math.ceil((q.stealDeadline - Date.now()) / 60000);
+                timerHtml = mins > 0 ? ` <span style="color:#e94560; font-weight:bold; font-size:0.7rem; background:rgba(233,69,96,0.1); padding:2px 5px; border-radius:4px; margin-left:5px;">⏳ ${mins}m</span>` : '';
+            }
+
             const assignee = app.data.users.find(u => u.id === q.assignedTo);
             const assigneeHtml = `<div class="assignee-badge ${!assignee ? 'empty' : ''}">${app.getAvatarHtml(assignee ? assignee.avatar : '?', "36px")}</div>`;
             const isMe = q.assignedTo === app.currentUser.id; const isNobody = !q.assignedTo; const isStealable = !up && app.isStealable(q);
@@ -772,7 +810,7 @@ const app = {
                 else if (isStealable) actionButtons += `<button class="quest-action-btn btn-steal" onclick="event.stopPropagation(); app.askConfirm('🥷 VOLER ?', () => app.claimQuest('${q.id}'))" title="🥷 Voler">🥷</button>`;
             }
             const canEdit = app.isAdmin();
-            return `<div class="quest-card ${rarity} ${up ? 'upcoming' : ''}"><div class="quest-body" ${canEdit ? `onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer"` : ''}>${assigneeHtml}<div class="quest-info"><h4>${freq} ${q.title}</h4><span>💰 ${q.xp} XP${q.gold ? ' • ' + app.data.currency.symbol + ' ' + q.gold : ''}${time}</span></div></div><div class="quest-actions-container">${actionButtons}</div></div>`;
+            return `<div class="quest-card ${rarity} ${up ? 'upcoming' : ''}"><div class="quest-body" ${canEdit ? `onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer"` : ''}>${assigneeHtml}<div class="quest-info"><h4>${freq} ${q.title}${timerHtml}</h4><span>💰 ${q.xp} XP${q.gold ? ' • ' + app.data.currency.symbol + ' ' + q.gold : ''}${time}</span></div></div><div class="quest-actions-container">${actionButtons}</div></div>`;
         };
         document.getElementById('task-list').innerHTML = active.map(q => html(q, false)).join('') || '<p style="text-align:center; opacity:0.5;">Tout est fait !</p>';
         const groups = {}; upcoming.forEach(q => { 
