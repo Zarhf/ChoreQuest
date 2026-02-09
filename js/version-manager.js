@@ -1,45 +1,38 @@
 const VersionManager = {
-    async check() {
+    async checkVersion() {
         try {
-            // Fetch v.json with cache busting
-            const response = await fetch('v.json?t=' + Date.now(), { cache: "no-store" });
-            const serverConfig = await response.json();
-            
+            const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
+            const remote = await res.json();
             const localBuild = parseInt(localStorage.getItem('app_build') || '0');
+            
+            console.log(`🔍 Version Check: Local ${localBuild} vs Remote ${remote.build}`);
 
-            if (serverConfig.build > localBuild) {
-                console.log(`Auto-Update: Detected Build ${serverConfig.build}. Updating from ${localBuild}...`);
-                await this.update(serverConfig.build);
+            if (remote.build > localBuild) {
+                console.log('🚀 New version detected! Nuke sequence initiated.');
+                await this.nukeCache();
+                localStorage.setItem('app_build', remote.build);
+                window.location.reload(true);
             }
         } catch (e) {
-            console.warn("Version check failed", e);
+            console.error('Version check failed', e);
         }
     },
 
-    async update(newBuild) {
-        localStorage.setItem('app_build', newBuild.toString());
-
+    async nukeCache() {
         if ('serviceWorker' in navigator) {
             const registrations = await navigator.serviceWorker.getRegistrations();
             for (let registration of registrations) {
                 await registration.unregister();
             }
         }
-
-        if ('caches' in window) {
-            const names = await caches.keys();
-            for (let name of names) {
-                await caches.delete(name);
-            }
+        
+        if (window.caches) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map(key => caches.delete(key)));
         }
-
-        // Nuclear reload
-        window.location.href = window.location.origin + window.location.pathname + '?v80_sync=' + Date.now();
+        
+        console.log('💥 Cache cleared.');
     }
 };
 
-VersionManager.check();
-setInterval(() => VersionManager.check(), 1000 * 60 * 5);
-document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') VersionManager.check();
-});
+window.VersionManager = VersionManager;

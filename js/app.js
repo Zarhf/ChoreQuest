@@ -9,7 +9,7 @@ const app = {
     _pendingAction: null,
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 103 starting...");
+        console.log("🛡️ ChoreQuest Build 106 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -135,7 +135,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(105); 
+                db.setSystemConfig(106); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -193,6 +193,30 @@ const app = {
         const rand = Math.random().toString(36).substring(7);
         const el = document.getElementById('edit-avatar-seed'); if (el) el.value = rand;
         app.updateAvatarPreview('edit', true);
+    },
+
+    calculateNextDueDate(def, fromDate = new Date()) {
+        let next = new Date(fromDate); const int = parseInt(def.interval || 1); const now = new Date(); now.setHours(0,0,0,0);
+        const add = (d) => {
+            if (def.frequency === 'daily') d.setDate(d.getDate() + int);
+            else if (def.frequency === 'weekly') {
+                let found = false;
+                for (let i = 1; i <= 7 * int; i++) {
+                    let check = new Date(d); check.setDate(d.getDate() + i);
+                    if (def.days && def.days.includes(check.getDay().toString())) { d.setTime(check.getTime()); found = true; break; }
+                }
+                if (!found) d.setDate(d.getDate() + 7 * int);
+            } else if (def.frequency === 'monthly') d.setMonth(d.getMonth() + int);
+        };
+        add(next); let safety = 0; while (next < now && safety < 100) { safety++; add(next); }
+        next.setHours(4, 0, 0, 0); return next;
+    },
+
+    calculateFirstDueDate(def) {
+        const now = new Date(); now.setHours(0,0,0,0);
+        if (def.frequency === 'weekly' && def.days && def.days.length > 0) { if (def.days.includes(now.getDay().toString())) { const today = new Date(now); today.setHours(4,0,0,0); return today; } }
+        const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+        return app.calculateNextDueDate(def, yesterday);
     },
 
     // --- Hero Management ---
