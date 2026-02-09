@@ -9,7 +9,7 @@ const app = {
     _pendingAction: null,
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 88 starting...");
+        console.log("🛡️ ChoreQuest Build 89 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -90,12 +90,13 @@ const app = {
         } else {
             if (app.data.meta.owner === auth.user.email) {
                 if (!sessionStorage.getItem('system_version_pushed')) {
-                    db.setSystemConfig(88); 
+                    db.setSystemConfig(89); 
                     sessionStorage.setItem('system_version_pushed', 'true');
                 }
             }
             const impersonatedId = localStorage.getItem('impersonatedHeroId');
             app.currentUser = impersonatedId ? (app.data.users.find(u => u.id === impersonatedId) || app.mainUser) : app.mainUser;
+            
             app.showView('content');
             app.syncSettingsUI();
             app.render();
@@ -112,6 +113,7 @@ const app = {
 
     async save() { if (app.guildId && app.data) await db.updateGuild(app.guildId, app.data); },
 
+    // --- Confirmation System ---
     askConfirm(message, callback) {
         app._pendingAction = callback;
         const msgEl = document.getElementById('confirm-message');
@@ -119,71 +121,6 @@ const app = {
         app.showModal('confirm-modal');
         const btn = document.getElementById('confirm-yes-btn');
         if (btn) btn.onclick = () => { if (app._pendingAction) app._pendingAction(); app.hideModals(); app._pendingAction = null; };
-    },
-
-    // --- Time Logic (The 04/01 Fix) ---
-    _addInterval(date, freq, interval, days = []) {
-        const int = parseInt(interval || 1);
-        if (freq === 'daily') {
-            date.setDate(date.getDate() + int);
-        } else if (freq === 'weekly') {
-            if (days && days.length > 0) {
-                // Find next allowed day
-                let found = false;
-                for (let i = 1; i <= 7 * int; i++) {
-                    let check = new Date(date);
-                    check.setDate(date.getDate() + i);
-                    if (days.includes(check.getDay().toString())) {
-                        date.setTime(check.getTime());
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) date.setDate(date.getDate() + 7 * int);
-            } else {
-                date.setDate(date.getDate() + 7 * int);
-            }
-        } else if (freq === 'monthly') {
-            date.setMonth(date.getMonth() + int);
-        }
-    },
-
-    calculateNextDueDate(def, fromDate = new Date()) {
-        let next = new Date(fromDate);
-        const now = new Date();
-        now.setHours(0,0,0,0);
-
-        // 1. Always move forward at least once
-        app._addInterval(next, def.frequency, def.interval, def.days);
-
-        // 2. If still in the past, loop until future
-        let safety = 0;
-        while (next < now && safety < 100) {
-            safety++;
-            app._addInterval(next, def.frequency, def.interval, def.days);
-        }
-        
-        next.setHours(4, 0, 0, 0); // Standardize at 4 AM
-        return next;
-    },
-
-    calculateFirstDueDate(def) {
-        const now = new Date();
-        now.setHours(0,0,0,0);
-        
-        // If weekly, check if today is valid
-        if (def.frequency === 'weekly' && def.days && def.days.length > 0) {
-            if (def.days.includes(now.getDay().toString())) {
-                const today = new Date(now);
-                today.setHours(4,0,0,0);
-                return today;
-            }
-        }
-        
-        // Use logic starting from "yesterday" to potentially include "today"
-        const yesterday = new Date(now);
-        yesterday.setDate(now.getDate() - 1);
-        return app.calculateNextDueDate(def, yesterday);
     },
 
     // --- Avatar Management ---
@@ -242,7 +179,8 @@ const app = {
     },
 
     async finishOnboarding() {
-        const name = document.getElementById('new-user-name').value;
+        const nameInput = document.getElementById('new-user-name');
+        const name = nameInput ? nameInput.value : '';
         const seed = document.getElementById('onboard-avatar-seed').value || name;
         const avatar = `https://api.dicebear.com/7.x/${app.currentAvatarStyle}/svg?seed=${encodeURIComponent(seed)}`;
         if (!name) return alert("Nom requis !");
@@ -255,13 +193,24 @@ const app = {
         const quest = app.data.activeQuests.find(q => q.id === instanceId);
         if (!quest) return;
         quest.assignedTo = app.currentUser.id;
+        
+        // Log for notification
+        app.data.questLog.unshift({ id: 'log_cl_'+Date.now(), type: 'system', title: `Quête acceptée : ${quest.title}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
+        if (app.data.questLog.length > 50) app.data.questLog.pop();
+        
         await app.save();
     },
 
     async unclaimQuest(instanceId) {
         const quest = app.data.activeQuests.find(q => q.id === instanceId);
         if (!quest) return;
+        const oldTitle = quest.title;
         quest.assignedTo = null; 
+        
+        // Log for notification
+        app.data.questLog.unshift({ id: 'log_un_'+Date.now(), type: 'system', title: `Quête abandonnée : ${oldTitle}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
+        if (app.data.questLog.length > 50) app.data.questLog.pop();
+        
         await app.save();
     },
 
@@ -294,6 +243,37 @@ const app = {
             due.setHours(parseInt(h), parseInt(m), 0, 0);
         } else due.setHours(23, 59, 59, 999);
         return now > due;
+    },
+
+    calculateNextDueDate(def, fromDate = new Date()) {
+        let next = new Date(fromDate); const interval = parseInt(def.interval || 1);
+        const now = new Date(); now.setHours(0,0,0,0);
+        let safeGuard = 0;
+        while (next < now && safeGuard < 52) {
+            safeGuard++;
+            app._addInterval(next, def.frequency, def.interval, def.days);
+        }
+        if (safeGuard === 0) app._addInterval(next, def.frequency, def.interval, def.days);
+        next.setHours(4, 0, 0, 0); return next;
+    },
+
+    _addInterval(date, freq, interval, days = []) {
+        const int = parseInt(interval || 1);
+        if (freq === 'daily') date.setDate(date.getDate() + int);
+        else if (freq === 'weekly') {
+            let found = false;
+            for (let i = 1; i <= 7 * int; i++) {
+                let check = new Date(date); check.setDate(date.getDate() + i);
+                if (days && days.includes(check.getDay().toString())) { date.setTime(check.getTime()); found = true; break; }
+            }
+            if (!found) date.setDate(date.getDate() + 7 * int);
+        }
+        else if (freq === 'monthly') date.setMonth(date.getMonth() + int);
+    },
+
+    calculateFirstDueDate(def) {
+        const now = new Date(); if (def.frequency === 'weekly' && def.days && def.days.length > 0) { if (def.days.includes(now.getDay().toString())) return now; return app.calculateNextDueDate(def, now); }
+        return now;
     },
 
     async addQuest() {
@@ -346,8 +326,8 @@ const app = {
             const days = Array.from(document.querySelectorAll('input[name="edit-quest-day"]:checked')).map(cb => cb.value);
             if (!title || isNaN(xp)) return;
             const defIdx = app.data.questDefinitions.findIndex(d => d.id === defId); if (defIdx === -1) return;
-            const timeSlot = (tStart && tEnd) ? { start: tStart, end: tEnd } : null;
             const oldDef = app.data.questDefinitions[defIdx];
+            const timeSlot = (tStart && tEnd) ? { start: tStart, end: tEnd } : null;
             const changedSchedule = oldDef.frequency !== freq || JSON.stringify(oldDef.days) !== JSON.stringify(days) || oldDef.interval !== interval;
             app.data.questDefinitions[defIdx] = { ...oldDef, title, baseXp: xp, frequency: freq, interval, days, timeSlot, defaultAssignee: assignee };
             app.data.activeQuests.forEach(q => { if (q.definitionId === defId) { q.title = title; q.xp = xp; q.timeSlot = timeSlot; if (changedSchedule) q.dueDate = app.calculateFirstDueDate(app.data.questDefinitions[defIdx]).toISOString(); if (!q.assignedTo || q.assignedTo === oldDef.defaultAssignee) q.assignedTo = assignee; } });
@@ -381,13 +361,13 @@ const app = {
     render() {
         if (!app.currentUser) return;
         const isSquire = app.currentUser.id !== app.mainUser.id;
-        const elName = document.getElementById('user-name'); if (elName) elName.innerText = (isSquire ? '📜 ' : '') + app.currentUser.name;
-        const elAv = document.getElementById('user-avatar-display'); if (elAv) elAv.innerHTML = app.getAvatarHtml(app.currentUser.avatar, "80px");
-        const elLvl = document.getElementById('user-level'); if (elLvl) elLvl.innerText = app.currentUser.level || 1;
-        const elXp = document.getElementById('user-xp'); if (elXp) elXp.innerText = app.currentUser.xp;
+        document.getElementById('user-name').innerText = (isSquire ? '📜 ' : '') + app.currentUser.name;
+        document.getElementById('user-avatar-display').innerHTML = app.getAvatarHtml(app.currentUser.avatar, "80px");
+        document.getElementById('user-level').innerText = app.currentUser.level || 1;
+        document.getElementById('user-xp').innerText = app.currentUser.xp;
         const xpNeeded = (app.currentUser.level || 1) * 100;
-        const elNextXp = document.getElementById('next-level-xp'); if (elNextXp) elNextXp.innerText = xpNeeded;
-        const elProg = document.getElementById('xp-progress'); if (elProg) elProg.style.width = `${(app.currentUser.xp / xpNeeded) * 100}%`;
+        document.getElementById('next-level-xp').innerText = xpNeeded;
+        document.getElementById('xp-progress').style.width = `${(app.currentUser.xp / xpNeeded) * 100}%`;
         const profBtn = document.getElementById('profile-btn'); if (profBtn) profBtn.innerHTML = app.getAvatarHtml(app.currentUser.avatar, "40px");
         const squires = app.data.users.filter(u => u.managedBy === app.mainUser.id);
         const switchBtn = document.getElementById('quick-switch-btn');
@@ -429,9 +409,9 @@ const app = {
                 <div class="quest-actions-container">${actionButtons}</div>
             </div>`;
         };
-        const tl = document.getElementById('task-list'); if (tl) tl.innerHTML = active.map(q => html(q, false)).join('') || '<p style="text-align:center; opacity:0.5;">Tout est fait !</p>';
+        document.getElementById('task-list').innerHTML = active.map(q => html(q, false)).join('') || '<p style="text-align:center; opacity:0.5;">Tout est fait !</p>';
         const groups = {}; upcoming.forEach(q => { const d = new Date(q.dueDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); if (!groups[d]) groups[d] = []; groups[d].push(q); });
-        const utl = document.getElementById('upcoming-task-list'); if (utl) utl.innerHTML = Object.keys(groups).map(day => `<div class="upcoming-day-group"><div class="upcoming-day-title">${day}</div>${groups[day].map(q => html(q, true)).join('')}</div>`).join('') || '<p style="text-align:center; opacity:0.2;">Rien de prévu.</p>';
+        document.getElementById('upcoming-task-list').innerHTML = Object.keys(groups).map(day => `<div class="upcoming-day-group"><div class="upcoming-day-title">${day}</div>${groups[day].map(q => html(q, true)).join('')}</div>`).join('') || '<p style="text-align:center; opacity:0.2;">Rien de prévu.</p>';
     },
 
     switchDebugTab(tab) {
@@ -443,7 +423,7 @@ const app = {
     },
     
     async repairDates() {
-        if(!confirm("Forcer le recalcul des dates en retard ?")) return;
+        if(!confirm("Forcer le recalcul ?")) return;
         app.data.activeQuests.forEach(q => {
             const def = app.data.questDefinitions.find(d => d.id === q.definitionId);
             if (def && def.frequency && def.frequency !== 'none') {
@@ -451,7 +431,7 @@ const app = {
                 if (new Date(q.dueDate) < now) q.dueDate = app.calculateFirstDueDate(def).toISOString();
             }
         });
-        await app.save(); alert("Quêtes synchronisées !");
+        await app.save(); alert("Fait !");
     },
 
     renderDevMode() { 
@@ -463,6 +443,29 @@ const app = {
             btn.onclick = () => app.repairDates();
             questsView.prepend(btn);
         }
+    },
+
+    watchForToasts() {
+        if (!app.data || !app.data.questLog || !app.data.questLog.length) return;
+        const latest = app.data.questLog[0];
+        if (!app.lastLogId) { app.lastLogId = latest.id; return; }
+        if (latest.id !== app.lastLogId) {
+            app.lastLogId = latest.id;
+            if (latest.completedBy === app.currentUser?.id || latest.completedBy === auth.user.email) return;
+            app.showActivityToast(latest);
+        }
+    },
+
+    showActivityToast(log) {
+        const t = document.getElementById('activity-toast');
+        const user = app.data.users.find(u => u.id === log.completedBy || u.email === log.completedBy);
+        const elAvatar = document.getElementById('toast-avatar');
+        if (elAvatar) elAvatar.innerHTML = app.getAvatarHtml(user ? user.avatar : '?', "30px");
+        let verb = log.type === 'system' ? "info :" : "a validé";
+        if (log.title.includes('Annulation')) verb = "a annulé";
+        const msgEl = document.getElementById('toast-message');
+        if (msgEl) msgEl.innerText = `${user ? user.name : 'Un membre'} ${verb} : "${log.title}"`;
+        if (t) { t.classList.remove('hidden'); setTimeout(() => t.classList.add('hidden'), 5000); }
     },
 
     syncSettingsUI() {
@@ -479,7 +482,7 @@ const app = {
         const elSquireList = document.getElementById('squire-list'); if (elSquireList) elSquireList.innerHTML = squires.map(s => `<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; margin-bottom:5px;"><span>${app.getAvatarHtml(s.avatar, "20px")} <b>${s.name}</b></span>${impersonatedId === s.id ? `<button class="action-btn danger-btn" onclick="app.stopImpersonating()" style="width:auto; padding:2px 8px; font-size:0.7rem;">Quitter</button>` : `<button class="action-btn" onclick="app.impersonate('${s.id}')" style="width:auto; padding:2px 8px; font-size:0.7rem;">Incarner</button>`}</div>`).join('') || '<p style="font-size:0.7rem; opacity:0.5;">Aucun écuyer.</p>';
         const qBtn = document.getElementById('quit-guild-btn'); if (qBtn && app.data.meta) qBtn.style.display = (app.data.meta.owner === auth.user.email) ? 'none' : 'block';
     },
-    // Utils
+
     toggleRecurrenceUI(prefix) { const elFreq = document.getElementById(`${prefix}-frequency`); if (!elFreq) return; const val = elFreq.value; const intervalContainer = document.getElementById(`${prefix}-interval-container`); const daysSelector = document.getElementById(`${prefix}-days-selector`); if (intervalContainer) intervalContainer.classList.toggle('hidden', val === 'none'); if (daysSelector) daysSelector.classList.toggle('hidden', val !== 'weekly'); },
     renderGuildMembers() { const elList = document.getElementById('guild-members-list'); if (elList) elList.innerHTML = app.data.users.map(u => `<div style="display:flex; gap:10px; margin-bottom:5px;"><span>${app.getAvatarHtml(u.avatar, "20px")}</span><span>${u.name} (Lvl ${u.level || 1})</span></div>`).join(''); },
     updateCurrentUserInfo() { app.currentUser.name = document.getElementById('edit-user-name').value; app.save(); },

@@ -2,7 +2,7 @@ body {
     font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     margin: 0;
     padding: 0;
-    background-color: #1a1a2e; /* Dark RPG background */
+    background-color: #1a1a2e;
     color: #e0e0e0;
 }
 
@@ -259,6 +259,26 @@ h2 {
     position: relative;
 }
 
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 10px;
+}
+
+.modal-header h2 { margin: 0; font-size: 1.2rem; border: none; }
+
+.close-btn {
+    background: transparent;
+    border: none;
+    color: #888;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0 10px;
+}
+
 input, select {
     width: 100%;
     padding: 0.8rem;
@@ -284,6 +304,34 @@ input, select {
 
 .secondary-btn { background: transparent; border: 1px solid #4a90e2; color: #4a90e2; }
 .danger-btn { background: transparent; border: 1px solid #e94560; color: #e94560; }
+
+.settings-group {
+    background: #0f3460;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    border: 1px solid rgba(74, 144, 226, 0.2);
+}
+
+.settings-group h4 {
+    margin: 0 0 10px 0;
+    color: #4a90e2;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Header Actions */
+.header-actions { display: flex; gap: 10px; }
+.icon-btn {
+    background: rgba(255,255,255,0.1);
+    border: none;
+    font-size: 1.5rem;
+    padding: 5px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
 
 /* Customizer */
 .avatar-preview-container {
@@ -314,10 +362,7 @@ input, select {
     cursor: pointer;
 }
 
-.style-btn.active {
-    border-color: #4a90e2;
-    background: #4a90e2;
-}
+.style-btn.active { border-color: #4a90e2; background: #4a90e2; }
 
 /* Admin Console */
 .debug-tabs { display: flex; gap: 5px; margin-bottom: 10px; }
