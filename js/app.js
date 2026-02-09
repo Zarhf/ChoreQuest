@@ -94,10 +94,10 @@ const app = {
     },
 
     isAdmin() {
-        if (!app.data || !app.data.meta || !app.mainUser) return false;
-        const isMainAdmin = app.data.meta.owner === auth.user.email || auth.user && auth.user.email === 'yohann.gras@gmail.com';
-        const isImpersonating = app.currentUser && app.mainUser && app.currentUser.id !== app.mainUser.id;
-        return isMainAdmin && !isImpersonating;
+        if (!app.data || !app.data.meta || !app.mainUser || !app.currentUser) return false;
+        const isOwner = app.data.meta.owner === auth.user.email || (auth.user && auth.user.email === 'yohann.gras@gmail.com');
+        const isImpersonating = app.currentUser.id !== app.mainUser.id;
+        return isOwner && !isImpersonating;
     },
 
     handleDataUpdate() {
@@ -135,7 +135,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(104); 
+                db.setSystemConfig(105); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -391,10 +391,84 @@ const app = {
             dueDate = app.calculateFirstDueDate(def).toISOString();
         }
 
-        const def = { id: defId, title, baseXp: xp, baseGold: gold, frequency: freq, interval: 1, days, timeSlot, defaultAssignee: assignee, isRoyal: false };
+        const def = { id: defId, title, baseXp: xp, baseGold: gold, frequency: freq, interval: 1, days, timeSlot, defaultAssignee: assignee, isRoyal: false, status: 'pending', votes: {} };
         app.data.questDefinitions.push(def);
-        app.data.activeQuests.push({ id: 'inst_'+Date.now(), definitionId: defId, title, xp, gold, dueDate, timeSlot, assignedTo: assignee, isRoyal: false });
+        app.data.activeQuests.push({ id: 'inst_'+Date.now(), definitionId: defId, title, xp, gold, dueDate, timeSlot, assignedTo: assignee, isRoyal: false, status: 'pending' });
         await app.save(); app.hideModals();
+    },
+
+    async addRoyalQuest() {
+        const title = document.getElementById('royal-quest-title').value;
+        const xp = parseInt(document.getElementById('royal-quest-xp').value || 0);
+        const gold = parseInt(document.getElementById('royal-quest-gold').value || 0);
+        const assignee = document.getElementById('royal-quest-assignee').value || null;
+        
+        if (!title) return alert("Titre requis !");
+
+        const isAdmin = app.isAdmin();
+        if (!isAdmin) {
+            if (app.currentUser.gold < gold) return alert("Pas assez de monnaie pour financer cette Mission Royale !");
+            app.currentUser.gold -= gold;
+        }
+
+        const defId = 'def_royal_'+Date.now();
+        const def = { id: defId, title, baseXp: xp, baseGold: gold, frequency: 'none', defaultAssignee: assignee, isRoyal: true, status: 'pending', votes: {} };
+        
+        app.data.questDefinitions.push(def);
+        app.data.activeQuests.push({ 
+            id: 'inst_royal_'+Date.now(), 
+            definitionId: defId, 
+            title, 
+            xp, 
+            gold, 
+            dueDate: new Date().toISOString(), 
+            assignedTo: assignee, 
+            isRoyal: true,
+            status: 'pending'
+        });
+        
+        await app.save(); 
+        app.hideModals();
+        app.setView('board');
+    },
+
+    async voteQuest(instanceId, type) {
+        const quest = app.data.activeQuests.find(q => q.id === instanceId);
+        if (!quest) return;
+        const def = app.data.questDefinitions.find(d => d.id === quest.definitionId);
+        if (!def) return;
+
+        if (type === 'approve') {
+            if (!def.votes) def.votes = {};
+            def.votes[app.currentUser.id] = true;
+
+            // Logique de validation
+            let validated = false;
+            if (def.defaultAssignee) {
+                // Si assigné, seul le destinataire valide
+                if (app.currentUser.id === def.defaultAssignee) validated = true;
+            } else {
+                // Si pour tous, majorité (floor(membres/2) + 1)
+                const approvalCount = Object.keys(def.votes).length;
+                const totalMembers = app.data.users.length;
+                const majority = Math.floor(totalMembers / 2) + 1;
+                if (approvalCount >= majority) validated = true;
+            }
+
+            if (validated) {
+                def.status = 'active';
+                quest.status = 'active';
+                app.data.questLog.unshift({ id: 'log_council_'+Date.now(), type: 'system', title: `Le Conseil a validé : ${quest.title}`, completedBy: 'Council', completedAt: new Date().toISOString(), xpEarned: 0 });
+            }
+        } else if (type === 'reject') {
+            const idxDef = app.data.questDefinitions.findIndex(d => d.id === quest.definitionId);
+            const idxInst = app.data.activeQuests.findIndex(q => q.id === instanceId);
+            if (idxDef !== -1) app.data.questDefinitions.splice(idxDef, 1);
+            if (idxInst !== -1) app.data.activeQuests.splice(idxInst, 1);
+            app.data.questLog.unshift({ id: 'log_council_rej_'+Date.now(), type: 'system', title: `Le Conseil a rejeté : ${quest.title}`, completedBy: 'Council', completedAt: new Date().toISOString(), xpEarned: 0 });
+        }
+
+        await app.save();
     },
 
     openEditQuestModal(instanceId) {

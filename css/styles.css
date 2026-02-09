@@ -552,3 +552,56 @@ input, select {
 .debug-tabs { display: flex; gap: 5px; margin-bottom: 10px; }
 .debug-tab { flex: 1; padding: 10px; background: #333; border: none; color: #888; cursor: pointer; border-radius: 4px; }
 .debug-tab.active { background: #4a90e2; color: white; }
+
+/* Council & Scrolls */
+.council-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.scroll-card {
+    background: #fdf6e3; /* Antique paper color */
+    color: #5d4037;
+    padding: 15px;
+    border-radius: 4px;
+    position: relative;
+    box-shadow: 2px 2px 10px rgba(0,0,0,0.3), inset 0 0 40px rgba(139,69,19,0.1);
+    border: 1px solid #d3c6a3;
+}
+
+.scroll-card h4 { margin: 0; font-family: sans-serif; font-weight: bold; }
+
+.scroll-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.badge {
+    background: #e94560;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: bold;
+}
+
+.vote-progress {
+    font-size: 0.7rem;
+    color: #8b4513;
+    font-style: italic;
+}
+
+.scroll-btn {
+    padding: 5px 10px;
+    border-radius: 4px;
+    border: 1px solid rgba(0,0,0,0.1);
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.btn-approve { background: #27ae60; color: white; }
+.btn-counter { background: #f39c12; color: white; }
+.btn-reject { background: #e74c3c; color: white; }
