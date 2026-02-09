@@ -1,14 +1,14 @@
-const CACHE_NAME = 'chorequest-v83'; 
+const CACHE_NAME = 'chorequest-v84'; 
 const ASSETS = [
     './',
     './index.html',
-    './css/styles.css?v=83',
-    './js/app.js?v=83',
-    './js/auth.js?v=83',
-    './js/firebase-db.js?v=83',
-    './js/config.js?v=83',
-    './js/version-manager.js?v=83',
-    './v.json?v=83',
+    './css/styles.css?v=84',
+    './js/app.js?v=84',
+    './js/auth.js?v=84',
+    './js/firebase-db.js?v=84',
+    './js/config.js?v=84',
+    './js/version-manager.js?v=84',
+    './v.json?v=84',
     './manifest.json',
     './icons/icon.svg'
 ];

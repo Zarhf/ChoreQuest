@@ -9,12 +9,14 @@ const app = {
     _pendingAction: null,
 
     async init() {
+        console.log("🛡️ ChoreQuest Build 84 starting...");
         auth.init(async (user) => {
             if (user) {
                 db.listenToSystemConfig((config) => {
                     if (config && config.minBuild) {
                         const localBuild = parseInt(localStorage.getItem('app_build') || '0');
                         if (config.minBuild > localBuild) {
+                            console.log(`🔥 KILL SWITCH: Local ${localBuild} < Remote ${config.minBuild}`);
                             if (window.VersionManager) window.VersionManager.update(config.minBuild);
                             else { localStorage.setItem('app_build', config.minBuild); window.location.reload(true); }
                         }
@@ -82,7 +84,7 @@ const app = {
         } else {
             if (app.data.meta.owner === auth.user.email) {
                 if (!sessionStorage.getItem('system_version_pushed')) {
-                    db.setSystemConfig(83); 
+                    db.setSystemConfig(84); 
                     sessionStorage.setItem('system_version_pushed', 'true');
                 }
             }
@@ -102,20 +104,9 @@ const app = {
         });
     },
 
-    async confirmCreateGuild() {
-        const nameInput = document.getElementById('new-guild-name');
-        const name = nameInput ? nameInput.value : '';
-        if (!name) return alert("Nom de guilde requis !");
-        app.showLoading(true);
-        const pub = document.getElementById('new-guild-public').value === 'true';
-        const open = document.getElementById('new-guild-open').value === 'true';
-        const newId = await db.createGuild(auth.user.email, name, pub, open);
-        localStorage.setItem('currentGuildId', newId);
-        app.hideModals(); await app.loadGuild();
-    },
-
     async save() { if (app.guildId && app.data) await db.updateGuild(app.guildId, app.data); },
 
+    // --- Confirmation System ---
     askConfirm(message, callback) {
         app._pendingAction = callback;
         const msgEl = document.getElementById('confirm-message');
@@ -125,7 +116,7 @@ const app = {
         if (btn) btn.onclick = () => { if (app._pendingAction) app._pendingAction(); app.hideModals(); app._pendingAction = null; };
     },
 
-    // --- Avatar & Hero Management ---
+    // --- Avatar Management ---
     getAvatarHtml(avatarStr, size = "40px") {
         if (!avatarStr || !avatarStr.startsWith('http')) {
             const seed = (app.currentUser ? app.currentUser.name : 'Hero');
@@ -159,6 +150,7 @@ const app = {
         app.updateAvatarPreview('edit', true);
     },
 
+    // --- Hero & Squire Management ---
     async addSquire() {
         const name = document.getElementById('squire-name').value;
         const seed = document.getElementById('squire-avatar-seed').value || name;
@@ -189,7 +181,7 @@ const app = {
         await app.save(); app.hideModals();
     },
 
-    // --- Quest Actions ---
+    // --- Quest Logic ---
     async claimQuest(instanceId) {
         const quest = app.data.activeQuests.find(q => q.id === instanceId);
         if (!quest) return;
@@ -257,20 +249,13 @@ const app = {
     },
 
     async addQuest() {
-        const titleInput = document.getElementById('quest-title');
-        const title = titleInput ? titleInput.value : '';
-        const xpInput = document.getElementById('quest-difficulty');
-        const xp = parseInt(xpInput ? xpInput.value : '0');
-        const freqInput = document.getElementById('quest-frequency');
-        const freq = freqInput ? freqInput.value : 'none';
-        const intInput = document.getElementById('quest-interval');
-        const interval = intInput ? intInput.value : '1';
-        const assInput = document.getElementById('quest-assignee');
-        const assignee = assInput ? assInput.value || null : null;
-        const tStartInput = document.getElementById('quest-time-start');
-        const tStart = tStartInput ? tStartInput.value : '';
-        const tEndInput = document.getElementById('quest-time-end');
-        const tEnd = tEndInput ? tEndInput.value : '';
+        const title = document.getElementById('quest-title').value;
+        const xp = parseInt(document.getElementById('quest-difficulty').value);
+        const freq = document.getElementById('quest-frequency').value;
+        const interval = document.getElementById('quest-interval').value;
+        const assignee = document.getElementById('quest-assignee').value || null;
+        const tStart = document.getElementById('quest-time-start').value;
+        const tEnd = document.getElementById('quest-time-end').value;
         const days = Array.from(document.querySelectorAll('input[name="quest-day"]:checked')).map(cb => cb.value);
         if (!title || isNaN(xp)) return;
         const defId = 'def_'+Date.now();
@@ -288,17 +273,15 @@ const app = {
         let defId = quest ? quest.definitionId : realId;
         const def = app.data.questDefinitions.find(d => d.id === defId);
         if (!def) return;
-        const idInput = document.getElementById('edit-quest-id'); if (idInput) idInput.value = def.id; 
-        const titleInput = document.getElementById('edit-quest-title'); if (titleInput) titleInput.value = def.title;
-        const xpInput = document.getElementById('edit-quest-difficulty'); if (xpInput) xpInput.value = def.baseXp;
-        const freqInput = document.getElementById('edit-quest-frequency'); if (freqInput) freqInput.value = def.frequency || 'none';
+        document.getElementById('edit-quest-id').value = def.id; 
+        document.getElementById('edit-quest-title').value = def.title;
+        document.getElementById('edit-quest-difficulty').value = def.baseXp;
+        document.getElementById('edit-quest-frequency').value = def.frequency || 'none';
         const elAssignee = document.getElementById('edit-quest-assignee'); if (elAssignee) elAssignee.value = def.defaultAssignee || '';
-        const tsStartInput = document.getElementById('edit-quest-time-start');
-        const tsEndInput = document.getElementById('edit-quest-time-end');
-        if (def.timeSlot) { if (tsStartInput) tsStartInput.value = def.timeSlot.start; if (tsEndInput) tsEndInput.value = def.timeSlot.end; }
-        else { if (tsStartInput) tsStartInput.value = ''; if (tsEndInput) tsEndInput.value = ''; }
+        if (def.timeSlot) { document.getElementById('edit-quest-time-start').value = def.timeSlot.start; document.getElementById('edit-quest-time-end').value = def.timeSlot.end; }
+        else { document.getElementById('edit-quest-time-start').value = ''; document.getElementById('edit-quest-time-end').value = ''; }
         const days = def.days || []; document.querySelectorAll('input[name="edit-quest-day"]').forEach(cb => cb.checked = days.includes(cb.value));
-        const intInput = document.getElementById('edit-quest-interval'); if (intInput) intInput.value = def.interval || 1;
+        document.getElementById('edit-quest-interval').value = def.interval || 1;
         app.toggleRecurrenceUI('edit-quest'); app.showModal('edit-quest-modal');
     },
 
@@ -346,51 +329,69 @@ const app = {
         });
     },
 
-    // --- UI Rendering ---
+    // --- UI Helpers ---
+    showLoading(s) { const el = document.getElementById('loading'); if (el) el.classList.toggle('hidden', !s); },
+    showModal(id) { const el = document.getElementById(id); if (el) el.classList.remove('hidden'); },
+    hideModals() { document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')); },
+    
+    // --- Toasts Logic ---
+    watchForToasts() {
+        if (!app.data || !app.data.questLog || !app.data.questLog.length) return;
+        const latest = app.data.questLog[0];
+        if (!app.lastLogId) { app.lastLogId = latest.id; return; }
+        if (latest.id !== app.lastLogId) {
+            app.lastLogId = latest.id;
+            if (latest.completedBy === app.currentUser?.id || latest.completedBy === auth.user.email) return;
+            app.showActivityToast(latest);
+        }
+    },
+
+    showActivityToast(log) {
+        const t = document.getElementById('activity-toast');
+        const user = app.data.users.find(u => u.id === log.completedBy || u.email === log.completedBy);
+        const elAvatar = document.getElementById('toast-avatar');
+        if (elAvatar) elAvatar.innerHTML = app.getAvatarHtml(user ? user.avatar : '?', "30px");
+        let verb = log.type === 'system' ? "info :" : "a validé";
+        if (log.title.includes('Annulation')) verb = "a annulé";
+        const msgEl = document.getElementById('toast-message');
+        if (msgEl) msgEl.innerText = `${user ? user.name : 'Un membre'} ${verb} : "${log.title}"`;
+        if (t) { t.classList.remove('hidden'); setTimeout(() => t.classList.add('hidden'), 5000); }
+    },
+
+    // --- Sync & Renders ---
+    syncSettingsUI() {
+        const elName = document.getElementById('edit-guild-name'); if (elName) elName.value = app.data.meta.guildName;
+        const elPub = document.getElementById('edit-guild-public'); if (elPub) elPub.value = String(!!app.data.meta.isPublic);
+        const elOpen = document.getElementById('edit-guild-open'); if (elOpen) elOpen.value = String(!!app.data.meta.isOpen);
+        app.renderGuildMembers();
+        const memberOptions = `<option value="">❓ Pour tous</option>` + app.data.users.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+        const elQAssignee = document.getElementById('quest-assignee'); if (elQAssignee) elQAssignee.innerHTML = memberOptions;
+        const elEditQAssignee = document.getElementById('edit-quest-assignee'); if (elEditQAssignee) elEditQAssignee.innerHTML = memberOptions;
+        const elUName = document.getElementById('edit-user-name'); if (elUName) elUName.value = app.currentUser.name;
+        const elSeed = document.getElementById('edit-avatar-seed'); if (elSeed && !elSeed.value && app.currentUser.avatar.includes('seed=')) { const urlParts = app.currentUser.avatar.split('seed='); if (urlParts.length > 1) elSeed.value = decodeURIComponent(urlParts[1]); }
+        app.updateAvatarPreview('edit');
+        const squires = app.data.users.filter(u => u.managedBy === app.mainUser.id);
+        const impersonatedId = localStorage.getItem('impersonatedHeroId');
+        const elSquireList = document.getElementById('squire-list'); if (elSquireList) elSquireList.innerHTML = squires.map(s => `<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; margin-bottom:5px;"><span>${app.getAvatarHtml(s.avatar, "20px")} <b>${s.name}</b></span>${impersonatedId === s.id ? `<button class="action-btn danger-btn" onclick="app.stopImpersonating()" style="width:auto; padding:2px 8px; font-size:0.7rem;">Quitter</button>` : `<button class="action-btn" onclick="app.impersonate('${s.id}')" style="width:auto; padding:2px 8px; font-size:0.7rem;">Incarner</button>`}</div>`).join('') || '<p style="font-size:0.7rem; opacity:0.5;">Aucun écuyer.</p>';
+        const qBtn = document.getElementById('quit-guild-btn'); if (qBtn && app.data.meta) qBtn.style.display = (app.data.meta.owner === auth.user.email) ? 'none' : 'block';
+    },
+
     render() {
         if (!app.currentUser) return;
         const isSquire = app.currentUser.id !== app.mainUser.id;
-        const elName = document.getElementById('user-name');
-        if (elName) elName.innerText = (isSquire ? '📜 ' : '') + app.currentUser.name;
-        const elAv = document.getElementById('user-avatar-display');
-        if (elAv) elAv.innerHTML = app.getAvatarHtml(app.currentUser.avatar, "80px");
-        const elLvl = document.getElementById('user-level');
-        if (elLvl) elLvl.innerText = app.currentUser.level || 1;
-        const elXp = document.getElementById('user-xp');
-        if (elXp) elXp.innerText = app.currentUser.xp;
+        document.getElementById('user-name').innerText = (isSquire ? '📜 ' : '') + app.currentUser.name;
+        document.getElementById('user-avatar-display').innerHTML = app.getAvatarHtml(app.currentUser.avatar, "80px");
+        document.getElementById('user-level').innerText = app.currentUser.level || 1;
+        document.getElementById('user-xp').innerText = app.currentUser.xp;
         const xpNeeded = (app.currentUser.level || 1) * 100;
-        const elNextXp = document.getElementById('next-level-xp');
-        if (elNextXp) elNextXp.innerText = xpNeeded;
-        const elProg = document.getElementById('xp-progress');
-        if (elProg) elProg.style.width = `${(app.currentUser.xp / xpNeeded) * 100}%`;
-
-        const profBtn = document.getElementById('profile-btn');
-        if (profBtn) profBtn.innerHTML = app.getAvatarHtml(app.currentUser.avatar, "40px");
-
+        document.getElementById('next-level-xp').innerText = xpNeeded;
+        document.getElementById('xp-progress').style.width = `${(app.currentUser.xp / xpNeeded) * 100}%`;
+        const profBtn = document.getElementById('profile-btn'); if (profBtn) profBtn.innerHTML = app.getAvatarHtml(app.currentUser.avatar, "40px");
         const squires = app.data.users.filter(u => u.managedBy === app.mainUser.id);
         const switchBtn = document.getElementById('quick-switch-btn');
-        if (switchBtn) {
-            if (squires.length > 0) {
-                switchBtn.classList.remove('hidden');
-                const rotationList = [app.mainUser, ...squires];
-                const currentIndex = rotationList.findIndex(u => u.id === app.currentUser.id);
-                const nextUser = rotationList[(currentIndex + 1) % rotationList.length];
-                switchBtn.innerHTML = app.getAvatarHtml(nextUser.avatar, "26px");
-                switchBtn.title = `Passer à ${nextUser.name}`;
-            } else switchBtn.classList.add('hidden');
-        }
-        
-        const qBoard = document.getElementById('quest-board');
-        const hBoard = document.getElementById('history-board');
-        if (app.currentView === 'board') { 
-            if (qBoard) qBoard.classList.remove('hidden'); 
-            if (hBoard) hBoard.classList.add('hidden'); 
-            app.renderBoard(); 
-        } else { 
-            if (qBoard) qBoard.classList.add('hidden'); 
-            if (hBoard) hBoard.classList.remove('hidden'); 
-            app.renderHistory(); 
-        }
+        if (switchBtn) { if (squires.length > 0) { switchBtn.classList.remove('hidden'); const rotationList = [app.mainUser, ...squires]; const currentIndex = rotationList.findIndex(u => u.id === app.currentUser.id); const nextUser = rotationList[(currentIndex + 1) % rotationList.length]; switchBtn.innerHTML = app.getAvatarHtml(nextUser.avatar, "26px"); } else switchBtn.classList.add('hidden'); }
+        if (app.currentView === 'board') { document.getElementById('quest-board').classList.remove('hidden'); document.getElementById('history-board').classList.add('hidden'); app.renderBoard(); }
+        else { document.getElementById('quest-board').classList.add('hidden'); document.getElementById('history-board').classList.remove('hidden'); app.renderHistory(); }
     },
 
     renderBoard() {
@@ -399,7 +400,6 @@ const app = {
         let upcoming = app.data.activeQuests.filter(q => new Date(q.dueDate) > endOfToday);
         active.forEach(q => { const def = app.data.questDefinitions.find(d => d.id === q.definitionId); if (def && def.frequency && def.frequency !== 'none') upcoming.push({ ...q, id: 'virtual_' + q.id, dueDate: app.calculateNextDueDate(def, new Date(q.dueDate)).toISOString(), isVirtual: true }); });
         upcoming.sort((a,b) => a.dueDate.localeCompare(b.dueDate));
-        
         const html = (q, up) => {
             const rarity = app.getQuestRarity(q.xp);
             const def = app.data.questDefinitions.find(d => d.id === q.definitionId);
@@ -425,46 +425,9 @@ const app = {
                 <div class="quest-actions-container">${actionButtons}</div>
             </div>`;
         };
-        const taskList = document.getElementById('task-list');
-        if (taskList) taskList.innerHTML = active.map(q => html(q, false)).join('') || '<p style="text-align:center; opacity:0.5;">Tout est fait !</p>';
+        document.getElementById('task-list').innerHTML = active.map(q => html(q, false)).join('') || '<p style="text-align:center; opacity:0.5;">Tout est fait !</p>';
         const groups = {}; upcoming.forEach(q => { const d = new Date(q.dueDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); if (!groups[d]) groups[d] = []; groups[d].push(q); });
-        const upTaskList = document.getElementById('upcoming-task-list');
-        if (upTaskList) upTaskList.innerHTML = Object.keys(groups).map(day => `<div class="upcoming-day-group"><div class="upcoming-day-title">${day}</div>${groups[day].map(q => html(q, true)).join('')}</div>`).join('') || '<p style="text-align:center; opacity:0.2;">Rien de prévu.</p>';
-    },
-
-    getQuestRarity(xp) { const maxXP = Math.max(...app.data.questDefinitions.map(d => d.baseXp), 10); const r = xp / maxXP; if (r >= 0.9) return 'rarity-legendary'; if (r >= 0.7) return 'rarity-epic'; if (r >= 0.4) return 'rarity-rare'; if (r >= 0.2) return 'rarity-uncommon'; return 'rarity-common'; },
-    renderHistory() { 
-        const histList = document.getElementById('history-list');
-        if (histList) histList.innerHTML = app.data.questLog.map(log => { const user = app.data.users.find(u => u.id === log.completedBy || u.email === log.completedBy); const color = log.type === 'system' ? '#e94560' : '#4a90e2'; return `<div class="history-item" style="border-left-color: ${color}"><div style="display:flex; justify-content:space-between; align-items:center;"><div style="display:flex; align-items:center; gap:10px;">${app.getAvatarHtml(user ? user.avatar : '?', "30px")}<div><strong>${log.title}</strong><br><small>${user ? user.name : '??'} • ${new Date(log.completedAt).toLocaleString()}</small></div></div>${log.type === 'completion' ? `<button class="undo-btn" onclick="app.undoLog('${log.id}')">Annuler</button>` : ''}</div></div>`; }).join(''); 
-    },
-    
-    watchForToasts() { if (!app.data || !app.data.questLog?.length) return; const latest = app.data.questLog[0]; if (!app.lastLogId) { app.lastLogId = latest.id; return; } if (latest.id !== app.lastLogId) { app.lastLogId = latest.id; if (latest.completedBy === app.currentUser?.id || latest.completedBy === auth.user.email) return; app.showActivityToast(latest); } },
-    
-    showActivityToast(log) { 
-        const t = document.getElementById('activity-toast'); 
-        const user = app.data.users.find(u => u.id === log.completedBy || u.email === log.completedBy); 
-        const elAvatar = document.getElementById('toast-avatar'); 
-        if (elAvatar) elAvatar.innerHTML = app.getAvatarHtml(user ? user.avatar : '?', "30px"); 
-        let verb = log.type === 'system' ? "info :" : "a validé"; 
-        if (log.title.includes('Annulation')) verb = "a annulé"; 
-        const msgEl = document.getElementById('toast-message');
-        if (msgEl) msgEl.innerText = `${user ? user.name : 'Un membre'} ${verb} : "${log.title}"`; 
-        if (t) { t.classList.remove('hidden'); setTimeout(() => t.classList.add('hidden'), 5000); }
-    },
-
-    syncSettingsUI() {
-        const elName = document.getElementById('edit-guild-name'); if (elName) elName.value = app.data.meta.guildName;
-        app.renderGuildMembers();
-        const memberOptions = `<option value="">❓ Pour tous</option>` + app.data.users.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
-        const elQAssignee = document.getElementById('quest-assignee'); if (elQAssignee) elQAssignee.innerHTML = memberOptions;
-        const elEditQAssignee = document.getElementById('edit-quest-assignee'); if (elEditQAssignee) elEditQAssignee.innerHTML = memberOptions;
-        const elUName = document.getElementById('edit-user-name'); if (elUName) elUName.value = app.currentUser.name;
-        const elSeed = document.getElementById('edit-avatar-seed'); if (elSeed && !elSeed.value && app.currentUser.avatar.includes('seed=')) { const urlParts = app.currentUser.avatar.split('seed='); if (urlParts.length > 1) elSeed.value = decodeURIComponent(urlParts[1]); }
-        app.updateAvatarPreview('edit');
-        const squires = app.data.users.filter(u => u.managedBy === app.mainUser.id);
-        const impersonatedId = localStorage.getItem('impersonatedHeroId');
-        const elSquireList = document.getElementById('squire-list'); if (elSquireList) elSquireList.innerHTML = squires.map(s => `<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; margin-bottom:5px;"><span>${app.getAvatarHtml(s.avatar, "20px")} <b>${s.name}</b></span>${impersonatedId === s.id ? `<button class="action-btn danger-btn" onclick="app.stopImpersonating()" style="width:auto; padding:2px 8px; font-size:0.7rem;">Quitter</button>` : `<button class="action-btn" onclick="app.impersonate('${s.id}')" style="width:auto; padding:2px 8px; font-size:0.7rem;">Incarner</button>`}</div>`).join('') || '<p style="font-size:0.7rem; opacity:0.5;">Aucun écuyer.</p>';
-        const qBtn = document.getElementById('quit-guild-btn'); if (qBtn && app.data.meta) qBtn.style.display = (app.data.meta.owner === auth.user.email) ? 'none' : 'block';
+        document.getElementById('upcoming-task-list').innerHTML = Object.keys(groups).map(day => `<div class="upcoming-day-group"><div class="upcoming-day-title">${day}</div>${groups[day].map(q => html(q, true)).join('')}</div>`).join('') || '<p style="text-align:center; opacity:0.2;">Rien de prévu.</p>';
     },
 
     toggleRecurrenceUI(prefix) { const elFreq = document.getElementById(`${prefix}-frequency`); if (!elFreq) return; const val = elFreq.value; const intervalContainer = document.getElementById(`${prefix}-interval-container`); const daysSelector = document.getElementById(`${prefix}-days-selector`); if (intervalContainer) intervalContainer.classList.toggle('hidden', val === 'none'); if (daysSelector) daysSelector.classList.toggle('hidden', val !== 'weekly'); },
@@ -472,9 +435,6 @@ const app = {
     updateCurrentUserInfo() { app.currentUser.name = document.getElementById('edit-user-name').value; app.save(); },
     renderDevMode() { document.getElementById('debug-guild-id').innerText = app.guildId; document.getElementById('debug-users').innerHTML = `<h4>Membres</h4>` + app.data.users.map(u => `<div>${u.name}</div>`).join('') + `<h4>Définitions</h4>` + app.data.questDefinitions.map(d => `<div>${d.title}</div>`).join(''); },
     setView(v) { app.currentView = v; document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.id === `tab-${v}`)); app.render(); },
-    showLoading(s) { const el = document.getElementById('loading'); if (el) el.classList.toggle('hidden', !s); },
-    showModal(id) { const el = document.getElementById(id); if (el) el.classList.remove('hidden'); },
-    hideModals() { document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')); },
     forceAppReset() { if(confirm('Réinitialiser ?')) { localStorage.clear(); window.location.reload(); } },
     async renameGuild() { if (!app.data) return; app.data.meta.guildName = document.getElementById('edit-guild-name').value; await app.save(); },
     async openGuildSwitcher() { app.showLoading(true); const guilds = await db.getAvailableGuilds(auth.user.email); app.showLoading(false); const cont = document.getElementById('guild-list-container'); if (cont) cont.innerHTML = guilds.map(g => `<div style="background:${g.id === app.guildId ? '#4a90e2' : '#0f3460'}; padding:10px; margin-bottom:5px; border-radius:5px; cursor:pointer;" onclick="app.switchGuild('${g.id}')"><strong>${g.meta.guildName}</strong></div>`).join(''); app.showModal('guild-switcher-modal'); },
@@ -484,6 +444,6 @@ const app = {
     async toggleGuildPublic() { app.data.meta.isPublic = !app.data.meta.isPublic; await app.save(); app.syncSettingsUI(); },
     async leaveGuild() { if (!confirm("Quitter ?")) return; app.showLoading(true); await db.leaveGuild(app.guildId, auth.user.email); localStorage.removeItem('currentGuildId'); window.location.reload(); },
     async updateGuildSettings() { if (!app.data) return; app.data.meta.guildName = document.getElementById('edit-guild-name').value; app.data.meta.isPublic = document.getElementById('edit-guild-public').value === 'true'; app.data.meta.isOpen = document.getElementById('edit-guild-open').value === 'true'; await app.save(); },
-    async renameGuild() { if (!app.data) return; const newName = document.getElementById('edit-guild-name').value; if (!newName) return; app.data.meta.guildName = newName; await app.save(); }
+    async getQuestRarity(xp) { const maxXP = Math.max(...app.data.questDefinitions.map(d => d.baseXp), 10); const r = xp / maxXP; if (r >= 0.9) return 'rarity-legendary'; if (r >= 0.7) return 'rarity-epic'; if (r >= 0.4) return 'rarity-rare'; if (r >= 0.2) return 'rarity-uncommon'; return 'rarity-common'; }
 };
 app.init();
