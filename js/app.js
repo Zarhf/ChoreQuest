@@ -9,7 +9,7 @@ const app = {
     _pendingAction: null,
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 113 starting...");
+        console.log("🛡️ ChoreQuest Build 114 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -135,7 +135,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(113); 
+                db.setSystemConfig(114); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -479,6 +479,7 @@ const app = {
         document.getElementById('counter-offer-text').innerText = `Négociation pour : ${quest.title}`;
         document.getElementById('counter-xp').value = quest.xp;
         document.getElementById('counter-gold').value = quest.gold;
+        document.getElementById('counter-reason').value = '';
         
         const memberOptions = `<option value="">❓ Pour tous</option>` + app.data.users.map(u => `<option value="${u.id}" ${u.id === quest.assignedTo ? 'selected' : ''}>${u.name}</option>`).join('');
         document.getElementById('counter-assignee').innerHTML = memberOptions;
@@ -491,6 +492,7 @@ const app = {
         const xp = parseInt(document.getElementById('counter-xp').value);
         const gold = parseInt(document.getElementById('counter-gold').value);
         const assignee = document.getElementById('counter-assignee').value || null;
+        const reason = document.getElementById('counter-reason').value || '';
 
         const quest = app.data.activeQuests.find(q => q.id === instanceId);
         if (!quest) return;
@@ -502,12 +504,21 @@ const app = {
         def.defaultAssignee = assignee;
         def.votes = { [app.currentUser.id]: true }; 
         def.createdBy = app.currentUser.id; 
+        def.lastReason = reason;
 
         quest.xp = xp;
         quest.gold = gold;
         quest.assignedTo = assignee;
 
-        app.data.questLog.unshift({ id: 'log_counter_'+Date.now(), type: 'system', title: `Contre-offre de ${app.currentUser.name} sur : ${quest.title}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
+        // Auto-validation si possible
+        const totalMembers = app.data.users.length;
+        const majority = Math.floor(totalMembers / 2) + 1;
+        if ((!assignee && Object.keys(def.votes).length >= majority) || (assignee === app.currentUser.id)) {
+            def.status = 'active';
+            quest.status = 'active';
+        }
+
+        app.data.questLog.unshift({ id: 'log_counter_'+Date.now(), type: 'system', title: `Contre-offre de ${app.currentUser.name} : ${quest.title}${reason ? ' ('+reason+')' : ''}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
 
         await app.save();
         app.hideModals();
@@ -937,8 +948,8 @@ const app = {
                 const isVoted = def && def.votes && def.votes[app.currentUser.id];
                 const assigneeName = q.assignedTo ? (app.data.users.find(u=>u.id===q.assignedTo)?.name || 'Inconnu') : 'Pour tous';
                 const creator = app.data.users.find(u => u.id === (def?.createdBy || q.createdBy))?.name || 'Ancien';
+                const reasonHtml = def?.lastReason ? `<div style="font-size:0.7rem; color:#8b4513; margin-top:5px; font-style:italic; border-left:2px solid #f39c12; padding-left:5px;">"${def.lastReason}"</div>` : '';
                 
-                // Liste des votants (avatars)
                 const votersList = (def && def.votes) ? Object.keys(def.votes).map(vId => {
                     const u = app.data.users.find(usr => usr.id === vId);
                     return `<div class="assignee-badge" style="width:20px; height:20px; border:1px solid #27ae60;">${app.getAvatarHtml(u ? u.avatar : '?', "20px")}</div>`;
@@ -949,6 +960,7 @@ const app = {
                         <div>
                             <h4>📜 ${q.title}</h4>
                             <div style="font-size:0.75rem; margin-top:5px; opacity:0.8;">Proposé par : <strong>${creator}</strong></div>
+                            ${reasonHtml}
                         </div>
                         <div style="display:flex; gap:2px;">${votersList}</div>
                     </div>
