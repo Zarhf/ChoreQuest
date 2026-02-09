@@ -413,8 +413,7 @@ input, select {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    max-height: 400px;
-    overflow-y: auto;
+    margin-top: 10px;
 }
 
 .member-card-detailed {
@@ -424,9 +423,11 @@ input, select {
     padding: 10px;
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 12px;
     position: relative;
     transition: transform 0.2s;
+    box-sizing: border-box;
+    width: 100%;
 }
 
 .member-card-detailed:hover {
@@ -440,6 +441,7 @@ input, select {
 
 .member-info {
     flex: 1;
+    min-width: 0; /* Empêche le débordement du texte */
 }
 
 .member-name-row {
@@ -447,22 +449,37 @@ input, select {
     align-items: center;
     gap: 8px;
     font-weight: bold;
-    font-size: 1rem;
+    font-size: 0.95rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 .member-title {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: #4a90e2;
     font-variant: small-caps;
     letter-spacing: 0.5px;
 }
 
 .member-stats-row {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     opacity: 0.8;
     margin-top: 3px;
     display: flex;
-    gap: 10px;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* Scrollbar Hiding */
+.modal-content::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
+}
+
+.modal-content {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
 }
 
 .kick-btn {
