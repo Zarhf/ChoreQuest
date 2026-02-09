@@ -9,7 +9,7 @@ const app = {
     _pendingAction: null,
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 108 starting...");
+        console.log("🛡️ ChoreQuest Build 109 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -135,7 +135,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(108); 
+                db.setSystemConfig(109); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -883,7 +883,38 @@ const app = {
         const now = new Date(); 
         const endOfToday = new Date(now); endOfToday.setHours(23,59,59,999);
         
-        const active = app.data.activeQuests.filter(q => {
+        // Séparer les quêtes en attente (Conseil)
+        const pending = app.data.activeQuests.filter(q => q.status === 'pending');
+        const count = pending.length;
+        const councilContainer = document.getElementById('council-container');
+        if (councilContainer) {
+            councilContainer.classList.toggle('hidden', count === 0);
+            const councilCount = document.getElementById('council-count');
+            if (councilCount) councilCount.innerText = count;
+            document.getElementById('council-list').innerHTML = pending.map(q => {
+                const def = app.data.questDefinitions.find(d => d.id === q.definitionId);
+                const approvals = (def && def.votes) ? Object.keys(def.votes).length : 0;
+                const total = app.data.users.length;
+                const majority = Math.floor(total / 2) + 1;
+                const progressText = (def && def.defaultAssignee) ? `Attente de l'assigné` : `${approvals}/${majority} votes`;
+                const isVoted = def && def.votes && def.votes[app.currentUser.id];
+                const assigneeName = q.assignedTo ? (app.data.users.find(u=>u.id===q.assignedTo)?.name || 'Inconnu') : 'Pour tous';
+
+                return `<div class="scroll-card">
+                    <h4>📜 ${q.title}</h4>
+                    <div style="font-size:0.75rem; margin-top:5px;">💰 ${q.xp} XP • ${app.data.currency.symbol} ${q.gold} • 👤 ${assigneeName}</div>
+                    <div class="scroll-actions">
+                        <span class="vote-progress">${progressText}</span>
+                        ${!isVoted ? `<button class="scroll-btn btn-approve" onclick="app.voteQuest('${q.id}', 'approve')">Approuver</button>` : `<span style="font-size:0.8rem; color:#27ae60;">Fait ✅</span>`}
+                        <button class="scroll-btn btn-reject" onclick="app.askConfirm('Rejeter cette quête ?', () => app.voteQuest('${q.id}', 'reject'))">Rejeter</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        const nonPending = app.data.activeQuests.filter(q => q.status !== 'pending');
+        
+        const active = nonPending.filter(q => {
             if (!q.dueDate) return true;
             const due = new Date(q.dueDate);
             if (due > endOfToday) return false;
@@ -898,7 +929,7 @@ const app = {
             return true;
         });
 
-        let upcoming = app.data.activeQuests.filter(q => !active.includes(q));
+        let upcoming = nonPending.filter(q => !active.includes(q));
         
         active.forEach(q => { 
             const def = app.data.questDefinitions.find(d => d.id === q.definitionId); 
