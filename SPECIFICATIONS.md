@@ -1,4 +1,4 @@
-# Spécifications : ChoreQuest (v2.15)
+# Spécifications : ChoreQuest (v2.16)
 
 ## 1. Concept
 **"Level up your home, one quest at a time."**
@@ -9,10 +9,10 @@ ChoreQuest est une application web progressive (PWA) gamifiée qui transforme le
 *   **Frontend :** HTML5 / CSS3 (Mobile First) / Vanilla JS.
 *   **Backend :** Google Firebase (Firestore + Auth).
 *   **Identité :** API **DiceBear** (Génération d'avatars SVG dynamiques via seeds).
-*   **Versioning & Sync :** 
-    *   **Kill Switch :** Les clients écoutent un document Firestore `system/config` pour déclencher une mise à jour forcée.
-    *   **Version Manager :** Vérification périodique (5 min) et vuidage automatique des caches (Service Worker + Caches API) en cas de nouveau build détecté.
-    *   **Emergency Console :** Page `admin.html` permettant de forcer manuellement une version globale.
+*   **Système de Mise à jour Automatique (3 Couches) :**
+    1.  **Stratégie "Network First" (Service Worker) :** Le SW est configuré pour toujours privilégier le réseau pour les fichiers critiques (`index.html`, `version.json`). Il ne sert le cache qu'en cas d'absence de connexion.
+    2.  **Vérification au Démarrage (Boot Check) :** Un script ultra-léger au sommet du HTML compare le build local (`localStorage`) avec le build serveur (`version.json?t=...`). En cas de différence, il force la désinscription du SW, vide le cache et recharge la page immédiatement.
+    3.  **"Kill Switch" Temps Réel (Firestore) :** L'application écoute en continu le document `system/config` sur Firebase. Dès que le `minBuild` distant est incrémenté, toutes les instances ouvertes déclenchent un rechargement forcé.
 
 ### Modèle de Données (Firestore)
 Collection `guilds` -> Document `{guildId}` :
@@ -88,31 +88,24 @@ Collection `guilds` -> Document `{guildId}` :
 *   **Administration :** Modifier le nom, la visibilité et l'accès (Ouvert/Fermé).
 
 ### 3.3. Système de Quêtes RPG
-*   **Affectation Flexible :**
-    *   Quêtes assignées d'office à un membre.
-    *   Quêtes "Pour tous" marquées d'un `?`.
+*   **Affectation Flexible :** Quêtes assignées d'office ou libres (`?`).
 *   **Actions Dynamiques :**
-    *   **☝️ Je prends :** S'assigner une quête libre (pour l'occurrence actuelle).
+    *   **☝️ Je prends :** S'assigner une quête libre.
     *   **❌ Abandonner :** Rendre une quête dont on était responsable.
-    *   **🥷 Voler :** Si une tâche est en retard (heure de fin dépassée), les autres membres peuvent la voler.
+    *   **🥷 Voler :** Si une tâche est en retard, les autres membres peuvent la voler pour gagner l'XP à votre place.
 *   **Rareté Visuelle :** Cartes colorées selon l'XP (Gris, Vert, Bleu, Violet, Or).
-*   **Calendrier :** Section "Prochainement" groupée par jour avec projection intelligente des tâches récurrentes.
+*   **Calendrier :** Section "Prochainement" avec projection intelligente des tâches récurrentes évitant les erreurs de dates passées.
 
-### 3.4. UX & Robustesse
-*   **Confirmation :** Modale de confirmation légère pour toute action critique.
-*   **Toasts :** Notifications en temps réel lors des exploits des autres membres.
-*   **Annulation :** Le journal permet d'annuler une validation (restitution de la tâche et retrait de l'XP).
-*   **Fluidité :** Rendu "Lazy" sans écran blanc lors des mises à jour Firestore.
+### 3.4. UX & Administration
+*   **Console Admin Royale :** Modale plein écran accessible uniquement au propriétaire ou à l'administrateur principal. Permet d'éditer les statistiques des joueurs (XP, Niveau, Nom) et de réparer les dates corrompues.
+*   **Toasts :** Notifications en temps réel lors des actions des membres (vol, abandon, validation).
+*   **Journal :** Historique complet avec fonction d'annulation.
 
 ## 4. Roadmap (Prochaines Évolutions)
 
 ### 4.1. Économie & Récompenses
-*   **L'Or du Royaume :** En plus de l'XP, gagner des pièces d'or lors des validations.
-*   **Boutique de la Guilde :** Les parents (Rois) créent des récompenses (ex: "30 min de console", "Dessert au choix") achetables avec l'or.
+*   **L'Or du Royaume :** Gagner des pièces d'or lors des validations.
+*   **Boutique de la Guilde :** Acheter des récompenses personnalisables (ex: "Temps d'écran").
 
 ### 4.2. Rappels & Notifications Push
-*   **Signal de Départ :** Notification sur le téléphone au début de la plage horaire d'une quête.
-*   **Alerte de Vol :** Prévenir le responsable quand sa quête devient "Volable" par les autres.
-
-### 4.3. Succès & Badges
-*   **Hauts Faits :** Gagner des badges spéciaux (ex: "Nettoyeur de l'Ombre" pour 10 vols réussis).
+*   Notifications au début de la plage horaire d'une quête et alertes de "volabilité".
