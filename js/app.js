@@ -106,7 +106,7 @@ const app = {
         } else {
             if (app.data.meta.owner === auth.user.email) {
                 if (!sessionStorage.getItem('system_version_pushed')) {
-                    db.setSystemConfig(96); 
+                    db.setSystemConfig(97); 
                     sessionStorage.setItem('system_version_pushed', 'true');
                 }
             }
@@ -198,95 +198,49 @@ const app = {
     },
 
     // --- Actions ---
-    async claimQuest(instanceId) {
-        const quest = app.data.activeQuests.find(q => q.id === instanceId);
-        if (!quest) return;
-        quest.assignedTo = app.currentUser.id;
-        app.data.questLog.unshift({ id: 'log_cl_'+Date.now(), type: 'system', title: `Quête acceptée : ${quest.title}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
-        await app.save();
-    },
-
-    async unclaimQuest(instanceId) {
-        const quest = app.data.activeQuests.find(q => q.id === instanceId);
-        if (!quest) return;
-        const oldTitle = quest.title;
-        quest.assignedTo = null; 
-        app.data.questLog.unshift({ id: 'log_un_'+Date.now(), type: 'system', title: `Quête abandonnée : ${oldTitle}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
-        await app.save();
-    },
-
-    async completeTask(instanceId) {
-        const index = app.data.activeQuests.findIndex(q => q.id === instanceId);
-        if (index === -1) return;
-        const quest = app.data.activeQuests[index];
-        const def = app.data.questDefinitions.find(d => d.id === quest.definitionId);
+    async addRoyalQuest() {
+        const title = document.getElementById('royal-quest-title').value;
+        const xp = parseInt(document.getElementById('royal-quest-xp').value);
+        const gold = parseInt(document.getElementById('royal-quest-gold').value);
+        const assignee = document.getElementById('royal-quest-assignee').value || null;
         
-        // Calcul du bonus de niveau (1% par niveau)
-        const userLevel = app.currentUser.level || 1;
-        const bonusMultiplier = 1 + (userLevel / 100);
-        
-        const earnedXp = Math.ceil(parseInt(quest.xp || 0) * bonusMultiplier);
-        const earnedGold = Math.ceil(parseInt(quest.gold || 0) * bonusMultiplier);
+        if (!title || isNaN(xp) || isNaN(gold)) return alert("Veuillez remplir tous les champs.");
 
-        app.currentUser.xp += earnedXp;
-        app.currentUser.gold = (app.currentUser.gold || 0) + earnedGold;
-
-        const xpNeeded = (app.currentUser.level || 1) * 100;
-        if (app.currentUser.xp >= xpNeeded) {
-            app.currentUser.level = (app.currentUser.level || 1) + 1;
-            app.currentUser.xp -= (app.currentUser.level - 1) * 100;
-            alert(`🎊 LEVEL UP! ${app.currentUser.name} est Niveau ${app.currentUser.level} !`);
+        const isAdmin = app.isAdmin();
+        if (!isAdmin) {
+            if (app.currentUser.gold < gold) return alert("Pas assez de monnaie pour financer cette Mission Royale !");
+            app.currentUser.gold -= gold;
         }
+
+        const defId = 'def_royal_'+Date.now();
+        const def = { id: defId, title, baseXp: xp, baseGold: gold, frequency: 'none', defaultAssignee: assignee, isRoyal: true };
         
-        app.data.questLog.unshift({ 
-            id: 'log_'+Date.now(), 
-            type: 'completion', 
-            title: quest.title, 
-            completedBy: app.currentUser.id, 
-            completedAt: new Date().toISOString(), 
-            xpEarned: earnedXp,
-            goldEarned: earnedGold,
-            instanceId: instanceId, 
-            definitionId: quest.definitionId 
+        app.data.questDefinitions.push(def);
+        app.data.activeQuests.push({ 
+            id: 'inst_royal_'+Date.now(), 
+            definitionId: defId, 
+            title, 
+            xp, 
+            gold, 
+            dueDate: new Date().toISOString(), // Immédiat
+            assignedTo: assignee, 
+            isRoyal: true 
         });
         
-        if (app.data.questLog.length > 50) app.data.questLog.pop();
-        if (def && def.frequency && def.frequency !== 'none') {
-            quest.dueDate = app.calculateNextDueDate(def, new Date(quest.dueDate)).toISOString();
-            quest.assignedTo = def.defaultAssignee || null;
-        } else app.data.activeQuests.splice(index, 1);
-        await app.save();
+        await app.save(); 
+        app.hideModals();
+        app.setView('board');
     },
 
-    isStealable(q) {
-        if (!q.assignedTo || q.assignedTo === app.currentUser.id) return false;
-        const now = new Date(); const due = new Date(q.dueDate);
-        if (q.timeSlot && q.timeSlot.end) { const [h, m] = q.timeSlot.end.split(':'); due.setHours(parseInt(h), parseInt(m), 0, 0); } else due.setHours(23, 59, 59, 999);
-        return now > due;
+    openRoyalMissionModal() {
+        const memberOptions = `<option value="">❓ Pour tous</option>` + app.data.users.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+        document.getElementById('royal-quest-assignee').innerHTML = memberOptions;
+        document.querySelectorAll('.currency-name-label').forEach(el => el.innerText = app.data.currency.name);
+        app.showModal('royal-mission-modal');
     },
 
-    calculateNextDueDate(def, fromDate = new Date()) {
-        let next = new Date(fromDate); const int = parseInt(def.interval || 1); const now = new Date(); now.setHours(0,0,0,0);
-        const add = (d) => {
-            if (def.frequency === 'daily') d.setDate(d.getDate() + int);
-            else if (def.frequency === 'weekly') {
-                let found = false;
-                for (let i = 1; i <= 7 * int; i++) {
-                    let check = new Date(d); check.setDate(d.getDate() + i);
-                    if (def.days && def.days.includes(check.getDay().toString())) { d.setTime(check.getTime()); found = true; break; }
-                }
-                if (!found) d.setDate(d.getDate() + 7 * int);
-            } else if (def.frequency === 'monthly') d.setMonth(d.getMonth() + int);
-        };
-        add(next); let safety = 0; while (next < now && safety < 100) { safety++; add(next); }
-        next.setHours(4, 0, 0, 0); return next;
-    },
-
-    calculateFirstDueDate(def) {
-        const now = new Date(); now.setHours(0,0,0,0);
-        if (def.frequency === 'weekly' && def.days && def.days.length > 0) { if (def.days.includes(now.getDay().toString())) { const today = new Date(now); today.setHours(4,0,0,0); return today; } }
-        const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
-        return app.calculateNextDueDate(def, yesterday);
+    isAdmin() {
+        return (app.data.meta.owner === auth.user.email) || (auth.user.email === 'yohann.gras@gmail.com');
     },
 
     async addQuest() {
@@ -296,27 +250,18 @@ const app = {
         const freq = document.getElementById('quest-frequency').value;
         const interval = document.getElementById('quest-interval').value;
         const assignee = document.getElementById('quest-assignee').value || null;
-        const isRoyal = document.getElementById('quest-is-royal')?.checked;
+        // isRoyal removed from standard modal
         const tStart = document.getElementById('quest-time-start').value;
         const tEnd = document.getElementById('quest-time-end').value;
         const days = Array.from(document.querySelectorAll('input[name="quest-day"]:checked')).map(cb => cb.value);
         
         if (!title || isNaN(xp)) return;
 
-        // Logique Mission Royale
-        if (isRoyal) {
-            const isAdmin = app.data.meta.owner === auth.user.email;
-            if (!isAdmin) {
-                if (app.currentUser.gold < gold) return alert("Pas assez de monnaie pour financer cette Mission Royale !");
-                app.currentUser.gold -= gold;
-            }
-        }
-
         const defId = 'def_'+Date.now();
         const timeSlot = (tStart && tEnd) ? { start: tStart, end: tEnd } : null;
-        const def = { id: defId, title, baseXp: xp, baseGold: gold, frequency: freq, interval, days, timeSlot, defaultAssignee: assignee, isRoyal };
+        const def = { id: defId, title, baseXp: xp, baseGold: gold, frequency: freq, interval, days, timeSlot, defaultAssignee: assignee, isRoyal: false };
         app.data.questDefinitions.push(def);
-        app.data.activeQuests.push({ id: 'inst_'+Date.now(), definitionId: defId, title, xp, gold, dueDate: app.calculateFirstDueDate(def).toISOString(), timeSlot, assignedTo: assignee, isRoyal });
+        app.data.activeQuests.push({ id: 'inst_'+Date.now(), definitionId: defId, title, xp, gold, dueDate: app.calculateFirstDueDate(def).toISOString(), timeSlot, assignedTo: assignee, isRoyal: false });
         await app.save(); app.hideModals();
     },
 
@@ -396,8 +341,25 @@ const app = {
         marketList.innerHTML = app.data.market.map(item => {
             const isOut = item.stock === 0;
             const canAfford = app.currentUser.gold >= item.cost;
-            const isAdmin = app.data.meta.owner === auth.user.email;
+            const isAdmin = app.isAdmin();
             
+            // Logic for click action:
+            // Admin clicking on normal item -> Edit
+            // Admin clicking on special item -> Propose (same as user) or nothing? Let's say Propose.
+            // User clicking on item -> Buy (or nothing if just viewing details, currently buy button handles it)
+            
+            // Refined: Clicking the card body could open details/edit.
+            // For now, let's keep buttons.
+            
+            let actionBtn = '';
+            if (item.isSpecial) {
+                actionBtn = `<button class="action-btn" onclick="app.openRoyalMissionModal()" style="background:linear-gradient(135deg, #d97706, #78350f); color:white; border:1px solid #fcd34d;">👑 Proposer</button>`;
+            } else {
+                actionBtn = `<button class="action-btn" onclick="app.buyItem('${item.id}')" ${(!canAfford || isOut) ? 'disabled' : ''}>Acheter</button>`;
+            }
+
+            const editBtn = (isAdmin && !item.isSpecial) ? `<button class="icon-btn" onclick="event.stopPropagation(); app.openEditMarketItemModal('${item.id}')" title="Modifier">✏️</button>` : '';
+
             return `
                 <div class="market-item ${isOut ? 'sold-out' : ''}">
                     <div class="market-item-icon">${item.icon || '🎁'}</div>
@@ -409,11 +371,8 @@ const app = {
                         </div>
                     </div>
                     <div class="market-item-actions">
-                        ${item.isSpecial ? 
-                            `<button class="action-btn" onclick="app.showModal('quest-modal'); document.getElementById('quest-title').value='${item.title}'" style="background:#f1c40f; color:#1a1a2e;">Proposer</button>` :
-                            `<button class="action-btn" onclick="app.buyItem('${item.id}')" ${(!canAfford || isOut) ? 'disabled' : ''}>Acheter</button>`
-                        }
-                        ${isAdmin && !item.isSpecial ? `<button class="icon-btn" onclick="app.removeMarketItem('${item.id}')" title="Supprimer">🗑️</button>` : ''}
+                        ${actionBtn}
+                        ${editBtn}
                     </div>
                     ${item.stock > 0 ? `<div class="market-item-stock">Stock: ${item.stock}</div>` : ''}
                 </div>
@@ -445,6 +404,7 @@ const app = {
     },
 
     async addMarketItem() {
+        if (!app.isAdmin()) return;
         const title = document.getElementById('market-item-title').value;
         const desc = document.getElementById('market-item-desc').value;
         const cost = parseInt(document.getElementById('market-item-cost').value);
@@ -515,6 +475,7 @@ const app = {
     },
 
     async updateGuildEconomy() {
+        if (!app.isAdmin()) return;
         app.data.currency.name = document.getElementById('guild-currency-name').value || "Écus";
         app.data.currency.symbol = document.getElementById('guild-currency-symbol').value;
         await app.save();
@@ -526,28 +487,32 @@ const app = {
         if (!container) return;
         const ranks = app.data.ranks || [];
         ranks.sort((a,b) => a.minLevel - b.minLevel);
+        const isAdmin = app.isAdmin();
         
         container.innerHTML = ranks.map((r, idx) => `
             <div style="display:grid; grid-template-columns: 50px 1fr 40px; gap:5px; margin-bottom:5px; align-items:center;">
-                <input type="number" value="${r.minLevel}" onchange="app.updateRank(${idx}, 'minLevel', this.value)" style="padding:2px; font-size:0.7rem;">
-                <input type="text" value="${r.title}" onchange="app.updateRank(${idx}, 'title', this.value)" style="padding:2px; font-size:0.7rem;">
-                <button onclick="app.removeRank(${idx})" style="background:none; border:none; cursor:pointer;">❌</button>
+                <input type="number" value="${r.minLevel}" onchange="app.updateRank(${idx}, 'minLevel', this.value)" style="padding:2px; font-size:0.7rem;" ${!isAdmin ? 'disabled' : ''}>
+                <input type="text" value="${r.title}" onchange="app.updateRank(${idx}, 'title', this.value)" style="padding:2px; font-size:0.7rem;" ${!isAdmin ? 'disabled' : ''}>
+                ${isAdmin ? `<button onclick="app.removeRank(${idx})" style="background:none; border:none; cursor:pointer;">❌</button>` : ''}
             </div>
         `).join('');
     },
 
     updateRank(idx, field, value) {
+        if (!app.isAdmin()) return;
         app.data.ranks[idx][field] = field === 'minLevel' ? parseInt(value) : value;
         app.save();
     },
 
     removeRank(idx) {
+        if (!app.isAdmin()) return;
         app.data.ranks.splice(idx, 1);
         app.save();
         app.renderGuildRanks();
     },
 
     addRankRow() {
+        if (!app.isAdmin()) return;
         if (!app.data.ranks) app.data.ranks = [];
         app.data.ranks.push({ minLevel: 1, title: "Nouveau Rang" });
         app.renderGuildRanks();
@@ -558,6 +523,52 @@ const app = {
         const sorted = [...app.data.ranks].sort((a,b) => b.minLevel - a.minLevel);
         const rank = sorted.find(r => level >= r.minLevel);
         return rank ? rank.title : "Héros";
+    },
+
+    // --- Market Item Management ---
+    openEditMarketItemModal(itemId) {
+        if (!app.isAdmin()) return;
+        const item = app.data.market.find(i => i.id === itemId);
+        if (!item || item.isSpecial) return; // Special items like Royal Mission are not editable here
+
+        document.getElementById('edit-market-item-id').value = item.id;
+        document.getElementById('edit-market-item-title').value = item.title;
+        document.getElementById('edit-market-item-desc').value = item.description || '';
+        document.getElementById('edit-market-item-cost').value = item.cost;
+        document.getElementById('edit-market-item-icon').value = item.icon || '';
+        document.getElementById('edit-market-item-stock').value = item.stock;
+        
+        app.showModal('edit-market-item-modal');
+    },
+
+    async saveMarketItemEdits() {
+        if (!app.isAdmin()) return;
+        const id = document.getElementById('edit-market-item-id').value;
+        const title = document.getElementById('edit-market-item-title').value;
+        const desc = document.getElementById('edit-market-item-desc').value;
+        const cost = parseInt(document.getElementById('edit-market-item-cost').value);
+        const icon = document.getElementById('edit-market-item-icon').value;
+        const stock = parseInt(document.getElementById('edit-market-item-stock').value);
+
+        if (!title || isNaN(cost)) return;
+
+        const idx = app.data.market.findIndex(i => i.id === id);
+        if (idx !== -1) {
+            app.data.market[idx] = { ...app.data.market[idx], title, description: desc, cost, icon, stock };
+            await app.save();
+            app.hideModals();
+            app.renderMarket();
+        }
+    },
+
+    async deleteMarketItem() {
+        if (!app.isAdmin()) return;
+        if (!confirm("Supprimer définitivement cet article ?")) return;
+        const id = document.getElementById('edit-market-item-id').value;
+        app.data.market = app.data.market.filter(i => i.id !== id);
+        await app.save();
+        app.hideModals();
+        app.renderMarket();
     },
 
     // --- Renders ---
@@ -687,12 +698,25 @@ const app = {
         const impersonatedId = localStorage.getItem('impersonatedHeroId');
         document.getElementById('squire-list').innerHTML = squires.map(s => `<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; margin-bottom:5px;"><span>${app.getAvatarHtml(s.avatar, "20px")} <b>${s.name}</b></span>${impersonatedId === s.id ? `<button class="action-btn danger-btn" onclick="app.stopImpersonating()" style="width:auto; padding:2px 8px; font-size:0.7rem;">Quitter</button>` : `<button class="action-btn" onclick="app.impersonate('${s.id}')" style="width:auto; padding:2px 8px; font-size:0.7rem;">Incarner</button>`}</div>`).join('') || '<p style="font-size:0.7rem; opacity:0.5;">Aucun écuyer.</p>';
         
-        const isAdmin = (app.data.meta.owner === auth.user.email) || (auth.user.email === 'yohann.gras@gmail.com');
+        const isAdmin = app.isAdmin();
+        
+        // Disable/Hide inputs for non-admins
+        const adminInputs = ['edit-guild-name', 'edit-guild-public', 'edit-guild-open', 'guild-currency-name', 'guild-currency-symbol'];
+        adminInputs.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.disabled = !isAdmin;
+        });
+
+        // Hide Admin Buttons
         const btnAdmin = document.querySelector('button[onclick*="renderDevMode"]');
         if (btnAdmin) btnAdmin.style.display = isAdmin ? 'block' : 'none';
         
         const btnAddMarket = document.getElementById('add-market-item-btn');
         if (btnAddMarket) btnAddMarket.style.display = isAdmin ? 'block' : 'none';
+        
+        // Hide Rank Add/Remove buttons for non-admins (handled in renderGuildRanks too)
+        const rankBtn = document.querySelector('button[onclick*="addRankRow"]');
+        if (rankBtn) rankBtn.style.display = isAdmin ? 'block' : 'none';
 
         // Update labels
         document.querySelectorAll('.currency-name-label').forEach(el => el.innerText = app.data.currency.name);
@@ -771,14 +795,28 @@ const app = {
     showModal(id) { const el = document.getElementById(id); if (el) el.classList.remove('hidden'); },
     hideModals() { document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')); },
     forceAppReset() { if(confirm('Réinitialiser ?')) { localStorage.clear(); window.location.reload(); } },
-    async renameGuild() { if (!app.data) return; const newName = document.getElementById('edit-guild-name').value; if (!newName) return; app.data.meta.guildName = newName; await app.save(); },
+    async renameGuild() { 
+        if (!app.isAdmin()) return;
+        if (!app.data) return; 
+        const newName = document.getElementById('edit-guild-name').value; 
+        if (!newName) return; 
+        app.data.meta.guildName = newName; 
+        await app.save(); 
+    },
     async openGuildSwitcher() { app.showLoading(true); const guilds = await db.getAvailableGuilds(auth.user.email); app.showLoading(false); const cont = document.getElementById('guild-list-container'); if (cont) cont.innerHTML = guilds.map(g => `<div style="background:${g.id === app.guildId ? '#4a90e2' : '#0f3460'}; padding:10px; margin-bottom:5px; border-radius:5px; cursor:pointer;" onclick="app.switchGuild('${g.id}')"><strong>${g.meta.guildName}</strong></div>`).join(''); app.showModal('guild-switcher-modal'); },
     async searchGuilds() { const qIn = document.getElementById('guild-search-input'); const q = qIn ? qIn.value : ''; if (!q) return; app.showLoading(true); const results = await db.searchPublicGuilds(q); app.showLoading(false); const resEl = document.getElementById('guild-search-results'); if (resEl) resEl.innerHTML = results.length ? results.map(g => `<div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;"><span>${g.meta.guildName}</span><button class="action-btn" style="width:auto; padding:5px 10px;" onclick="app.handleJoinLink('${g.id}')">Rejoindre</button></div>`).join('') : "<p>Rien trouvé.</p>"; },
     async copyInviteLink() { const url = `${window.location.origin}${window.location.pathname}?join=${app.guildId}`; await navigator.clipboard.writeText(url); alert("Lien copié !"); },
     switchGuild(id) { localStorage.setItem('currentGuildId', id); window.location.reload(); },
     async toggleGuildPublic() { app.data.meta.isPublic = !app.data.meta.isPublic; await app.save(); app.syncSettingsUI(); },
     async leaveGuild() { if (!confirm("Quitter ?")) return; app.showLoading(true); await db.leaveGuild(app.guildId, auth.user.email); localStorage.removeItem('currentGuildId'); window.location.reload(); },
-    async updateGuildSettings() { if (!app.data) return; app.data.meta.guildName = document.getElementById('edit-guild-name').value; app.data.meta.isPublic = document.getElementById('edit-guild-public').value === 'true'; app.data.meta.isOpen = document.getElementById('edit-guild-open').value === 'true'; await app.save(); },
+    async updateGuildSettings() { 
+        if (!app.isAdmin()) return;
+        if (!app.data) return; 
+        app.data.meta.guildName = document.getElementById('edit-guild-name').value; 
+        app.data.meta.isPublic = document.getElementById('edit-guild-public').value === 'true'; 
+        app.data.meta.isOpen = document.getElementById('edit-guild-open').value === 'true'; 
+        await app.save(); 
+    },
     getQuestRarity(xp) { const maxXP = Math.max(...app.data.questDefinitions.map(d => d.baseXp), 10); const r = xp / maxXP; if (r >= 0.9) return 'rarity-legendary'; if (r >= 0.7) return 'rarity-epic'; if (r >= 0.4) return 'rarity-rare'; if (r >= 0.2) return 'rarity-uncommon'; return 'rarity-common'; }
 };
 app.init();
