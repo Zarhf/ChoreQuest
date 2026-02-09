@@ -9,7 +9,7 @@ const app = {
     _pendingAction: null,
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 111 starting...");
+        console.log("🛡️ ChoreQuest Build 112 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -135,7 +135,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(111); 
+                db.setSystemConfig(112); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -936,13 +936,16 @@ const app = {
                 const progressText = (def && def.defaultAssignee) ? `Attente de l'assigné` : `${approvals}/${majority} votes`;
                 const isVoted = def && def.votes && def.votes[app.currentUser.id];
                 const assigneeName = q.assignedTo ? (app.data.users.find(u=>u.id===q.assignedTo)?.name || 'Inconnu') : 'Pour tous';
+                const creator = app.data.users.find(u => u.id === (def?.createdBy || q.createdBy))?.name || 'Ancien';
 
                 return `<div class="scroll-card">
                     <h4>📜 ${q.title}</h4>
-                    <div style="font-size:0.75rem; margin-top:5px;">💰 ${q.xp} XP • ${app.data.currency.symbol} ${q.gold} • 👤 ${assigneeName}</div>
+                    <div style="font-size:0.75rem; margin-top:5px; opacity:0.8;">Proposé par : <strong>${creator}</strong></div>
+                    <div style="font-size:0.75rem; margin-top:2px;">💰 ${q.xp} XP • ${app.data.currency.symbol} ${q.gold} • 👤 ${assigneeName}</div>
                     <div class="scroll-actions">
-                        <span class="vote-progress">${progressText}</span>
-                        ${!isVoted ? `<button class="scroll-btn btn-approve" onclick="app.voteQuest('${q.id}', 'approve')">Approuver</button>` : `<span style="font-size:0.8rem; color:#27ae60;">Fait ✅</span>`}
+                        <span class="vote-progress" style="margin-right:auto;">${progressText}</span>
+                        ${!isVoted ? `<button class="scroll-btn btn-approve" onclick="app.voteQuest('${q.id}', 'approve')">Approuver</button>` : `<span style="font-size:0.8rem; color:#27ae60; margin-right:10px;">Fait ✅</span>`}
+                        <button class="scroll-btn btn-counter" onclick="app.openCounterOfferModal('${q.id}')">Négocier</button>
                         <button class="scroll-btn btn-reject" onclick="app.askConfirm('Rejeter cette quête ?', () => app.voteQuest('${q.id}', 'reject'))">Rejeter</button>
                     </div>
                 </div>`;
