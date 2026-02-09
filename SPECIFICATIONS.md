@@ -1,16 +1,18 @@
-# Spécifications : ChoreQuest
+# Spécifications : ChoreQuest (v2.15)
 
 ## 1. Concept
 **"Level up your home, one quest at a time."**
 ChoreQuest est une application web progressive (PWA) gamifiée qui transforme les corvées ménagères en une aventure RPG épique. Suivez vos tâches, gagnez de l'XP et montez en niveau en famille.
 
-## 2. Architecture Technique (Mise à jour v2.0)
+## 2. Architecture Technique
 
 *   **Frontend :** HTML5 / CSS3 (Mobile First) / Vanilla JS.
 *   **Backend :** Google Firebase (Firestore + Auth).
-    *   *Abandon de l'architecture "Serverless Drive" (v1) pour cause de limitations de partage.*
-*   **Hébergement :** GitHub Pages.
-*   **Mise à jour :** Système de "Version Manager" avec auto-nettoyage du cache SW.
+*   **Identité :** API **DiceBear** (Génération d'avatars SVG dynamiques via seeds).
+*   **Versioning & Sync :** 
+    *   **Kill Switch :** Les clients écoutent un document Firestore `system/config` pour déclencher une mise à jour forcée.
+    *   **Version Manager :** Vérification périodique (5 min) et vuidage automatique des caches (Service Worker + Caches API) en cas de nouveau build détecté.
+    *   **Emergency Console :** Page `admin.html` permettant de forcer manuellement une version globale.
 
 ### Modèle de Données (Firestore)
 Collection `guilds` -> Document `{guildId}` :
@@ -23,12 +25,30 @@ Collection `guilds` -> Document `{guildId}` :
     "isPublic": true,
     "isOpen": true
   },
-  "memberEmails": ["email1@gmail.com", "email2@gmail.com"],
+  "memberEmails": ["..."],
   "users": [
-    { "id": "u1", "name": "Yohann", "avatar": "🛡️", "xp": 1200, "level": 5, "email": "..." }
+    { 
+      "id": "u1", 
+      "name": "Yohann", 
+      "avatar": "https://api.dicebear.com/...", 
+      "xp": 1200, 
+      "level": 5, 
+      "email": "...", // Null pour les Écuyers
+      "managedBy": "u_admin_id" // Lien parent-enfant
+    }
   ],
   "questDefinitions": [
-    { "id": "def_1", "title": "Vaisselle", "baseXp": 50, "recurrence": { "type": "daily", "days": [1,3,5] } }
+    { 
+      "id": "def_1", 
+      "title": "Vaisselle", 
+      "baseXp": 50, 
+      "frequency": "weekly", 
+      "interval": "1", 
+      "days": ["1", "3", "5"], // Lundi, Mercredi, Vendredi
+      "defaultAssignee": "u1", // Optionnel
+      "timeSlot": { "start": "18:00", "end": "20:00" },
+      "archived": false
+    }
   ],
   "activeQuests": [
     { 
@@ -36,48 +56,63 @@ Collection `guilds` -> Document `{guildId}` :
       "definitionId": "def_1", 
       "title": "Vaisselle", 
       "xp": 50, 
-      "dueDate": "2026-02-07T20:00:00Z",
-      "status": "todo",
-      "timeSlot": { "start": "18:00", "end": "20:00" } // Optionnel
+      "dueDate": "2026-02-07T04:00:00Z",
+      "assignedTo": "u1", // Peut être null (Pour tous)
+      "timeSlot": { "start": "18:00", "end": "20:00" }
     }
   ],
   "questLog": [
     {
       "id": "log_1",
-      "type": "completion", // completion, join, leave, create_task
+      "type": "completion", // completion, system
       "title": "Vaisselle",
-      "user": "u1",
-      "date": "2026-02-06T19:30:00Z",
-      "xp": 50
+      "completedBy": "u1",
+      "completedAt": "2026-02-06T19:30:00Z",
+      "xpEarned": 50
     }
   ]
 }
 ```
 
-## 3. Fonctionnalités Implémentées (v2.3)
-*   **Multi-Guilde :** Création, Recherche, Adhésion (via ID ou Recherche Publique).
-*   **Gestion Membres :** Liste des membres, Niveaux.
-*   **Système de Quêtes :** Création simple, Validation, Historique.
-*   **Temps Réel :** Synchronisation instantanée via Firestore.
+## 3. Fonctionnalités Implémentées
+
+### 3.1. Gestion des Utilisateurs & Identité
+*   **Authentification :** Connexion Google.
+*   **Écuyers (Comptes Enfants) :** Création de héros sans email gérés par un compte parent.
+*   **Rotation Rapide :** Bouton dans le header pour basculer instantanément entre les héros de la suite familiale.
+*   **Personnalisation DiceBear :** Générateur d'avatar basé sur un "mot magique" (seed) avec plusieurs styles (RPG, Pixel, Mignon).
+
+### 3.2. Système de Guilde
+*   **Multi-Guilde :** Un utilisateur peut appartenir à plusieurs guildes et basculer entre elles.
+*   **Recherche :** Trouver des guildes publiques ou rejoindre via un lien direct (`?join=ID`).
+*   **Administration :** Modifier le nom, la visibilité et l'accès (Ouvert/Fermé).
+
+### 3.3. Système de Quêtes RPG
+*   **Affectation Flexible :**
+    *   Quêtes assignées d'office à un membre.
+    *   Quêtes "Pour tous" marquées d'un `?`.
+*   **Actions Dynamiques :**
+    *   **☝️ Je prends :** S'assigner une quête libre (pour l'occurrence actuelle).
+    *   **❌ Abandonner :** Rendre une quête dont on était responsable.
+    *   **🥷 Voler :** Si une tâche est en retard (heure de fin dépassée), les autres membres peuvent la voler.
+*   **Rareté Visuelle :** Cartes colorées selon l'XP (Gris, Vert, Bleu, Violet, Or).
+*   **Calendrier :** Section "Prochainement" groupée par jour avec projection intelligente des tâches récurrentes.
+
+### 3.4. UX & Robustesse
+*   **Confirmation :** Modale de confirmation légère pour toute action critique.
+*   **Toasts :** Notifications en temps réel lors des exploits des autres membres.
+*   **Annulation :** Le journal permet d'annuler une validation (restitution de la tâche et retrait de l'XP).
+*   **Fluidité :** Rendu "Lazy" sans écran blanc lors des mises à jour Firestore.
 
 ## 4. Roadmap (Prochaines Évolutions)
 
-### 4.1. Journal & Notifications (UX)
-*   **Traçabilité complète :** Enregistrer les Entrées/Sorties de membres et les Créations de tâches dans le journal.
-*   **Annulation (Rollback) :** Possibilité d'annuler une action du journal (ex: "J'ai validé par erreur"), ce qui restaure la tâche et retire l'XP.
-*   **Toaster Temps Réel :** Notification visuelle ("Toast") pour tous les connectés lors d'un événement (validation, arrivée...).
+### 4.1. Économie & Récompenses
+*   **L'Or du Royaume :** En plus de l'XP, gagner des pièces d'or lors des validations.
+*   **Boutique de la Guilde :** Les parents (Rois) créent des récompenses (ex: "30 min de console", "Dessert au choix") achetables avec l'or.
 
-### 4.2. Gestion Avancée des Quêtes
-*   **Affichage Amélioré :**
-    *   Indicateur visuel de récurrence (ex: "Tous les Lun, Mar").
-    *   Section "À venir" pour les tâches futures (J+1 et plus).
-    *   Code couleur dynamique (Gris -> Or) selon le montant d'XP (relatif au max de la guilde).
-*   **Création Flexible :**
-    *   Champ XP libre (input number) au lieu d'une liste fixe.
-    *   Plage horaire facultative (ex: "Entre 18h et 20h").
-*   **Récurrence Complexe :**
-    *   Moteur type Google Agenda : "Tous les X jours/semaines", choix des jours de la semaine.
+### 4.2. Rappels & Notifications Push
+*   **Signal de Départ :** Notification sur le téléphone au début de la plage horaire d'une quête.
+*   **Alerte de Vol :** Prévenir le responsable quand sa quête devient "Volable" par les autres.
 
-### 4.3. Comptes Écuyers (Enfants)
-*   Création de profils sans email gérés par les parents.
-*   Basculer d'un profil à l'autre sans déconnexion ("Incarner").
+### 4.3. Succès & Badges
+*   **Hauts Faits :** Gagner des badges spéciaux (ex: "Nettoyeur de l'Ombre" pour 10 vols réussis).
