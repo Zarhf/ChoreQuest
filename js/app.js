@@ -9,7 +9,7 @@ const app = {
     _pendingAction: null,
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 106 starting...");
+        console.log("🛡️ ChoreQuest Build 108 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -135,7 +135,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(106); 
+                db.setSystemConfig(108); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -420,6 +420,8 @@ const app = {
         // Vérification immédiate de la majorité (ex: si guild de 1 personne)
         const totalMembers = app.data.users.length;
         const majority = Math.floor(totalMembers / 2) + 1;
+        console.log(`📜 Conseil Debug: Members=${totalMembers}, Majority=${majority}, Votes=${Object.keys(def.votes).length}`);
+        
         if (Object.keys(def.votes).length >= majority && !assignee) {
             def.status = 'active';
         }
