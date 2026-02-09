@@ -9,7 +9,7 @@ const app = {
     _pendingAction: null,
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 102 starting...");
+        console.log("🛡️ ChoreQuest Build 103 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -131,7 +131,7 @@ const app = {
 
             if (app.isAdmin()) {
                 if (!sessionStorage.getItem('system_version_pushed')) {
-                    db.setSystemConfig(102); 
+                    db.setSystemConfig(103); 
                     sessionStorage.setItem('system_version_pushed', 'true');
                 }
             }

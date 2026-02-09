@@ -1,4 +1,4 @@
-const CACHE_NAME = 'chorequest-v94'; 
+const CACHE_NAME = 'chorequest-v103'; 
 const ASSETS = [
     './',
     './index.html',
