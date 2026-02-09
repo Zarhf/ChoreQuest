@@ -1,14 +1,14 @@
-const CACHE_NAME = 'chorequest-v80'; 
+const CACHE_NAME = 'chorequest-v83'; 
 const ASSETS = [
     './',
     './index.html',
-    './css/styles.css?v=80',
-    './js/app.js?v=80',
-    './js/auth.js?v=80',
-    './js/firebase-db.js?v=80',
-    './js/config.js?v=80',
-    './js/version-manager.js?v=80',
-    './v.json?v=80',
+    './css/styles.css?v=83',
+    './js/app.js?v=83',
+    './js/auth.js?v=83',
+    './js/firebase-db.js?v=83',
+    './js/config.js?v=83',
+    './js/version-manager.js?v=83',
+    './v.json?v=83',
     './manifest.json',
     './icons/icon.svg'
 ];
@@ -28,7 +28,6 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (e) => {
     const url = new URL(e.request.url);
-    // bypass cache for version check
     if (url.pathname.endsWith('v.json') || url.pathname.endsWith('version.json') || url.pathname.endsWith('admin.html')) {
         e.respondWith(fetch(e.request));
         return;

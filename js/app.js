@@ -82,7 +82,7 @@ const app = {
         } else {
             if (app.data.meta.owner === auth.user.email) {
                 if (!sessionStorage.getItem('system_version_pushed')) {
-                    db.setSystemConfig(81); 
+                    db.setSystemConfig(83); 
                     sessionStorage.setItem('system_version_pushed', 'true');
                 }
             }
@@ -131,7 +131,6 @@ const app = {
             const seed = (app.currentUser ? app.currentUser.name : 'Hero');
             const fallback = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`;
             if (avatarStr && avatarStr.length <= 8) {
-                // Return emoji/icon if it was intended as such (like ? or ⚔️)
                 return `<div style="width:${size}; height:${size}; display:flex; align-items:center; justify-content:center; font-size:calc(${size} * 0.5); font-weight:bold; color:rgba(255,255,255,0.5);">${avatarStr}</div>`;
             }
             avatarStr = fallback;
@@ -258,13 +257,20 @@ const app = {
     },
 
     async addQuest() {
-        const title = document.getElementById('quest-title').value;
-        const xp = parseInt(document.getElementById('quest-difficulty').value);
-        const freq = document.getElementById('quest-frequency').value;
-        const interval = document.getElementById('quest-interval').value;
-        const assignee = document.getElementById('quest-assignee').value || null;
-        const tStart = document.getElementById('quest-time-start').value;
-        const tEnd = document.getElementById('quest-time-end').value;
+        const titleInput = document.getElementById('quest-title');
+        const title = titleInput ? titleInput.value : '';
+        const xpInput = document.getElementById('quest-difficulty');
+        const xp = parseInt(xpInput ? xpInput.value : '0');
+        const freqInput = document.getElementById('quest-frequency');
+        const freq = freqInput ? freqInput.value : 'none';
+        const intInput = document.getElementById('quest-interval');
+        const interval = intInput ? intInput.value : '1';
+        const assInput = document.getElementById('quest-assignee');
+        const assignee = assInput ? assInput.value || null : null;
+        const tStartInput = document.getElementById('quest-time-start');
+        const tStart = tStartInput ? tStartInput.value : '';
+        const tEndInput = document.getElementById('quest-time-end');
+        const tEnd = tEndInput ? tEndInput.value : '';
         const days = Array.from(document.querySelectorAll('input[name="quest-day"]:checked')).map(cb => cb.value);
         if (!title || isNaN(xp)) return;
         const defId = 'def_'+Date.now();
@@ -282,15 +288,17 @@ const app = {
         let defId = quest ? quest.definitionId : realId;
         const def = app.data.questDefinitions.find(d => d.id === defId);
         if (!def) return;
-        document.getElementById('edit-quest-id').value = def.id; 
-        document.getElementById('edit-quest-title').value = def.title;
-        document.getElementById('edit-quest-difficulty').value = def.baseXp;
-        document.getElementById('edit-quest-frequency').value = def.frequency || 'none';
+        const idInput = document.getElementById('edit-quest-id'); if (idInput) idInput.value = def.id; 
+        const titleInput = document.getElementById('edit-quest-title'); if (titleInput) titleInput.value = def.title;
+        const xpInput = document.getElementById('edit-quest-difficulty'); if (xpInput) xpInput.value = def.baseXp;
+        const freqInput = document.getElementById('edit-quest-frequency'); if (freqInput) freqInput.value = def.frequency || 'none';
         const elAssignee = document.getElementById('edit-quest-assignee'); if (elAssignee) elAssignee.value = def.defaultAssignee || '';
-        if (def.timeSlot) { document.getElementById('edit-quest-time-start').value = def.timeSlot.start; document.getElementById('edit-quest-time-end').value = def.timeSlot.end; }
-        else { document.getElementById('edit-quest-time-start').value = ''; document.getElementById('edit-quest-time-end').value = ''; }
+        const tsStartInput = document.getElementById('edit-quest-time-start');
+        const tsEndInput = document.getElementById('edit-quest-time-end');
+        if (def.timeSlot) { if (tsStartInput) tsStartInput.value = def.timeSlot.start; if (tsEndInput) tsEndInput.value = def.timeSlot.end; }
+        else { if (tsStartInput) tsStartInput.value = ''; if (tsEndInput) tsEndInput.value = ''; }
         const days = def.days || []; document.querySelectorAll('input[name="edit-quest-day"]').forEach(cb => cb.checked = days.includes(cb.value));
-        document.getElementById('edit-quest-interval').value = def.interval || 1;
+        const intInput = document.getElementById('edit-quest-interval'); if (intInput) intInput.value = def.interval || 1;
         app.toggleRecurrenceUI('edit-quest'); app.showModal('edit-quest-modal');
     },
 
@@ -476,5 +484,6 @@ const app = {
     async toggleGuildPublic() { app.data.meta.isPublic = !app.data.meta.isPublic; await app.save(); app.syncSettingsUI(); },
     async leaveGuild() { if (!confirm("Quitter ?")) return; app.showLoading(true); await db.leaveGuild(app.guildId, auth.user.email); localStorage.removeItem('currentGuildId'); window.location.reload(); },
     async updateGuildSettings() { if (!app.data) return; app.data.meta.guildName = document.getElementById('edit-guild-name').value; app.data.meta.isPublic = document.getElementById('edit-guild-public').value === 'true'; app.data.meta.isOpen = document.getElementById('edit-guild-open').value === 'true'; await app.save(); },
+    async renameGuild() { if (!app.data) return; const newName = document.getElementById('edit-guild-name').value; if (!newName) return; app.data.meta.guildName = newName; await app.save(); }
 };
 app.init();
