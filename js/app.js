@@ -7,9 +7,54 @@ const app = {
     lastLogId: null,
     currentAvatarStyle: 'adventurer',
     _pendingAction: null,
+    currentTutorialStep: 0,
+    tutorialSteps: [
+        {
+            title: "🏰 Bienvenue, Jeune Héros !",
+            body: "ChoreQuest transforme ton quotidien en aventure RPG. Chaque corvée accomplie te rapporte de l'<b>XP</b> pour monter de niveau et de l'<b>Or</b> pour acheter des récompenses.",
+            highlight: "#user-profile"
+        },
+        {
+            title: "👤 Forge ton Identité",
+            body: "Clique sur ton avatar (en haut à droite ou sur ta fiche) pour personnaliser ton Héros. Choisis ton style et entre un 'mot magique' pour générer ton visage unique.",
+            highlight: "#profile-btn",
+            action: () => app.setView('board')
+        },
+        {
+            title: "📜 Le Tableau des Quêtes",
+            body: "C'est ici que l'aventure commence. Les quêtes avec un <b>'?'</b> sont libres : clique sur <b>'☝️ Je prends'</b> pour t'en charger. Une fois finie, coche la case pour empocher ton butin !",
+            highlight: "#task-list",
+            action: () => app.setView('board')
+        },
+        {
+            title: "🥷 L'Art du Vol",
+            body: "Attention ! Si un membre est en retard, sa tâche devient <b>'Volable'</b>. Clique sur l'icône <b>'🥷'</b> pour la faire à sa place et gagner sa récompense !",
+            highlight: ".btn-steal",
+            action: () => app.setView('board')
+        },
+        {
+            title: "💰 Le Marché de Guilde",
+            body: "Amassé assez d'or ? Va au Marché ! Tu y trouveras des récompenses réelles (ex: Pizza, temps d'écran). Tes achats vont dans ton <b>Inventaire</b>.",
+            highlight: "#tab-market",
+            action: () => app.setView('market')
+        },
+        {
+            title: "📖 Journal d'Aventure",
+            body: "Toutes les actions de la guilde sont inscrites ici. Tu peux voir qui a validé ses quêtes et qui a volé les autres !",
+            highlight: "#tab-history",
+            action: () => app.setView('history')
+        },
+        {
+            title: "👑 Chef de Guilde",
+            body: "En tant que créateur, tu peux gérer les <b>Écuyers</b> (comptes enfants) dans ton profil pour qu'ils jouent sans email !",
+            highlight: "#guild-btn",
+            condition: () => app.isAdmin(),
+            action: () => app.setView('board')
+        }
+    ],
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 123 starting...");
+        console.log("🛡️ ChoreQuest Build 124 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -135,7 +180,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(123); 
+                db.setSystemConfig(124); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -143,6 +188,67 @@ const app = {
         app.showView('content');
         app.syncSettingsUI();
         app.render();
+
+        // Check for tutorial
+        const hasSeenTutorial = localStorage.getItem(`tutorial_seen_${app.mainUser.id}`);
+        if (!hasSeenTutorial) {
+            setTimeout(() => app.startTutorial(), 1000);
+        }
+    },
+
+    startTutorial() {
+        app.currentTutorialStep = 0;
+        app.renderTutorialStep();
+        app.showModal('tutorial-modal');
+    },
+
+    nextTutorialStep() {
+        app.currentTutorialStep++;
+        // Skip steps that don't meet conditions
+        while (app.currentTutorialStep < app.tutorialSteps.length && 
+               app.tutorialSteps[app.currentTutorialStep].condition && 
+               !app.tutorialSteps[app.currentTutorialStep].condition()) {
+            app.currentTutorialStep++;
+        }
+
+        if (app.currentTutorialStep >= app.tutorialSteps.length) {
+            app.skipTutorial();
+        } else {
+            app.renderTutorialStep();
+        }
+    },
+
+    renderTutorialStep() {
+        const step = app.tutorialSteps[app.currentTutorialStep];
+        document.getElementById('tutorial-title').innerText = step.title;
+        document.getElementById('tutorial-body').innerHTML = step.body;
+        
+        // Dots
+        const dots = document.getElementById('tutorial-dots');
+        dots.innerHTML = app.tutorialSteps.map((_, i) => 
+            `<div style="width:8px; height:8px; border-radius:50%; background:${i === app.currentTutorialStep ? '#4a90e2' : '#444'}"></div>`
+        ).join('');
+
+        // Action
+        if (step.action) step.action();
+
+        // Highlight
+        document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
+        if (step.highlight) {
+            const el = document.querySelector(step.highlight);
+            if (el) el.classList.add('tutorial-highlight');
+        }
+
+        // Button text
+        const btn = document.getElementById('tutorial-next-btn');
+        btn.innerText = app.currentTutorialStep === app.tutorialSteps.length - 1 ? "C'est parti ! ⚔️" : "Suivant ⚔️";
+    },
+
+    skipTutorial() {
+        localStorage.setItem(`tutorial_seen_${app.mainUser.id}`, 'true');
+        document.querySelectorAll('.tutorial-highlight').forEach(el => el.classList.remove('tutorial-highlight'));
+        app.hideModals();
+        app.setView('board');
     },
 
     showView(viewId) {

@@ -531,6 +531,15 @@ input, select {
 
 .hidden { display: none !important; }
 
+/* Tutorial Highlights */
+.tutorial-highlight {
+    position: relative;
+    z-index: 6001 !important;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.7), 0 0 15px #4a90e2 !important;
+    border: 2px solid #4a90e2 !important;
+    transition: all 0.3s;
+}
+
 /* Market Grid */
 .market-grid {
     display: grid;

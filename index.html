@@ -8,11 +8,11 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>ChoreQuest</title>
         <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=123">
+    <link rel="stylesheet" href="css/styles.css?v=124">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
     <script>
-        // --- NUCLEAIRE CACHE KILLER (Build 123) ---
+        // --- NUCLEAIRE CACHE KILLER (Build 124) ---
         (async function() {
             try {
                 const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
@@ -159,9 +159,10 @@
                 </div>
                 <button class="action-btn secondary-btn" onclick="auth.logout()" style="font-size:0.8rem;">Déconnexion</button>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
+                    <button class="action-btn" onclick="app.startTutorial()" style="background-color:#2980b9; font-size:0.7rem;">📖 Tutoriel</button>
                     <button class="action-btn" onclick="app.renderDevMode()" style="background-color:#6c757d; font-size:0.7rem;">🛠️ Admin</button>
-                    <button class="action-btn danger-btn" onclick="app.forceAppReset()" style="font-size:0.7rem;">⚠️ Réparer</button>
                 </div>
+                <button class="action-btn danger-btn" onclick="app.forceAppReset()" style="font-size:0.7rem; margin-top:10px;">⚠️ Réparer l'application</button>
             </div>
         </div>
 
@@ -351,6 +352,23 @@
                 </div>
                 <button class="action-btn" style="margin-top:20px; background:#f39c12;" onclick="app.submitCounterOffer()">Envoyer la contre-offre</button>
                 <button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button>
+            </div>
+        </div>
+
+        <!-- Tutoriel Modal -->
+        <div id="tutorial-modal" class="modal hidden" style="z-index: 6000;">
+            <div class="modal-content" style="border: 2px solid #4a90e2; box-shadow: 0 0 20px #4a90e2;">
+                <div class="modal-header">
+                    <h2 id="tutorial-title">🏰 Tutoriel : Étape 1</h2>
+                    <button class="close-btn" onclick="app.skipTutorial()">Skip</button>
+                </div>
+                <div id="tutorial-body" style="margin-bottom: 20px; line-height: 1.5;">
+                    <!-- Contenu injecté dynamiquement -->
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div id="tutorial-dots" style="display: flex; gap: 5px;"></div>
+                    <button id="tutorial-next-btn" class="action-btn" style="width: auto; padding: 10px 25px; margin: 0; background: #27ae60;" onclick="app.nextTutorialStep()">Continuer ⚔️</button>
+                </div>
             </div>
         </div>
     </div>
