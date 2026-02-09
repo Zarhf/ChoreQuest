@@ -406,7 +406,6 @@ const app = {
         const defId = 'def_'+Date.now();
         const timeSlot = (tStart || tEnd) ? { start: tStart, end: tEnd } : null;
         
-        // Calcul de la première date
         let dueDate = null;
         if (freq === 'none') {
             dueDate = dateEl.value ? new Date(dateEl.value).toISOString() : null;
@@ -415,9 +414,30 @@ const app = {
             dueDate = app.calculateFirstDueDate(def).toISOString();
         }
 
-        const def = { id: defId, title, baseXp: xp, baseGold: gold, frequency: freq, interval: 1, days, timeSlot, defaultAssignee: assignee, isRoyal: false, status: 'pending', votes: {} };
+        // Création avec statut pending et vote automatique du créateur
+        const def = { id: defId, title, baseXp: xp, baseGold: gold, frequency: freq, interval: 1, days, timeSlot, defaultAssignee: assignee, isRoyal: false, status: 'pending', votes: { [app.currentUser.id]: true } };
+        
+        // Vérification immédiate de la majorité (ex: si guild de 1 personne)
+        const totalMembers = app.data.users.length;
+        const majority = Math.floor(totalMembers / 2) + 1;
+        if (Object.keys(def.votes).length >= majority && !assignee) {
+            def.status = 'active';
+        }
+
         app.data.questDefinitions.push(def);
-        app.data.activeQuests.push({ id: 'inst_'+Date.now(), definitionId: defId, title, xp, gold, dueDate, timeSlot, assignedTo: assignee, isRoyal: false, status: 'pending' });
+        app.data.activeQuests.push({ 
+            id: 'inst_'+Date.now(), 
+            definitionId: defId, 
+            title, 
+            xp, 
+            gold, 
+            dueDate, 
+            timeSlot, 
+            assignedTo: assignee, 
+            isRoyal: false, 
+            status: def.status 
+        });
+        
         await app.save(); app.hideModals();
     },
 
@@ -436,8 +456,16 @@ const app = {
         }
 
         const defId = 'def_royal_'+Date.now();
-        const def = { id: defId, title, baseXp: xp, baseGold: gold, frequency: 'none', defaultAssignee: assignee, isRoyal: true, status: 'pending', votes: {} };
+        // Création avec statut pending et vote automatique du créateur
+        const def = { id: defId, title, baseXp: xp, baseGold: gold, frequency: 'none', defaultAssignee: assignee, isRoyal: true, status: 'pending', votes: { [app.currentUser.id]: true } };
         
+        // Vérification immédiate de la majorité
+        const totalMembers = app.data.users.length;
+        const majority = Math.floor(totalMembers / 2) + 1;
+        if (Object.keys(def.votes).length >= majority && !assignee) {
+            def.status = 'active';
+        }
+
         app.data.questDefinitions.push(def);
         app.data.activeQuests.push({ 
             id: 'inst_royal_'+Date.now(), 
@@ -448,7 +476,7 @@ const app = {
             dueDate: new Date().toISOString(), 
             assignedTo: assignee, 
             isRoyal: true,
-            status: 'pending'
+            status: def.status
         });
         
         await app.save(); 
