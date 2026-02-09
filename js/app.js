@@ -9,7 +9,7 @@ const app = {
     _pendingAction: null,
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 114 starting...");
+        console.log("🛡️ ChoreQuest Build 115 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -135,7 +135,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(114); 
+                db.setSystemConfig(115); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -503,17 +503,27 @@ const app = {
         def.baseGold = gold;
         def.defaultAssignee = assignee;
         def.votes = { [app.currentUser.id]: true }; 
-        def.createdBy = app.currentUser.id; 
         def.lastReason = reason;
 
         quest.xp = xp;
         quest.gold = gold;
         quest.assignedTo = assignee;
 
-        // Auto-validation si possible
-        const totalMembers = app.data.users.length;
-        const majority = Math.floor(totalMembers / 2) + 1;
-        if ((!assignee && Object.keys(def.votes).length >= majority) || (assignee === app.currentUser.id)) {
+        // Auto-validation : Seulement si le porteur de l'offre est aussi l'assigné 
+        // ET que le créateur original est d'accord (ou si c'est lui qui fait l'offre)
+        let validated = false;
+        if (assignee) {
+            const hasCreatorVoted = def.votes[def.createdBy];
+            const hasAssigneeVoted = def.votes[def.defaultAssignee];
+            if (hasCreatorVoted && hasAssigneeVoted) validated = true;
+        } else {
+            const approvalCount = Object.keys(def.votes).length;
+            const totalMembers = app.data.users.length;
+            const majority = Math.floor(totalMembers / 2) + 1;
+            if (approvalCount >= majority) validated = true;
+        }
+
+        if (validated) {
             def.status = 'active';
             quest.status = 'active';
         }
@@ -536,7 +546,10 @@ const app = {
 
             let validated = false;
             if (def.defaultAssignee) {
-                if (app.currentUser.id === def.defaultAssignee) validated = true;
+                // Nécessite l'accord du créateur ET de l'assigné
+                const hasCreatorVoted = def.votes[def.createdBy];
+                const hasAssigneeVoted = def.votes[def.defaultAssignee];
+                if (hasCreatorVoted && hasAssigneeVoted) validated = true;
             } else {
                 const approvalCount = Object.keys(def.votes).length;
                 const totalMembers = app.data.users.length;
@@ -944,7 +957,7 @@ const app = {
                 const approvals = (def && def.votes) ? Object.keys(def.votes).length : 0;
                 const total = app.data.users.length;
                 const majority = Math.floor(total / 2) + 1;
-                const progressText = (def && def.defaultAssignee) ? `Attente de l'assigné` : `Approbations : ${approvals} / ${majority}`;
+                const progressText = (def && def.defaultAssignee) ? `Accord requis (Créateur + Assigné)` : `Approbations : ${approvals} / ${majority}`;
                 const isVoted = def && def.votes && def.votes[app.currentUser.id];
                 const assigneeName = q.assignedTo ? (app.data.users.find(u=>u.id===q.assignedTo)?.name || 'Inconnu') : 'Pour tous';
                 const creator = app.data.users.find(u => u.id === (def?.createdBy || q.createdBy))?.name || 'Ancien';
