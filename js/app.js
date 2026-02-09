@@ -9,7 +9,7 @@ const app = {
     _pendingAction: null,
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 117 starting...");
+        console.log("🛡️ ChoreQuest Build 119 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -135,7 +135,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(117); 
+                db.setSystemConfig(119); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -476,13 +476,15 @@ const app = {
         if (!def) return;
 
         document.getElementById('counter-quest-id').value = instanceId;
-        document.getElementById('counter-offer-text').innerText = `Négociation pour : ${quest.title}`;
+        document.getElementById('counter-offer-text').innerText = `Négociation du contrat`;
+        document.getElementById('counter-title').value = quest.title;
         document.getElementById('counter-xp').value = quest.xp;
         document.getElementById('counter-gold').value = quest.gold;
         document.getElementById('counter-reason').value = '';
         
         const memberOptions = `<option value="">❓ Pour tous</option>` + app.data.users.map(u => `<option value="${u.id}" ${u.id === quest.assignedTo ? 'selected' : ''}>${u.name}</option>`).join('');
-        document.getElementById('counter-assignee').innerHTML = memberOptions;
+        const select = document.getElementById('counter-assignee');
+        if (select) select.innerHTML = memberOptions;
         
         app.showModal('counter-offer-modal');
     },
@@ -499,18 +501,21 @@ const app = {
         const def = app.data.questDefinitions.find(d => d.id === quest.definitionId);
         if (!def) return;
 
+        if (!title) return alert("Le contrat doit avoir un titre !");
+
+        def.title = title;
         def.baseXp = xp;
         def.baseGold = gold;
         def.defaultAssignee = assignee;
         def.votes = { [app.currentUser.id]: true }; 
         def.lastReason = reason;
+        def.revision = (def.revision || 0) + 1;
 
+        quest.title = title;
         quest.xp = xp;
         quest.gold = gold;
         quest.assignedTo = assignee;
 
-        // Auto-validation : Seulement si le porteur de l'offre est aussi l'assigné 
-        // ET que le créateur original est d'accord (ou si c'est lui qui fait l'offre)
         let validated = false;
         if (assignee) {
             const hasCreatorVoted = def.votes[def.createdBy];
@@ -528,7 +533,7 @@ const app = {
             quest.status = 'active';
         }
 
-        app.data.questLog.unshift({ id: 'log_counter_'+Date.now(), type: 'system', title: `Contre-offre de ${app.currentUser.name} : ${quest.title}${reason ? ' ('+reason+')' : ''}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
+        app.data.questLog.unshift({ id: 'log_counter_'+Date.now(), type: 'system', title: `Contre-offre (${def.revision}) : ${quest.title}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
 
         await app.save();
         app.hideModals();
@@ -550,7 +555,7 @@ const app = {
                 const hasAssigneeVoted = def.votes[def.defaultAssignee];
                 if (hasCreatorVoted && hasAssigneeVoted) validated = true;
             } else {
-                const totalMembers = app.data.users.length;
+                const totalMembers = app.data.users.filter(u => !u.managedBy).length;
                 const majority = Math.floor(totalMembers / 2) + 1;
                 const approvalCount = Object.keys(def.votes).length;
                 if (approvalCount >= majority) validated = true;
@@ -954,12 +959,13 @@ const app = {
             document.getElementById('council-list').innerHTML = pending.map(q => {
                 const def = app.data.questDefinitions.find(d => d.id === q.definitionId);
                 const approvals = (def && def.votes) ? Object.keys(def.votes).length : 0;
-                const total = app.data.users.length;
+                const total = app.data.users.filter(u => !u.managedBy).length;
                 const majority = Math.floor(total / 2) + 1;
                 const progressText = (def && def.defaultAssignee) ? `Accord requis (Créateur + Assigné)` : `Approbations : ${approvals} / ${majority}`;
                 const isVoted = def && def.votes && def.votes[app.currentUser.id];
                 const assigneeName = q.assignedTo ? (app.data.users.find(u=>u.id===q.assignedTo)?.name || 'Inconnu') : 'Pour tous';
                 const creator = app.data.users.find(u => u.id === (def?.createdBy || q.createdBy))?.name || 'Ancien';
+                const revisionHtml = (def?.revision > 0) ? `<span class="badge" style="background:#f39c12; margin-left:5px;">Rév. ${def.revision}</span>` : '';
                 const reasonHtml = def?.lastReason ? `<div style="font-size:0.7rem; color:#8b4513; margin-top:5px; font-style:italic; border-left:2px solid #f39c12; padding-left:5px;">"${def.lastReason}"</div>` : '';
                 
                 const votersList = (def && def.votes) ? Object.keys(def.votes).map(vId => {
@@ -969,12 +975,12 @@ const app = {
 
                 return `<div class="scroll-card">
                     <div style="display:flex; justify-content:space-between; align-items:start;">
-                        <div>
-                            <h4>📜 ${q.title}</h4>
+                        <div style="flex:1; padding-right:10px;">
+                            <h4 style="display:flex; align-items:center;">📜 ${q.title} ${revisionHtml}</h4>
                             <div style="font-size:0.75rem; margin-top:5px; opacity:0.8;">Proposé par : <strong>${creator}</strong></div>
                             ${reasonHtml}
                         </div>
-                        <div style="display:flex; gap:2px;">${votersList}</div>
+                        <div style="display:flex; gap:2px; flex-shrink:0;">${votersList}</div>
                     </div>
                     <div style="font-size:0.75rem; margin-top:5px;">💰 ${q.xp} XP • ${app.data.currency.symbol} ${q.gold} • 👤 ${assigneeName}</div>
                     <div class="scroll-actions">
