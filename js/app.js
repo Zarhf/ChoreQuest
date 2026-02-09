@@ -9,7 +9,7 @@ const app = {
     _pendingAction: null,
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 101 starting...");
+        console.log("🛡️ ChoreQuest Build 102 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -22,8 +22,23 @@ const app = {
                         const localBuild = parseInt(localStorage.getItem('app_build') || '0');
                         if (config.minBuild > localBuild) {
                             console.log(`🔥 KILL SWITCH: Remote ${config.minBuild} > Local ${localBuild}`);
-                            if (window.VersionManager) window.VersionManager.update(config.minBuild);
-                            else { localStorage.setItem('app_build', config.minBuild); window.location.reload(true); }
+                            
+                            // Nuke Cache
+                            if ('serviceWorker' in navigator) {
+                                navigator.serviceWorker.getRegistrations().then(registrations => {
+                                    for(let registration of registrations) registration.unregister();
+                                });
+                            }
+                            if (window.caches) {
+                                caches.keys().then(names => {
+                                    for (let name of names) caches.delete(name);
+                                });
+                            }
+                            
+                            localStorage.setItem('app_build', config.minBuild);
+                            
+                            // Reload with cache busting
+                            window.location.reload(true);
                         }
                     }
                 });
@@ -78,6 +93,12 @@ const app = {
         } catch (err) { console.error("Load Error:", err); app.showLoading(false); }
     },
 
+    isAdmin() {
+        const isMainAdmin = (app.data && app.data.meta && app.data.meta.owner === auth.user.email) || (auth.user && auth.user.email === 'yohann.gras@gmail.com');
+        const isImpersonating = app.currentUser && app.mainUser && app.currentUser.id !== app.mainUser.id;
+        return isMainAdmin && !isImpersonating;
+    },
+
     handleDataUpdate() {
         app.watchForToasts();
         if (!app.data || !app.data.users) return;
@@ -104,14 +125,17 @@ const app = {
             if (onboardName) onboardName.value = auth.user.displayName || "";
             app.showView('content'); app.showModal('onboarding-modal');
         } else {
+            // Ensure currentUser is set before checking isAdmin
+            const impersonatedId = localStorage.getItem('impersonatedHeroId');
+            app.currentUser = impersonatedId ? (app.data.users.find(u => u.id === impersonatedId) || app.mainUser) : app.mainUser;
+
             if (app.isAdmin()) {
                 if (!sessionStorage.getItem('system_version_pushed')) {
-                    db.setSystemConfig(101); 
+                    db.setSystemConfig(102); 
                     sessionStorage.setItem('system_version_pushed', 'true');
                 }
             }
-            const impersonatedId = localStorage.getItem('impersonatedHeroId');
-            app.currentUser = impersonatedId ? (app.data.users.find(u => u.id === impersonatedId) || app.mainUser) : app.mainUser;
+            
             app.showView('content');
             app.syncSettingsUI();
             app.render();
