@@ -9,7 +9,7 @@ const app = {
     _pendingAction: null,
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 115 starting...");
+        console.log("🛡️ ChoreQuest Build 116 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -135,7 +135,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(115); 
+                db.setSystemConfig(116); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -541,19 +541,18 @@ const app = {
         if (!def) return;
 
         if (type === 'approve') {
-            if (!def.votes) def.votes = {};
+            if (!def.votes) def.votes = { [def.createdBy]: true };
             def.votes[app.currentUser.id] = true;
 
             let validated = false;
             if (def.defaultAssignee) {
-                // Nécessite l'accord du créateur ET de l'assigné
                 const hasCreatorVoted = def.votes[def.createdBy];
                 const hasAssigneeVoted = def.votes[def.defaultAssignee];
                 if (hasCreatorVoted && hasAssigneeVoted) validated = true;
             } else {
-                const approvalCount = Object.keys(def.votes).length;
                 const totalMembers = app.data.users.length;
                 const majority = Math.floor(totalMembers / 2) + 1;
+                const approvalCount = Object.keys(def.votes).length;
                 if (approvalCount >= majority) validated = true;
             }
 
