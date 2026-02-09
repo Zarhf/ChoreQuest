@@ -81,6 +81,21 @@ const app = {
     handleDataUpdate() {
         app.watchForToasts();
         if (!app.data || !app.data.users) return;
+
+        // Migration/Initialization for new features
+        if (!app.data.currency) app.data.currency = { name: "Écus", symbol: "🪙" };
+        if (!app.data.ranks) app.data.ranks = [
+            { minLevel: 1, title: "Roturier" }, { minLevel: 5, title: "Écuyer" },
+            { minLevel: 10, title: "Chevalier" }, { minLevel: 20, title: "Héros" }, { minLevel: 50, title: "Légende" }
+        ];
+        if (!app.data.market) app.data.market = [
+            { id: 'royal_bounty', title: 'Mission Royale', cost: 0, description: 'Quête spéciale créée par le chef de guilde.', icon: '👑', isSpecial: true }
+        ];
+        app.data.users.forEach(u => {
+            if (u.gold === undefined) u.gold = 0;
+            if (u.inventory === undefined) u.inventory = [];
+        });
+
         app.mainUser = app.data.users.find(u => u.email === auth.user.email);
         
         if (!app.mainUser) {
@@ -91,7 +106,7 @@ const app = {
         } else {
             if (app.data.meta.owner === auth.user.email) {
                 if (!sessionStorage.getItem('system_version_pushed')) {
-                    db.setSystemConfig(94); 
+                    db.setSystemConfig(95); 
                     sessionStorage.setItem('system_version_pushed', 'true');
                 }
             }
@@ -205,14 +220,36 @@ const app = {
         if (index === -1) return;
         const quest = app.data.activeQuests[index];
         const def = app.data.questDefinitions.find(d => d.id === quest.definitionId);
-        app.currentUser.xp += parseInt(quest.xp);
+        
+        // Calcul du bonus de niveau (1% par niveau)
+        const userLevel = app.currentUser.level || 1;
+        const bonusMultiplier = 1 + (userLevel / 100);
+        
+        const earnedXp = Math.ceil(parseInt(quest.xp || 0) * bonusMultiplier);
+        const earnedGold = Math.ceil(parseInt(quest.gold || 0) * bonusMultiplier);
+
+        app.currentUser.xp += earnedXp;
+        app.currentUser.gold = (app.currentUser.gold || 0) + earnedGold;
+
         const xpNeeded = (app.currentUser.level || 1) * 100;
         if (app.currentUser.xp >= xpNeeded) {
             app.currentUser.level = (app.currentUser.level || 1) + 1;
             app.currentUser.xp -= (app.currentUser.level - 1) * 100;
             alert(`🎊 LEVEL UP! ${app.currentUser.name} est Niveau ${app.currentUser.level} !`);
         }
-        app.data.questLog.unshift({ id: 'log_'+Date.now(), type: 'completion', title: quest.title, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: quest.xp, instanceId: instanceId, definitionId: quest.definitionId });
+        
+        app.data.questLog.unshift({ 
+            id: 'log_'+Date.now(), 
+            type: 'completion', 
+            title: quest.title, 
+            completedBy: app.currentUser.id, 
+            completedAt: new Date().toISOString(), 
+            xpEarned: earnedXp,
+            goldEarned: earnedGold,
+            instanceId: instanceId, 
+            definitionId: quest.definitionId 
+        });
+        
         if (app.data.questLog.length > 50) app.data.questLog.pop();
         if (def && def.frequency && def.frequency !== 'none') {
             quest.dueDate = app.calculateNextDueDate(def, new Date(quest.dueDate)).toISOString();
@@ -255,18 +292,31 @@ const app = {
     async addQuest() {
         const title = document.getElementById('quest-title').value;
         const xp = parseInt(document.getElementById('quest-difficulty').value);
+        const gold = parseInt(document.getElementById('quest-gold').value || 0);
         const freq = document.getElementById('quest-frequency').value;
         const interval = document.getElementById('quest-interval').value;
         const assignee = document.getElementById('quest-assignee').value || null;
+        const isRoyal = document.getElementById('quest-is-royal')?.checked;
         const tStart = document.getElementById('quest-time-start').value;
         const tEnd = document.getElementById('quest-time-end').value;
         const days = Array.from(document.querySelectorAll('input[name="quest-day"]:checked')).map(cb => cb.value);
+        
         if (!title || isNaN(xp)) return;
+
+        // Logique Mission Royale
+        if (isRoyal) {
+            const isAdmin = app.data.meta.owner === auth.user.email;
+            if (!isAdmin) {
+                if (app.currentUser.gold < gold) return alert("Pas assez de monnaie pour financer cette Mission Royale !");
+                app.currentUser.gold -= gold;
+            }
+        }
+
         const defId = 'def_'+Date.now();
         const timeSlot = (tStart && tEnd) ? { start: tStart, end: tEnd } : null;
-        const def = { id: defId, title, baseXp: xp, frequency: freq, interval, days, timeSlot, defaultAssignee: assignee };
+        const def = { id: defId, title, baseXp: xp, baseGold: gold, frequency: freq, interval, days, timeSlot, defaultAssignee: assignee, isRoyal };
         app.data.questDefinitions.push(def);
-        app.data.activeQuests.push({ id: 'inst_'+Date.now(), definitionId: defId, title, xp, dueDate: app.calculateFirstDueDate(def).toISOString(), timeSlot, assignedTo: assignee });
+        app.data.activeQuests.push({ id: 'inst_'+Date.now(), definitionId: defId, title, xp, gold, dueDate: app.calculateFirstDueDate(def).toISOString(), timeSlot, assignedTo: assignee, isRoyal });
         await app.save(); app.hideModals();
     },
 
@@ -279,12 +329,17 @@ const app = {
         document.getElementById('edit-quest-id').value = def.id; 
         document.getElementById('edit-quest-title').value = def.title;
         document.getElementById('edit-quest-difficulty').value = def.baseXp;
+        document.getElementById('edit-quest-gold').value = def.baseGold || 0;
         document.getElementById('edit-quest-frequency').value = def.frequency || 'none';
         const elAssignee = document.getElementById('edit-quest-assignee'); if (elAssignee) elAssignee.value = def.defaultAssignee || '';
         if (def.timeSlot) { document.getElementById('edit-quest-time-start').value = def.timeSlot.start; document.getElementById('edit-quest-time-end').value = def.timeSlot.end; }
         else { document.getElementById('edit-quest-time-start').value = ''; document.getElementById('edit-quest-time-end').value = ''; }
         const days = def.days || []; document.querySelectorAll('input[name="edit-quest-day"]').forEach(cb => cb.checked = days.includes(cb.value));
         document.getElementById('edit-quest-interval').value = def.interval || 1;
+        
+        // Update labels
+        document.querySelectorAll('.currency-name-label').forEach(el => el.innerText = app.data.currency.name);
+
         app.toggleRecurrenceUI('edit-quest'); app.showModal('edit-quest-modal');
     },
 
@@ -293,6 +348,7 @@ const app = {
             const defId = document.getElementById('edit-quest-id').value;
             const title = document.getElementById('edit-quest-title').value;
             const xp = parseInt(document.getElementById('edit-quest-difficulty').value);
+            const gold = parseInt(document.getElementById('edit-quest-gold').value || 0);
             const freq = document.getElementById('edit-quest-frequency').value;
             const interval = document.getElementById('edit-quest-interval').value;
             const assignee = document.getElementById('edit-quest-assignee').value || null;
@@ -304,8 +360,8 @@ const app = {
             const oldDef = app.data.questDefinitions[defIdx];
             const timeSlot = (tStart && tEnd) ? { start: tStart, end: tEnd } : null;
             const changed = oldDef.frequency !== freq || JSON.stringify(oldDef.days) !== JSON.stringify(days) || oldDef.interval !== interval;
-            app.data.questDefinitions[defIdx] = { ...oldDef, title, baseXp: xp, frequency: freq, interval, days, timeSlot, defaultAssignee: assignee };
-            app.data.activeQuests.forEach(q => { if (q.definitionId === defId) { q.title = title; q.xp = xp; q.timeSlot = timeSlot; if (changed) q.dueDate = app.calculateFirstDueDate(app.data.questDefinitions[defIdx]).toISOString(); if (!q.assignedTo || q.assignedTo === oldDef.defaultAssignee) q.assignedTo = assignee; } });
+            app.data.questDefinitions[defIdx] = { ...oldDef, title, baseXp: xp, baseGold: gold, frequency: freq, interval, days, timeSlot, defaultAssignee: assignee };
+            app.data.activeQuests.forEach(q => { if (q.definitionId === defId) { q.title = title; q.xp = xp; q.gold = gold; q.timeSlot = timeSlot; if (changed) q.dueDate = app.calculateFirstDueDate(app.data.questDefinitions[defIdx]).toISOString(); if (!q.assignedTo || q.assignedTo === oldDef.defaultAssignee) q.assignedTo = assignee; } });
             await app.save(); app.hideModals();
         });
     },
@@ -332,6 +388,178 @@ const app = {
         });
     },
 
+    // --- Marché & Économie ---
+    renderMarket() {
+        const marketList = document.getElementById('market-list');
+        if (!marketList) return;
+        
+        marketList.innerHTML = app.data.market.map(item => {
+            const isOut = item.stock === 0;
+            const canAfford = app.currentUser.gold >= item.cost;
+            const isAdmin = app.data.meta.owner === auth.user.email;
+            
+            return `
+                <div class="market-item ${isOut ? 'sold-out' : ''}">
+                    <div class="market-item-icon">${item.icon || '🎁'}</div>
+                    <div class="market-item-info">
+                        <h4>${item.title}</h4>
+                        <p>${item.description || ''}</p>
+                        <div class="market-item-price">
+                            ${item.cost} ${app.data.currency.symbol}
+                        </div>
+                    </div>
+                    <div class="market-item-actions">
+                        ${item.isSpecial ? 
+                            `<button class="action-btn" onclick="app.showModal('quest-modal'); document.getElementById('quest-title').value='${item.title}'" style="background:#f1c40f; color:#1a1a2e;">Proposer</button>` :
+                            `<button class="action-btn" onclick="app.buyItem('${item.id}')" ${(!canAfford || isOut) ? 'disabled' : ''}>Acheter</button>`
+                        }
+                        ${isAdmin && !item.isSpecial ? `<button class="icon-btn" onclick="app.removeMarketItem('${item.id}')" title="Supprimer">🗑️</button>` : ''}
+                    </div>
+                    ${item.stock > 0 ? `<div class="market-item-stock">Stock: ${item.stock}</div>` : ''}
+                </div>
+            `;
+        }).join('');
+
+        app.renderInventory();
+    },
+
+    renderInventory() {
+        const invList = document.getElementById('inventory-list');
+        if (!invList) return;
+        const inv = app.currentUser.inventory || [];
+        if (inv.length === 0) {
+            invList.innerHTML = '<p style="opacity:0.5; font-size:0.8rem;">Ton inventaire est vide.</p>';
+            return;
+        }
+        
+        invList.innerHTML = inv.map((item, idx) => {
+            const fullItem = app.data.market.find(m => m.id === item.id) || { title: item.title, icon: item.icon };
+            return `
+                <div class="inventory-item">
+                    <span class="inventory-item-icon">${fullItem.icon || '📦'}</span>
+                    <div class="inventory-item-name">${fullItem.title}</div>
+                    <button class="use-btn" onclick="app.useItem(${idx})">Utiliser</button>
+                </div>
+            `;
+        }).join('');
+    },
+
+    async addMarketItem() {
+        const title = document.getElementById('market-item-title').value;
+        const desc = document.getElementById('market-item-desc').value;
+        const cost = parseInt(document.getElementById('market-item-cost').value);
+        const icon = document.getElementById('market-item-icon').value || '🎁';
+        const stock = parseInt(document.getElementById('market-item-stock').value);
+        
+        if (!title || isNaN(cost)) return;
+        
+        app.data.market.push({
+            id: 'item_' + Date.now(),
+            title, description: desc, cost, icon, stock
+        });
+        
+        await app.save();
+        app.hideModals();
+        app.renderMarket();
+    },
+
+    async removeMarketItem(id) {
+        if (!confirm("Supprimer cet article ?")) return;
+        app.data.market = app.data.market.filter(i => i.id !== id);
+        await app.save();
+        app.renderMarket();
+    },
+
+    async buyItem(itemId) {
+        const item = app.data.market.find(i => i.id === itemId);
+        if (!item) return;
+        if (app.currentUser.gold < item.cost) return alert("Pas assez de monnaie !");
+        
+        app.askConfirm(`Acheter ${item.title} pour ${item.cost} ${app.data.currency.symbol} ?`, async () => {
+            app.currentUser.gold -= item.cost;
+            if (item.stock > 0) item.stock--;
+            
+            if (!app.currentUser.inventory) app.currentUser.inventory = [];
+            app.currentUser.inventory.push({ id: item.id, title: item.title, icon: item.icon, boughtAt: new Date().toISOString() });
+            
+            app.data.questLog.unshift({ 
+                id: 'log_buy_'+Date.now(), 
+                type: 'system', 
+                title: `Achat : ${item.title}`, 
+                completedBy: app.currentUser.id, 
+                completedAt: new Date().toISOString(), 
+                xpEarned: 0 
+            });
+            
+            await app.save();
+            app.render();
+            app.renderMarket();
+        });
+    },
+
+    async useItem(index) {
+        const item = app.currentUser.inventory[index];
+        app.askConfirm(`Utiliser ${item.title} ? (Cela préviendra le chef de guilde)`, async () => {
+            app.data.questLog.unshift({ 
+                id: 'log_use_'+Date.now(), 
+                type: 'system', 
+                title: `Objet utilisé : ${item.title}`, 
+                completedBy: app.currentUser.id, 
+                completedAt: new Date().toISOString(), 
+                xpEarned: 0 
+            });
+            app.currentUser.inventory.splice(index, 1);
+            await app.save();
+            app.render();
+        });
+    },
+
+    async updateGuildEconomy() {
+        app.data.currency.name = document.getElementById('guild-currency-name').value || "Écus";
+        app.data.currency.symbol = document.getElementById('guild-currency-symbol').value;
+        await app.save();
+        app.render();
+    },
+
+    renderGuildRanks() {
+        const container = document.getElementById('guild-ranks-list');
+        if (!container) return;
+        const ranks = app.data.ranks || [];
+        ranks.sort((a,b) => a.minLevel - b.minLevel);
+        
+        container.innerHTML = ranks.map((r, idx) => `
+            <div style="display:grid; grid-template-columns: 50px 1fr 40px; gap:5px; margin-bottom:5px; align-items:center;">
+                <input type="number" value="${r.minLevel}" onchange="app.updateRank(${idx}, 'minLevel', this.value)" style="padding:2px; font-size:0.7rem;">
+                <input type="text" value="${r.title}" onchange="app.updateRank(${idx}, 'title', this.value)" style="padding:2px; font-size:0.7rem;">
+                <button onclick="app.removeRank(${idx})" style="background:none; border:none; cursor:pointer;">❌</button>
+            </div>
+        `).join('');
+    },
+
+    updateRank(idx, field, value) {
+        app.data.ranks[idx][field] = field === 'minLevel' ? parseInt(value) : value;
+        app.save();
+    },
+
+    removeRank(idx) {
+        app.data.ranks.splice(idx, 1);
+        app.save();
+        app.renderGuildRanks();
+    },
+
+    addRankRow() {
+        if (!app.data.ranks) app.data.ranks = [];
+        app.data.ranks.push({ minLevel: 1, title: "Nouveau Rang" });
+        app.renderGuildRanks();
+    },
+
+    getRank(level) {
+        if (!app.data.ranks) return "Héros";
+        const sorted = [...app.data.ranks].sort((a,b) => b.minLevel - a.minLevel);
+        const rank = sorted.find(r => level >= r.minLevel);
+        return rank ? rank.title : "Héros";
+    },
+
     // --- Renders ---
     render() {
         if (!app.currentUser) return;
@@ -339,7 +567,14 @@ const app = {
         document.getElementById('user-name').innerText = (isSquire ? '📜 ' : '') + app.currentUser.name;
         document.getElementById('user-avatar-display').innerHTML = app.getAvatarHtml(app.currentUser.avatar, "80px");
         document.getElementById('user-level').innerText = app.currentUser.level || 1;
+        document.getElementById('user-rank').innerText = app.getRank(app.currentUser.level || 1);
         document.getElementById('user-xp').innerText = app.currentUser.xp;
+        
+        const goldEl = document.getElementById('user-currency-amount');
+        if (goldEl) goldEl.innerText = app.currentUser.gold || 0;
+        const symbolEl = document.getElementById('user-currency-symbol');
+        if (symbolEl) symbolEl.innerText = app.data.currency.symbol;
+
         const xpNeeded = (app.currentUser.level || 1) * 100;
         document.getElementById('next-level-xp').innerText = xpNeeded;
         document.getElementById('xp-progress').style.width = `${(app.currentUser.xp / xpNeeded) * 100}%`;
@@ -351,8 +586,23 @@ const app = {
                 switchBtn.classList.remove('hidden'); const rotationList = [app.mainUser, ...squires]; const currentIndex = rotationList.findIndex(u => u.id === app.currentUser.id); const nextUser = rotationList[(currentIndex + 1) % rotationList.length]; switchBtn.innerHTML = app.getAvatarHtml(nextUser.avatar, "26px");
             } else switchBtn.classList.add('hidden');
         }
-        if (app.currentView === 'board') { document.getElementById('quest-board').classList.remove('hidden'); document.getElementById('history-board').classList.add('hidden'); app.renderBoard(); }
-        else { document.getElementById('quest-board').classList.add('hidden'); document.getElementById('history-board').classList.remove('hidden'); app.renderHistory(); }
+        
+        if (app.currentView === 'board') { 
+            document.getElementById('quest-board').classList.remove('hidden'); 
+            document.getElementById('market-board').classList.add('hidden');
+            document.getElementById('history-board').classList.add('hidden'); 
+            app.renderBoard(); 
+        } else if (app.currentView === 'market') {
+            document.getElementById('quest-board').classList.add('hidden');
+            document.getElementById('market-board').classList.remove('hidden');
+            document.getElementById('history-board').classList.add('hidden');
+            app.renderMarket();
+        } else { 
+            document.getElementById('quest-board').classList.add('hidden'); 
+            document.getElementById('market-board').classList.add('hidden');
+            document.getElementById('history-board').classList.remove('hidden'); 
+            app.renderHistory(); 
+        }
     },
 
     renderBoard() {
@@ -362,7 +612,8 @@ const app = {
         active.forEach(q => { const def = app.data.questDefinitions.find(d => d.id === q.definitionId); if (def && def.frequency && def.frequency !== 'none') upcoming.push({ ...q, id: 'virtual_' + q.id, dueDate: app.calculateNextDueDate(def, new Date(q.dueDate)).toISOString(), isVirtual: true }); });
         upcoming.sort((a,b) => a.dueDate.localeCompare(b.dueDate));
         const html = (q, up) => {
-            const rarity = app.getQuestRarity(q.xp);
+            const isRoyal = q.isRoyal;
+            const rarity = isRoyal ? 'rarity-legendary royal-quest' : app.getQuestRarity(q.xp);
             const def = app.data.questDefinitions.find(d => d.id === q.definitionId);
             const freq = (def && def.frequency !== 'none') ? '🔄' : '';
             const time = q.timeSlot ? ` • 🕒 ${q.timeSlot.start}-${q.timeSlot.end}` : '';
@@ -376,7 +627,7 @@ const app = {
                 else if (isNobody) actionButtons += `<button class="quest-action-btn btn-claim" onclick="event.stopPropagation(); app.askConfirm('Prendre ?', () => app.claimQuest('${q.id}'))" title="☝️ Je prends">☝️</button>`;
                 else if (isStealable) actionButtons += `<button class="quest-action-btn btn-steal" onclick="event.stopPropagation(); app.askConfirm('🥷 VOLER ?', () => app.claimQuest('${q.id}'))" title="🥷 Voler">🥷</button>`;
             }
-            return `<div class="quest-card ${rarity} ${up ? 'upcoming' : ''}"><div class="quest-body" onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer">${assigneeHtml}<div class="quest-info"><h4>${freq} ${q.title}</h4><span>💰 ${q.xp} XP${time}</span></div></div><div class="quest-actions-container">${actionButtons}</div></div>`;
+            return `<div class="quest-card ${rarity} ${up ? 'upcoming' : ''}"><div class="quest-body" onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer">${assigneeHtml}<div class="quest-info"><h4>${freq} ${q.title}</h4><span>💰 ${q.xp} XP${q.gold ? ' • ' + app.data.currency.symbol + ' ' + q.gold : ''}${time}</span></div></div><div class="quest-actions-container">${actionButtons}</div></div>`;
         };
         document.getElementById('task-list').innerHTML = active.map(q => html(q, false)).join('') || '<p style="text-align:center; opacity:0.5;">Tout est fait !</p>';
         const groups = {}; upcoming.forEach(q => { const d = new Date(q.dueDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); if (!groups[d]) groups[d] = []; groups[d].push(q); });
@@ -418,6 +669,14 @@ const app = {
 
     syncSettingsUI() {
         document.getElementById('edit-guild-name').value = app.data.meta.guildName;
+        document.getElementById('edit-guild-public').value = app.data.meta.isPublic.toString();
+        document.getElementById('edit-guild-open').value = app.data.meta.isOpen.toString();
+        
+        // Economy settings
+        document.getElementById('guild-currency-name').value = app.data.currency.name;
+        document.getElementById('guild-currency-symbol').value = app.data.currency.symbol;
+        app.renderGuildRanks();
+
         app.renderGuildMembers();
         const memberOptions = `<option value="">❓ Pour tous</option>` + app.data.users.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
         document.getElementById('quest-assignee').innerHTML = memberOptions;
@@ -428,11 +687,15 @@ const app = {
         const impersonatedId = localStorage.getItem('impersonatedHeroId');
         document.getElementById('squire-list').innerHTML = squires.map(s => `<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; margin-bottom:5px;"><span>${app.getAvatarHtml(s.avatar, "20px")} <b>${s.name}</b></span>${impersonatedId === s.id ? `<button class="action-btn danger-btn" onclick="app.stopImpersonating()" style="width:auto; padding:2px 8px; font-size:0.7rem;">Quitter</button>` : `<button class="action-btn" onclick="app.impersonate('${s.id}')" style="width:auto; padding:2px 8px; font-size:0.7rem;">Incarner</button>`}</div>`).join('') || '<p style="font-size:0.7rem; opacity:0.5;">Aucun écuyer.</p>';
         
+        const isAdmin = (app.data.meta.owner === auth.user.email) || (auth.user.email === 'yohann.gras@gmail.com');
         const btnAdmin = document.querySelector('button[onclick*="renderDevMode"]');
-        if (btnAdmin) {
-            const isAdmin = (app.data.meta.owner === auth.user.email) || (auth.user.email === 'yohann.gras@gmail.com');
-            btnAdmin.style.display = isAdmin ? 'block' : 'none';
-        }
+        if (btnAdmin) btnAdmin.style.display = isAdmin ? 'block' : 'none';
+        
+        const btnAddMarket = document.getElementById('add-market-item-btn');
+        if (btnAddMarket) btnAddMarket.style.display = isAdmin ? 'block' : 'none';
+
+        // Update labels
+        document.querySelectorAll('.currency-name-label').forEach(el => el.innerText = app.data.currency.name);
     },
 
     // --- Admin ---

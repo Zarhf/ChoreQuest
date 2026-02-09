@@ -35,13 +35,34 @@ const db = {
     async createGuild(ownerEmail, name, isPublic = false, isOpen = true) {
         const newGuild = {
             meta: {
-                version: 3,
+                version: 4,
                 created_at: new Date().toISOString(),
                 guildName: name || "Nouvelle Guilde",
                 owner: ownerEmail,
                 isPublic: isPublic, 
                 isOpen: isOpen        
             },
+            currency: {
+                name: "Écus",
+                symbol: "🪙"
+            },
+            ranks: [
+                { minLevel: 1, title: "Roturier" },
+                { minLevel: 5, title: "Écuyer" },
+                { minLevel: 10, title: "Chevalier" },
+                { minLevel: 20, title: "Héros" },
+                { minLevel: 50, title: "Légende" }
+            ],
+            market: [
+                {
+                    id: 'royal_bounty',
+                    title: 'Mission Royale',
+                    cost: 0,
+                    description: 'Quête spéciale créée par le chef de guilde.',
+                    icon: '👑',
+                    isSpecial: true
+                }
+            ],
             memberEmails: [ownerEmail],
             users: [],
             questDefinitions: [],

@@ -74,14 +74,21 @@
                     </div>
                     <div class="user-stats">
                         <h3 id="user-name">Héros</h3>
+                        <div id="user-rank" style="font-size:0.7rem; color:#4a90e2; font-variant:small-caps; letter-spacing:1px; margin-top:-5px; margin-bottom:5px;">Roturier</div>
                         <div>Niveau <span id="user-level">1</span></div>
                         <div class="xp-bar-container"><div id="xp-progress"></div></div>
-                        <small><span id="user-xp">0</span> / <span id="next-level-xp">100</span> XP</small>
+                        <div style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-top:5px;">
+                            <small><span id="user-xp">0</span> / <span id="next-level-xp">100</span> XP</small>
+                            <div id="user-currency-container" style="font-weight:bold; color:#f1c40f;">
+                                <span id="user-currency-amount">0</span> <span id="user-currency-symbol">🪙</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <div class="nav-tabs">
                     <button id="tab-board" class="nav-tab active" onclick="app.setView('board')">Quêtes</button>
+                    <button id="tab-market" class="nav-tab" onclick="app.setView('market')">Marché</button>
                     <button id="tab-history" class="nav-tab" onclick="app.setView('history')">Journal</button>
                 </div>
 
@@ -90,6 +97,16 @@
                     <h2 style="margin-top:2rem; opacity:0.7;">Prochainement</h2>
                     <div id="upcoming-task-list"></div>
                     <button class="action-btn" style="margin-top:2rem;" onclick="app.showModal('quest-modal')">+ Nouvelle Quête</button>
+                </div>
+
+                <div id="market-board" class="hidden">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h2>Le Marché de la Guilde</h2>
+                        <button id="add-market-item-btn" class="action-btn" style="width:auto; padding:5px 15px; font-size:0.8rem; background:#27ae60;" onclick="app.showModal('market-item-modal')">+ Ajouter un article</button>
+                    </div>
+                    <div id="market-list" class="market-grid"></div>
+                    <h3 style="margin-top:2rem;">Mon Inventaire</h3>
+                    <div id="inventory-list" class="inventory-grid"></div>
                 </div>
 
                 <div id="history-board" class="hidden">
@@ -158,9 +175,97 @@
             </div>
         </div>
 
-        <div id="quest-modal" class="modal hidden"><div class="modal-content"><h2>Nouvelle Quête</h2><input type="text" id="quest-title" placeholder="Titre"><div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;"><div><label style="font-size:0.7rem;">XP :</label><input type="number" id="quest-difficulty" value="50"></div><div><label style="font-size:0.7rem;">Horaires :</label><div style="display:flex; gap:2px;"><input type="time" id="quest-time-start"><input type="time" id="quest-time-end"></div></div></div><div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;"><div><label style="font-size:0.7rem;">Récurrence :</label><select id="quest-frequency" onchange="app.toggleRecurrenceUI('quest')"><option value="none">Une seule fois</option><option value="daily">Jours</option><option value="weekly">Semaines</option><option value="monthly">Mois</option></select></div><div><label style="font-size:0.7rem;">Assigné à :</label><select id="quest-assignee"></select></div></div><div id="quest-interval-container" class="hidden"><label style="font-size:0.7rem;">Tous les :</label><input type="number" id="quest-interval" value="1" min="1"></div><div id="quest-days-selector" class="hidden" style="margin-top:10px;"><div style="display:flex; justify-content:space-between;"><label><input type="checkbox" name="quest-day" value="1"> L</label><label><input type="checkbox" name="quest-day" value="2"> M</label><label><input type="checkbox" name="quest-day" value="3"> M</label><label><input type="checkbox" name="quest-day" value="4"> J</label><label><input type="checkbox" name="quest-day" value="5"> V</label><label><input type="checkbox" name="quest-day" value="6"> S</label><label><input type="checkbox" name="quest-day" value="0"> D</label></div></div><button class="action-btn" style="margin-top:20px;" onclick="app.addQuest()">Ajouter</button><button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button></div></div>
-        <div id="edit-quest-modal" class="modal hidden"><div class="modal-content"><div class="modal-header"><h2>Modifier</h2><button class="close-btn" onclick="app.hideModals()">X</button></div><input type="hidden" id="edit-quest-id"><input type="text" id="edit-quest-title"><div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;"><div><label style="font-size:0.7rem;">XP :</label><input type="number" id="edit-quest-difficulty"></div><div><label style="font-size:0.7rem;">Horaires :</label><div style="display:flex; gap:2px;"><input type="time" id="edit-quest-time-start"><input type="time" id="edit-quest-time-end"></div></div></div><div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;"><div><label style="font-size:0.7rem;">Récurrence :</label><select id="edit-quest-frequency" onchange="app.toggleRecurrenceUI('edit-quest')"><option value="none">Une seule fois</option><option value="daily">Jours</option><option value="weekly">Semaines</option><option value="monthly">Mois</option></select></div><div><label style="font-size:0.7rem;">Assigné à :</label><select id="edit-quest-assignee"></select></div></div><div id="edit-quest-interval-container" class="hidden"><label style="font-size:0.7rem;">Tous les :</label><input type="number" id="edit-quest-interval" value="1" min="1"></div><div id="edit-quest-days-selector" class="hidden" style="margin-top:10px;"><div style="display:flex; justify-content:space-between;"><label><input type="checkbox" name="edit-quest-day" value="1"> L</label><label><input type="checkbox" name="edit-quest-day" value="2"> M</label><label><input type="checkbox" name="edit-quest-day" value="3"> M</label><label><input type="checkbox" name="edit-quest-day" value="4"> J</label><label><input type="checkbox" name="edit-quest-day" value="5"> V</label><label><input type="checkbox" name="edit-quest-day" value="6"> S</label><label><input type="checkbox" name="edit-quest-day" value="0"> D</label></div></div><button class="action-btn" style="margin-top:20px; background-color:#27ae60;" onclick="app.saveQuestEdits()">Enregistrer</button><button class="action-btn danger-btn" onclick="app.archiveQuest()">🗑️ Supprimer</button></div></div>
-        <div id="guild-settings-modal" class="modal hidden"><div class="modal-content"><div class="modal-header"><h2>🏰 Ma Guilde</h2><button class="close-btn" onclick="app.hideModals()">X</button></div><div class="settings-group"><input type="text" id="edit-guild-name" onchange="app.renameGuild()" style="margin-bottom:10px; font-weight:bold; width:100%;"><div style="font-size:0.8rem; margin-bottom:15px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;"><div>Visibilité : <select id="edit-guild-public" onchange="app.updateGuildSettings()"><option value="false">🔒 Privée</option><option value="true">🌍 Publique</option></select></div><div>Accès : <select id="edit-guild-open" onchange="app.updateGuildSettings()"><option value="true">✅ Ouverte</option><option value="false">⛔ Fermée</option></select></div></div><h4>Membres</h4><div id="guild-members-list"></div><button class="action-btn" onclick="app.copyInviteLink()" style="background-color:#27ae60; font-size:0.8rem; margin-bottom:10px;">🔗 Copier lien d'invitation</button><button class="action-btn secondary-btn" onclick="app.openGuildSwitcher()" style="font-size:0.8rem; margin-bottom:10px;">🔄 Changer de Guilde</button><button id="quit-guild-btn" class="action-btn danger-btn" onclick="app.leaveGuild()" style="font-size:0.8rem;">🚪 Quitter cette Guilde</button></div></div></div>
+        <div id="quest-modal" class="modal hidden">
+            <div class="modal-content">
+                <h2>Nouvelle Quête</h2>
+                <input type="text" id="quest-title" placeholder="Titre">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                    <div><label style="font-size:0.7rem;">XP :</label><input type="number" id="quest-difficulty" value="50"></div>
+                    <div><label style="font-size:0.7rem;">Récompense (<span class="currency-name-label">...</span>) :</label><input type="number" id="quest-gold" value="10"></div>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
+                    <div><label style="font-size:0.7rem;">Horaires :</label><div style="display:flex; gap:2px;"><input type="time" id="quest-time-start"><input type="time" id="quest-time-end"></div></div>
+                    <div><label style="font-size:0.7rem;">Assigné à :</label><select id="quest-assignee"></select></div>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
+                    <div><label style="font-size:0.7rem;">Récurrence :</label><select id="quest-frequency" onchange="app.toggleRecurrenceUI('quest')"><option value="none">Une seule fois</option><option value="daily">Jours</option><option value="weekly">Semaines</option><option value="monthly">Mois</option></select></div>
+                    <div id="quest-is-royal-container" style="display:flex; align-items:center; gap:5px; padding-top:15px;">
+                        <input type="checkbox" id="quest-is-royal" style="width:auto; margin:0;">
+                        <label for="quest-is-royal" style="font-size:0.7rem; font-weight:bold; color:#f1c40f;">👑 Mission Royale</label>
+                    </div>
+                </div>
+                <div id="quest-days-selector" class="hidden" style="margin-top:10px;"><div style="display:flex; justify-content:space-between;"><label><input type="checkbox" name="quest-day" value="1"> L</label><label><input type="checkbox" name="quest-day" value="2"> M</label><label><input type="checkbox" name="quest-day" value="3"> M</label><label><input type="checkbox" name="quest-day" value="4"> J</label><label><input type="checkbox" name="quest-day" value="5"> V</label><label><input type="checkbox" name="quest-day" value="6"> S</label><label><input type="checkbox" name="quest-day" value="0"> D</label></div></div>
+                <button class="action-btn" style="margin-top:20px;" onclick="app.addQuest()">Ajouter</button>
+                <button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button>
+            </div>
+        </div>
+        <div id="edit-quest-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header"><h2>Modifier</h2><button class="close-btn" onclick="app.hideModals()">X</button></div>
+                <input type="hidden" id="edit-quest-id">
+                <input type="text" id="edit-quest-title">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                    <div><label style="font-size:0.7rem;">XP :</label><input type="number" id="edit-quest-difficulty"></div>
+                    <div><label style="font-size:0.7rem;">Récompense (<span class="currency-name-label">...</span>) :</label><input type="number" id="edit-quest-gold"></div>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
+                    <div><label style="font-size:0.7rem;">Horaires :</label><div style="display:flex; gap:2px;"><input type="time" id="edit-quest-time-start"><input type="time" id="edit-quest-time-end"></div></div>
+                    <div><label style="font-size:0.7rem;">Assigné à :</label><select id="edit-quest-assignee"></select></div>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
+                    <div><label style="font-size:0.7rem;">Récurrence :</label><select id="edit-quest-frequency" onchange="app.toggleRecurrenceUI('edit-quest')"><option value="none">Une seule fois</option><option value="daily">Jours</option><option value="weekly">Semaines</option><option value="monthly">Mois</option></select></div>
+                    <div id="edit-quest-interval-container" class="hidden"><label style="font-size:0.7rem;">Tous les :</label><input type="number" id="edit-quest-interval" value="1" min="1"></div>
+                </div>
+                <div id="edit-quest-days-selector" class="hidden" style="margin-top:10px;"><div style="display:flex; justify-content:space-between;"><label><input type="checkbox" name="edit-quest-day" value="1"> L</label><label><input type="checkbox" name="edit-quest-day" value="2"> M</label><label><input type="checkbox" name="edit-quest-day" value="3"> M</label><label><input type="checkbox" name="edit-quest-day" value="4"> J</label><label><input type="checkbox" name="edit-quest-day" value="5"> V</label><label><input type="checkbox" name="edit-quest-day" value="6"> S</label><label><input type="checkbox" name="edit-quest-day" value="0"> D</label></div></div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:20px;">
+                    <button class="action-btn" onclick="app.saveQuestEdits()">Sauvegarder</button>
+                    <button class="action-btn danger-btn" onclick="app.archiveQuest()">Supprimer</button>
+                </div>
+            </div>
+        </div><div class="modal-content"><div class="modal-header"><h2>Modifier</h2><button class="close-btn" onclick="app.hideModals()">X</button></div><input type="hidden" id="edit-quest-id"><input type="text" id="edit-quest-title"><div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;"><div><label style="font-size:0.7rem;">XP :</label><input type="number" id="edit-quest-difficulty"></div><div><label style="font-size:0.7rem;">Horaires :</label><div style="display:flex; gap:2px;"><input type="time" id="edit-quest-time-start"><input type="time" id="edit-quest-time-end"></div></div></div><div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;"><div><label style="font-size:0.7rem;">Récurrence :</label><select id="edit-quest-frequency" onchange="app.toggleRecurrenceUI('edit-quest')"><option value="none">Une seule fois</option><option value="daily">Jours</option><option value="weekly">Semaines</option><option value="monthly">Mois</option></select></div><div><label style="font-size:0.7rem;">Assigné à :</label><select id="edit-quest-assignee"></select></div></div><div id="edit-quest-interval-container" class="hidden"><label style="font-size:0.7rem;">Tous les :</label><input type="number" id="edit-quest-interval" value="1" min="1"></div><div id="edit-quest-days-selector" class="hidden" style="margin-top:10px;"><div style="display:flex; justify-content:space-between;"><label><input type="checkbox" name="edit-quest-day" value="1"> L</label><label><input type="checkbox" name="edit-quest-day" value="2"> M</label><label><input type="checkbox" name="edit-quest-day" value="3"> M</label><label><input type="checkbox" name="edit-quest-day" value="4"> J</label><label><input type="checkbox" name="edit-quest-day" value="5"> V</label><label><input type="checkbox" name="edit-quest-day" value="6"> S</label><label><input type="checkbox" name="edit-quest-day" value="0"> D</label></div></div><button class="action-btn" style="margin-top:20px; background-color:#27ae60;" onclick="app.saveQuestEdits()">Enregistrer</button><button class="action-btn danger-btn" onclick="app.archiveQuest()">🗑️ Supprimer</button></div></div>
+        <div id="guild-settings-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header"><h2>🏰 Ma Guilde</h2><button class="close-btn" onclick="app.hideModals()">X</button></div>
+                <div class="settings-group">
+                    <input type="text" id="edit-guild-name" onchange="app.renameGuild()" style="margin-bottom:10px; font-weight:bold; width:100%;">
+                    <div style="font-size:0.8rem; margin-bottom:15px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                        <div>Visibilité : <select id="edit-guild-public" onchange="app.updateGuildSettings()"><option value="false">🔒 Privée</option><option value="true">🌍 Publique</option></select></div>
+                        <div>Accès : <select id="edit-guild-open" onchange="app.updateGuildSettings()"><option value="true">✅ Ouverte</option><option value="false">⛔ Fermée</option></select></div>
+                    </div>
+
+                    <h4>Économie</h4>
+                    <div style="display:grid; grid-template-columns: 2fr 1fr; gap:10px; margin-bottom:15px;">
+                        <div><label style="font-size:0.7rem;">Nom de la monnaie :</label><input type="text" id="guild-currency-name" placeholder="Écus" onchange="app.updateGuildEconomy()"></div>
+                        <div><label style="font-size:0.7rem;">Icône :</label><select id="guild-currency-symbol" onchange="app.updateGuildEconomy()"><option value="🪙">🪙</option><option value="💰">💰</option><option value="💎">💎</option><option value="🌕">🌕</option><option value="🎟️">🎟️</option><option value="🍪">🍪</option><option value="🍬">🍬</option><option value="🛡️">🛡️</option><option value="⚔️">⚔️</option><option value="📜">📜</option></select></div>
+                    </div>
+
+                    <h4>Hiérarchie (Titres)</h4>
+                    <div id="guild-ranks-list" style="margin-bottom:10px; max-height:150px; overflow-y:auto; background:rgba(0,0,0,0.2); padding:5px; border-radius:5px;"></div>
+                    <button class="action-btn" onclick="app.addRankRow()" style="font-size:0.7rem; width:auto; padding:5px 10px; margin-bottom:15px;">+ Nouveau Rang</button>
+
+                    <h4>Membres</h4>
+                    <div id="guild-members-list"></div>
+                    <button class="action-btn" onclick="app.copyInviteLink()" style="background-color:#27ae60; font-size:0.8rem; margin-bottom:10px;">🔗 Copier lien d'invitation</button>
+                    <button class="action-btn secondary-btn" onclick="app.openGuildSwitcher()" style="font-size:0.8rem; margin-bottom:10px;">🔄 Changer de Guilde</button>
+                    <button id="quit-guild-btn" class="action-btn danger-btn" onclick="app.leaveGuild()" style="font-size:0.8rem;">🚪 Quitter cette Guilde</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="market-item-modal" class="modal hidden">
+            <div class="modal-content">
+                <h2>Nouvel Article du Marché</h2>
+                <input type="text" id="market-item-title" placeholder="Nom de la récompense (ex: Pizza)">
+                <textarea id="market-item-desc" placeholder="Description..." style="width:100%; height:60px; margin-bottom:10px; background:#1a1a2e; border:1px solid #444; color:white; border-radius:5px; padding:5px; font-family:inherit;"></textarea>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
+                    <div><label style="font-size:0.7rem;">Prix :</label><input type="number" id="market-item-cost" value="100"></div>
+                    <div><label style="font-size:0.7rem;">Icône :</label><input type="text" id="market-item-icon" value="🎁"></div>
+                </div>
+                <div><label style="font-size:0.7rem;">Stock (-1 = illimité) :</label><input type="number" id="market-item-stock" value="-1"></div>
+                <button class="action-btn" style="margin-top:20px; background:#27ae60;" onclick="app.addMarketItem()">Ajouter au Marché</button>
+                <button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button>
+            </div>
+        </div>
         <div id="guild-switcher-modal" class="modal hidden"><div class="modal-content"><h2>Tes Guildes</h2><div id="guild-list-container"></div><hr style="border:0; border-top:1px solid #444; margin:1rem 0;"><div style="display:flex; gap:5px; margin-bottom:10px;"><input type="text" id="guild-search-input" placeholder="Nom..."><button class="action-btn" onclick="app.searchGuilds()" style="width:auto;">🔍</button></div><div id="guild-search-results"></div><button class="action-btn secondary-btn" onclick="app.hideModals()">Fermer</button></div></div>
         <div id="create-guild-modal" class="modal hidden"><div class="modal-content"><h2>Fonder une Guilde</h2><input type="text" id="new-guild-name" placeholder="Nom"><div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:1rem;"><div><label style="font-size:0.7rem;">Visibilité :</label><select id="new-guild-public"><option value="false">Privée</option><option value="true">Publique</option></select></div><div><label style="font-size:0.7rem;">Accès :</label><select id="new-guild-open"><option value="true">Ouverte</option><option value="false">Fermée</option></select></div></div><button class="action-btn" onclick="app.confirmCreateGuild()" style="background-color:#27ae60;">Créer</button><button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button></div></div>
         <div id="create-squire-modal" class="modal hidden"><div class="modal-content"><h2>Nouvel Écuyer</h2><div class="avatar-preview-container"><div class="avatar-circle" id="squire-avatar-preview">👤</div><input type="text" id="squire-avatar-seed" placeholder="Nom..." oninput="app.updateAvatarPreview('squire')" style="margin-top:10px;"></div><input type="text" id="squire-name" placeholder="Nom"><button class="action-btn" onclick="app.addSquire()" style="background-color:#27ae60;">Ajouter</button><button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button></div></div>
