@@ -9,7 +9,7 @@ const app = {
     _pendingAction: null,
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 94 starting...");
+        console.log("🛡️ ChoreQuest Build 98 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -104,9 +104,9 @@ const app = {
             if (onboardName) onboardName.value = auth.user.displayName || "";
             app.showView('content'); app.showModal('onboarding-modal');
         } else {
-            if (app.data.meta.owner === auth.user.email) {
+            if (app.isAdmin()) {
                 if (!sessionStorage.getItem('system_version_pushed')) {
-                    db.setSystemConfig(97); 
+                    db.setSystemConfig(98); 
                     sessionStorage.setItem('system_version_pushed', 'true');
                 }
             }
@@ -198,13 +198,108 @@ const app = {
     },
 
     // --- Actions ---
+    async claimQuest(instanceId) {
+        const quest = app.data.activeQuests.find(q => q.id === instanceId);
+        if (!quest) return;
+        quest.assignedTo = app.currentUser.id;
+        app.data.questLog.unshift({ id: 'log_cl_'+Date.now(), type: 'system', title: `Quête acceptée : ${quest.title}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
+        await app.save();
+    },
+
+    async unclaimQuest(instanceId) {
+        const quest = app.data.activeQuests.find(q => q.id === instanceId);
+        if (!quest) return;
+        const oldTitle = quest.title;
+        quest.assignedTo = null; 
+        app.data.questLog.unshift({ id: 'log_un_'+Date.now(), type: 'system', title: `Quête abandonnée : ${oldTitle}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
+        await app.save();
+    },
+
+    async completeTask(instanceId) {
+        const index = app.data.activeQuests.findIndex(q => q.id === instanceId);
+        if (index === -1) return;
+        const quest = app.data.activeQuests[index];
+        const def = app.data.questDefinitions.find(d => d.id === quest.definitionId);
+        
+        // Calcul du bonus de niveau (1% par niveau)
+        const userLevel = app.currentUser.level || 1;
+        const bonusMultiplier = 1 + (userLevel / 100);
+        
+        const earnedXp = Math.ceil(parseInt(quest.xp || 0) * bonusMultiplier);
+        const earnedGold = Math.ceil(parseInt(quest.gold || 0) * bonusMultiplier);
+
+        app.currentUser.xp += earnedXp;
+        app.currentUser.gold = (app.currentUser.gold || 0) + earnedGold;
+
+        const xpNeeded = (app.currentUser.level || 1) * 100;
+        if (app.currentUser.xp >= xpNeeded) {
+            app.currentUser.level = (app.currentUser.level || 1) + 1;
+            app.currentUser.xp -= (app.currentUser.level - 1) * 100;
+            alert(`🎊 LEVEL UP! ${app.currentUser.name} est Niveau ${app.currentUser.level} !`);
+        }
+        
+        app.data.questLog.unshift({ 
+            id: 'log_'+Date.now(), 
+            type: 'completion', 
+            title: quest.title, 
+            completedBy: app.currentUser.id, 
+            completedAt: new Date().toISOString(), 
+            xpEarned: earnedXp,
+            goldEarned: earnedGold,
+            instanceId: instanceId, 
+            definitionId: quest.definitionId 
+        });
+        
+        if (app.data.questLog.length > 50) app.data.questLog.pop();
+        if (def && def.frequency && def.frequency !== 'none') {
+            quest.dueDate = app.calculateNextDueDate(def, new Date(quest.dueDate)).toISOString();
+            quest.assignedTo = def.defaultAssignee || null;
+        } else app.data.activeQuests.splice(index, 1);
+        await app.save();
+    },
+
+    isStealable(q) {
+        if (!q.assignedTo || q.assignedTo === app.currentUser.id) return false;
+        const now = new Date(); const due = new Date(q.dueDate);
+        if (q.timeSlot && q.timeSlot.end) { const [h, m] = q.timeSlot.end.split(':'); due.setHours(parseInt(h), parseInt(m), 0, 0); } else due.setHours(23, 59, 59, 999);
+        return now > due;
+    },
+
+    calculateNextDueDate(def, fromDate = new Date()) {
+        let next = new Date(fromDate); const int = parseInt(def.interval || 1); const now = new Date(); now.setHours(0,0,0,0);
+        const add = (d) => {
+            if (def.frequency === 'daily') d.setDate(d.getDate() + int);
+            else if (def.frequency === 'weekly') {
+                let found = false;
+                for (let i = 1; i <= 7 * int; i++) {
+                    let check = new Date(d); check.setDate(d.getDate() + i);
+                    if (def.days && def.days.includes(check.getDay().toString())) { d.setTime(check.getTime()); found = true; break; }
+                }
+                if (!found) d.setDate(d.getDate() + 7 * int);
+            } else if (def.frequency === 'monthly') d.setMonth(d.getMonth() + int);
+        };
+        add(next); let safety = 0; while (next < now && safety < 100) { safety++; add(next); }
+        next.setHours(4, 0, 0, 0); return next;
+    },
+
+    calculateFirstDueDate(def) {
+        const now = new Date(); now.setHours(0,0,0,0);
+        if (def.frequency === 'weekly' && def.days && def.days.length > 0) { if (def.days.includes(now.getDay().toString())) { const today = new Date(now); today.setHours(4,0,0,0); return today; } }
+        const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+        return app.calculateNextDueDate(def, yesterday);
+    },
+
+    isAdmin() {
+        return (app.data && app.data.meta && app.data.meta.owner === auth.user.email) || (auth.user && auth.user.email === 'yohann.gras@gmail.com');
+    },
+
     async addRoyalQuest() {
         const title = document.getElementById('royal-quest-title').value;
-        const xp = parseInt(document.getElementById('royal-quest-xp').value);
-        const gold = parseInt(document.getElementById('royal-quest-gold').value);
+        const xp = parseInt(document.getElementById('royal-quest-xp').value || 0);
+        const gold = parseInt(document.getElementById('royal-quest-gold').value || 0);
         const assignee = document.getElementById('royal-quest-assignee').value || null;
         
-        if (!title || isNaN(xp) || isNaN(gold)) return alert("Veuillez remplir tous les champs.");
+        if (!title) return alert("Titre requis !");
 
         const isAdmin = app.isAdmin();
         if (!isAdmin) {
@@ -222,7 +317,7 @@ const app = {
             title, 
             xp, 
             gold, 
-            dueDate: new Date().toISOString(), // Immédiat
+            dueDate: new Date().toISOString(), 
             assignedTo: assignee, 
             isRoyal: true 
         });
@@ -234,23 +329,29 @@ const app = {
 
     openRoyalMissionModal() {
         const memberOptions = `<option value="">❓ Pour tous</option>` + app.data.users.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
-        document.getElementById('royal-quest-assignee').innerHTML = memberOptions;
+        const select = document.getElementById('royal-quest-assignee');
+        if (select) select.innerHTML = memberOptions;
         document.querySelectorAll('.currency-name-label').forEach(el => el.innerText = app.data.currency.name);
         app.showModal('royal-mission-modal');
     },
 
-    isAdmin() {
-        return (app.data.meta.owner === auth.user.email) || (auth.user.email === 'yohann.gras@gmail.com');
-    },
-
     async addQuest() {
-        const title = document.getElementById('quest-title').value;
-        const xp = parseInt(document.getElementById('quest-difficulty').value);
-        const gold = parseInt(document.getElementById('quest-gold').value || 0);
-        const freq = document.getElementById('quest-frequency').value;
-        const interval = document.getElementById('quest-interval').value;
-        const assignee = document.getElementById('quest-assignee').value || null;
-        // isRoyal removed from standard modal
+        const titleEl = document.getElementById('quest-title');
+        const xpEl = document.getElementById('quest-difficulty');
+        const goldEl = document.getElementById('quest-gold');
+        const freqEl = document.getElementById('quest-frequency');
+        const intervalEl = document.getElementById('quest-interval');
+        const assigneeEl = document.getElementById('quest-assignee');
+        
+        if (!titleEl || !xpEl) return;
+
+        const title = titleEl.value;
+        const xp = parseInt(xpEl.value);
+        const gold = parseInt(goldEl ? goldEl.value : 0) || 0;
+        const freq = freqEl ? freqEl.value : 'none';
+        const interval = intervalEl ? intervalEl.value : 1;
+        const assignee = assigneeEl ? assigneeEl.value : null;
+        
         const tStart = document.getElementById('quest-time-start').value;
         const tEnd = document.getElementById('quest-time-end').value;
         const days = Array.from(document.querySelectorAll('input[name="quest-day"]:checked')).map(cb => cb.value);
@@ -271,6 +372,10 @@ const app = {
         let defId = quest ? quest.definitionId : realId;
         const def = app.data.questDefinitions.find(d => d.id === defId);
         if (!def) return;
+        
+        // Don't open standard edit for Royal Missions from board if you want them special, 
+        // but for now let's just populate.
+        
         document.getElementById('edit-quest-id').value = def.id; 
         document.getElementById('edit-quest-title').value = def.title;
         document.getElementById('edit-quest-difficulty').value = def.baseXp;
@@ -324,7 +429,11 @@ const app = {
         app.askConfirm("Annuler ?", async () => {
             const idx = app.data.questLog.findIndex(l => l.id === logId); if (idx === -1) return;
             const log = app.data.questLog[idx]; const user = app.data.users.find(u => u.id === log.completedBy);
-            if (user) { user.xp -= log.xpEarned; if (user.xp < 0 && user.level > 1) { user.level--; user.xp += (user.level * 100); } else if (user.xp < 0) user.xp = 0; }
+            if (user) { 
+                user.xp -= log.xpEarned; 
+                user.gold = (user.gold || 0) - (log.goldEarned || 0);
+                if (user.xp < 0 && user.level > 1) { user.level--; user.xp += (user.level * 100); } else if (user.xp < 0) user.xp = 0; 
+            }
             const quest = app.data.activeQuests.find(q => q.definitionId === log.definitionId);
             if (quest) quest.dueDate = new Date(0).toISOString(); else if (log.type === 'completion') app.data.activeQuests.push({ id: log.instanceId, definitionId: log.definitionId, title: log.title, xp: log.xpEarned, dueDate: new Date(0).toISOString() });
             app.data.questLog.splice(idx, 1);
@@ -342,14 +451,6 @@ const app = {
             const isOut = item.stock === 0;
             const canAfford = app.currentUser.gold >= item.cost;
             const isAdmin = app.isAdmin();
-            
-            // Logic for click action:
-            // Admin clicking on normal item -> Edit
-            // Admin clicking on special item -> Propose (same as user) or nothing? Let's say Propose.
-            // User clicking on item -> Buy (or nothing if just viewing details, currently buy button handles it)
-            
-            // Refined: Clicking the card body could open details/edit.
-            // For now, let's keep buttons.
             
             let actionBtn = '';
             if (item.isSpecial) {
@@ -547,14 +648,14 @@ const app = {
         const title = document.getElementById('edit-market-item-title').value;
         const desc = document.getElementById('edit-market-item-desc').value;
         const cost = parseInt(document.getElementById('edit-market-item-cost').value);
-        const icon = document.getElementById('edit-market-item-icon').value;
+        const icon = document.getElementById('edit-market-item-icon');
         const stock = parseInt(document.getElementById('edit-market-item-stock').value);
 
         if (!title || isNaN(cost)) return;
 
         const idx = app.data.market.findIndex(i => i.id === id);
         if (idx !== -1) {
-            app.data.market[idx] = { ...app.data.market[idx], title, description: desc, cost, icon, stock };
+            app.data.market[idx] = { ...app.data.market[idx], title, description: desc, cost, icon: icon ? icon.value : '', stock };
             await app.save();
             app.hideModals();
             app.renderMarket();
@@ -617,6 +718,7 @@ const app = {
     },
 
     renderBoard() {
+        if (!app.data || !app.data.activeQuests) return;
         const now = new Date(); const endOfToday = new Date(now); endOfToday.setHours(23,59,59,999);
         const active = app.data.activeQuests.filter(q => new Date(q.dueDate) <= endOfToday);
         let upcoming = app.data.activeQuests.filter(q => new Date(q.dueDate) > endOfToday);
