@@ -9,7 +9,7 @@ const app = {
     _pendingAction: null,
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 112 starting...");
+        console.log("🛡️ ChoreQuest Build 113 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -135,7 +135,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(112); 
+                db.setSystemConfig(113); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -933,15 +933,26 @@ const app = {
                 const approvals = (def && def.votes) ? Object.keys(def.votes).length : 0;
                 const total = app.data.users.length;
                 const majority = Math.floor(total / 2) + 1;
-                const progressText = (def && def.defaultAssignee) ? `Attente de l'assigné` : `${approvals}/${majority} votes`;
+                const progressText = (def && def.defaultAssignee) ? `Attente de l'assigné` : `Approbations : ${approvals} / ${majority}`;
                 const isVoted = def && def.votes && def.votes[app.currentUser.id];
                 const assigneeName = q.assignedTo ? (app.data.users.find(u=>u.id===q.assignedTo)?.name || 'Inconnu') : 'Pour tous';
                 const creator = app.data.users.find(u => u.id === (def?.createdBy || q.createdBy))?.name || 'Ancien';
+                
+                // Liste des votants (avatars)
+                const votersList = (def && def.votes) ? Object.keys(def.votes).map(vId => {
+                    const u = app.data.users.find(usr => usr.id === vId);
+                    return `<div class="assignee-badge" style="width:20px; height:20px; border:1px solid #27ae60;">${app.getAvatarHtml(u ? u.avatar : '?', "20px")}</div>`;
+                }).join('') : '';
 
                 return `<div class="scroll-card">
-                    <h4>📜 ${q.title}</h4>
-                    <div style="font-size:0.75rem; margin-top:5px; opacity:0.8;">Proposé par : <strong>${creator}</strong></div>
-                    <div style="font-size:0.75rem; margin-top:2px;">💰 ${q.xp} XP • ${app.data.currency.symbol} ${q.gold} • 👤 ${assigneeName}</div>
+                    <div style="display:flex; justify-content:space-between; align-items:start;">
+                        <div>
+                            <h4>📜 ${q.title}</h4>
+                            <div style="font-size:0.75rem; margin-top:5px; opacity:0.8;">Proposé par : <strong>${creator}</strong></div>
+                        </div>
+                        <div style="display:flex; gap:2px;">${votersList}</div>
+                    </div>
+                    <div style="font-size:0.75rem; margin-top:5px;">💰 ${q.xp} XP • ${app.data.currency.symbol} ${q.gold} • 👤 ${assigneeName}</div>
                     <div class="scroll-actions">
                         <span class="vote-progress" style="margin-right:auto;">${progressText}</span>
                         ${!isVoted ? `<button class="scroll-btn btn-approve" onclick="app.voteQuest('${q.id}', 'approve')">Approuver</button>` : `<span style="font-size:0.8rem; color:#27ae60; margin-right:10px;">Fait ✅</span>`}
