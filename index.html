@@ -5,39 +5,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChoreQuest</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=93">
+    <link rel="stylesheet" href="css/styles.css">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
 </head>
 <body>
     <script>
-        async function nukeOldVersions() {
-            const currentBuild = 93;
-            const localBuild = parseInt(localStorage.getItem('app_build') || '0');
-            if (localBuild < currentBuild || window.location.search.includes('nuke=true')) {
-                if ('serviceWorker' in navigator) {
-                    const regs = await navigator.serviceWorker.getRegistrations();
-                    for (let r of regs) await r.unregister();
+        // Système de secours minimal : si le build local est trop vieux, on nuke tout
+        async function checkEmergencyUpdate() {
+            try {
+                const r = await fetch('version.json?t=' + Date.now());
+                const v = await r.json();
+                const localBuild = parseInt(localStorage.getItem('app_build') || '0');
+                if (v.build > localBuild) {
+                    console.log("🚀 Nouvelle version détectée au démarrage : v" + v.build);
+                    if ('serviceWorker' in navigator) {
+                        const regs = await navigator.serviceWorker.getRegistrations();
+                        for (let r of regs) await r.unregister();
+                    }
+                    localStorage.setItem('app_build', v.build.toString());
+                    window.location.reload(true);
                 }
-                if ('caches' in window) {
-                    const names = await caches.keys();
-                    for (let n of names) await caches.delete(n);
-                }
-                localStorage.setItem('app_build', currentBuild.toString());
-                window.location.href = window.location.origin + window.location.pathname + '?v93_sync=' + Date.now();
-            }
+            } catch (e) { console.error("Update check failed", e); }
         }
-        nukeOldVersions();
+        checkEmergencyUpdate();
     </script>
 
-    <script src="js/version-manager.js?v=93"></script>
+    <script src="js/version-manager.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
     <div id="app">
         <header>
-            <h1>⚔️ <span style="font-size:0.8em">ChoreQuest</span> <span id="app-version">v...</span> <span id="sync-indicator" title="Synchronisé"></span></h1>
+            <h1>⚔️ <span style="font-size:0.8em">ChoreQuest</span> <span id="app-version">...</span> <span id="sync-indicator" title="Synchronisé"></span></h1>
             <div id="auth-container" class="header-actions">
                 <button id="guild-btn" class="icon-btn hidden" onclick="app.showModal('guild-settings-modal')" title="Ma Guilde">🏰</button>
                 <button id="profile-btn" class="icon-btn hidden" onclick="app.showModal('profile-modal')" title="Mon Profil" style="padding:0; overflow:hidden; border-radius:50%; width:40px; height:40px; border:2px solid #4a90e2;"></button>
@@ -98,6 +99,7 @@
             </section>
         </main>
 
+        <!-- Modales Core -->
         <div id="confirm-modal" class="modal hidden" style="z-index: 5000;">
             <div class="modal-content" style="max-width: 300px; text-align: center; border: 2px solid #4a90e2;">
                 <h3 style="margin-top:0;">🛡️ Confirmation</h3>
@@ -133,10 +135,9 @@
                 </div>
                 <button class="action-btn secondary-btn" onclick="auth.logout()" style="font-size:0.8rem;">Déconnexion</button>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
-                    <button class="action-btn" onclick="app.showModal('dev-modal'); app.renderDevMode();" style="background-color:#6c757d; font-size:0.7rem;">🛠️ Admin</button>
+                    <button class="action-btn" onclick="app.renderDevMode()" style="background-color:#6c757d; font-size:0.7rem;">🛠️ Admin</button>
                     <button class="action-btn danger-btn" onclick="app.forceAppReset()" style="font-size:0.7rem;">⚠️ Réparer</button>
                 </div>
-                <small style="display:block; text-align:center; margin-top:10px; opacity:0.3;">ChoreQuest v2.16.0 (v93)</small>
             </div>
         </div>
 
@@ -157,7 +158,6 @@
             </div>
         </div>
 
-        <!-- Modales Quest, Edit, Guild -->
         <div id="quest-modal" class="modal hidden"><div class="modal-content"><h2>Nouvelle Quête</h2><input type="text" id="quest-title" placeholder="Titre"><div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;"><div><label style="font-size:0.7rem;">XP :</label><input type="number" id="quest-difficulty" value="50"></div><div><label style="font-size:0.7rem;">Horaires :</label><div style="display:flex; gap:2px;"><input type="time" id="quest-time-start"><input type="time" id="quest-time-end"></div></div></div><div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;"><div><label style="font-size:0.7rem;">Récurrence :</label><select id="quest-frequency" onchange="app.toggleRecurrenceUI('quest')"><option value="none">Une seule fois</option><option value="daily">Jours</option><option value="weekly">Semaines</option><option value="monthly">Mois</option></select></div><div><label style="font-size:0.7rem;">Assigné à :</label><select id="quest-assignee"></select></div></div><div id="quest-interval-container" class="hidden"><label style="font-size:0.7rem;">Tous les :</label><input type="number" id="quest-interval" value="1" min="1"></div><div id="quest-days-selector" class="hidden" style="margin-top:10px;"><div style="display:flex; justify-content:space-between;"><label><input type="checkbox" name="quest-day" value="1"> L</label><label><input type="checkbox" name="quest-day" value="2"> M</label><label><input type="checkbox" name="quest-day" value="3"> M</label><label><input type="checkbox" name="quest-day" value="4"> J</label><label><input type="checkbox" name="quest-day" value="5"> V</label><label><input type="checkbox" name="quest-day" value="6"> S</label><label><input type="checkbox" name="quest-day" value="0"> D</label></div></div><button class="action-btn" style="margin-top:20px;" onclick="app.addQuest()">Ajouter</button><button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button></div></div>
         <div id="edit-quest-modal" class="modal hidden"><div class="modal-content"><div class="modal-header"><h2>Modifier</h2><button class="close-btn" onclick="app.hideModals()">X</button></div><input type="hidden" id="edit-quest-id"><input type="text" id="edit-quest-title"><div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;"><div><label style="font-size:0.7rem;">XP :</label><input type="number" id="edit-quest-difficulty"></div><div><label style="font-size:0.7rem;">Horaires :</label><div style="display:flex; gap:2px;"><input type="time" id="edit-quest-time-start"><input type="time" id="edit-quest-time-end"></div></div></div><div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;"><div><label style="font-size:0.7rem;">Récurrence :</label><select id="edit-quest-frequency" onchange="app.toggleRecurrenceUI('edit-quest')"><option value="none">Une seule fois</option><option value="daily">Jours</option><option value="weekly">Semaines</option><option value="monthly">Mois</option></select></div><div><label style="font-size:0.7rem;">Assigné à :</label><select id="edit-quest-assignee"></select></div></div><div id="edit-quest-interval-container" class="hidden"><label style="font-size:0.7rem;">Tous les :</label><input type="number" id="edit-quest-interval" value="1" min="1"></div><div id="edit-quest-days-selector" class="hidden" style="margin-top:10px;"><div style="display:flex; justify-content:space-between;"><label><input type="checkbox" name="edit-quest-day" value="1"> L</label><label><input type="checkbox" name="edit-quest-day" value="2"> M</label><label><input type="checkbox" name="edit-quest-day" value="3"> M</label><label><input type="checkbox" name="edit-quest-day" value="4"> J</label><label><input type="checkbox" name="edit-quest-day" value="5"> V</label><label><input type="checkbox" name="edit-quest-day" value="6"> S</label><label><input type="checkbox" name="edit-quest-day" value="0"> D</label></div></div><button class="action-btn" style="margin-top:20px; background-color:#27ae60;" onclick="app.saveQuestEdits()">Enregistrer</button><button class="action-btn danger-btn" onclick="app.archiveQuest()">🗑️ Supprimer</button></div></div>
         <div id="guild-settings-modal" class="modal hidden"><div class="modal-content"><div class="modal-header"><h2>🏰 Ma Guilde</h2><button class="close-btn" onclick="app.hideModals()">X</button></div><div class="settings-group"><input type="text" id="edit-guild-name" onchange="app.renameGuild()" style="margin-bottom:10px; font-weight:bold; width:100%;"><div style="font-size:0.8rem; margin-bottom:15px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;"><div>Visibilité : <select id="edit-guild-public" onchange="app.updateGuildSettings()"><option value="false">🔒 Privée</option><option value="true">🌍 Publique</option></select></div><div>Accès : <select id="edit-guild-open" onchange="app.updateGuildSettings()"><option value="true">✅ Ouverte</option><option value="false">⛔ Fermée</option></select></div></div><h4>Membres</h4><div id="guild-members-list"></div><button class="action-btn" onclick="app.copyInviteLink()" style="background-color:#27ae60; font-size:0.8rem; margin-bottom:10px;">🔗 Copier lien d'invitation</button><button class="action-btn secondary-btn" onclick="app.openGuildSwitcher()" style="font-size:0.8rem; margin-bottom:10px;">🔄 Changer de Guilde</button><button id="quit-guild-btn" class="action-btn danger-btn" onclick="app.leaveGuild()" style="font-size:0.8rem;">🚪 Quitter cette Guilde</button></div></div></div>
@@ -183,17 +183,16 @@
         </div>
     </div>
 
-    <!-- Notifications -->
     <div id="activity-toast" class="hidden"><div id="toast-avatar" class="assignee-badge" style="width:30px; height:30px;"></div> <span id="toast-message">...</span></div>
 
-    <script src="js/config.js?v=93"></script>
-    <script src="js/auth.js?v=93"></script>
-    <script src="js/firebase-db.js?v=93"></script>
-    <script src="js/app.js?v=93"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/firebase-db.js"></script>
+    <script src="js/app.js"></script>
 
     <script>
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js?v=93'); });
+            window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js'); });
         }
     </script>
 </body>

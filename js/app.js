@@ -9,7 +9,7 @@ const app = {
     _pendingAction: null,
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 93 starting...");
+        console.log("🛡️ ChoreQuest Build 94 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -45,7 +45,7 @@ const app = {
                 localStorage.setItem('currentGuildId', id);
                 window.history.replaceState({}, document.title, window.location.pathname);
                 app.hideModals();
-                if (!result.alreadyMember) alert("🛡️ Bienvenue dans cette guilde !");
+                if (!result.alreadyMember) alert("🛡️ Bienvenue !");
                 await app.loadGuild();
             } else {
                 alert("❌ Erreur : " + result.error);
@@ -75,7 +75,7 @@ const app = {
                 app.showView('entry-choice-screen');
                 app.showLoading(false);
             }
-        } catch (err) { console.error("Load Guild Error:", err); app.showLoading(false); }
+        } catch (err) { console.error("Load Error:", err); app.showLoading(false); }
     },
 
     handleDataUpdate() {
@@ -91,7 +91,7 @@ const app = {
         } else {
             if (app.data.meta.owner === auth.user.email) {
                 if (!sessionStorage.getItem('system_version_pushed')) {
-                    db.setSystemConfig(93); 
+                    db.setSystemConfig(94); 
                     sessionStorage.setItem('system_version_pushed', 'true');
                 }
             }
@@ -104,8 +104,7 @@ const app = {
     },
 
     showView(viewId) {
-        const views = ['welcome-screen', 'entry-choice-screen', 'content'];
-        views.forEach(v => {
+        ['welcome-screen', 'entry-choice-screen', 'content'].forEach(v => {
             const el = document.getElementById(v);
             if (el) el.classList.toggle('hidden', v !== viewId);
         });
@@ -122,14 +121,12 @@ const app = {
         if (btn) btn.onclick = () => { if (app._pendingAction) app._pendingAction(); app.hideModals(); app._pendingAction = null; };
     },
 
-    // --- Avatar Management ---
+    // --- Avatar ---
     getAvatarHtml(avatarStr, size = "40px") {
         if (!avatarStr || !avatarStr.startsWith('http')) {
             const seed = (app.currentUser ? app.currentUser.name : 'Hero');
             const fallback = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`;
-            if (avatarStr && avatarStr.length <= 8) {
-                return `<div style="width:${size}; height:${size}; display:flex; align-items:center; justify-content:center; font-size:calc(${size} * 0.5); font-weight:bold; color:rgba(255,255,255,0.5);">${avatarStr}</div>`;
-            }
+            if (avatarStr && avatarStr.length <= 8) return `<div style="width:${size}; height:${size}; display:flex; align-items:center; justify-content:center; font-size:calc(${size} * 0.5); font-weight:bold; color:rgba(255,255,255,0.5);">${avatarStr}</div>`;
             avatarStr = fallback;
         }
         return `<img src="${avatarStr}" alt="Avatar" style="width:${size}; height:${size}; border-radius:50%; display:block; object-fit:cover; border: 1px solid rgba(255,255,255,0.1);">`;
@@ -156,13 +153,12 @@ const app = {
         app.updateAvatarPreview('edit', true);
     },
 
-    // --- Hero & Squire Management ---
+    // --- Hero Management ---
     async addSquire() {
         const name = document.getElementById('squire-name').value;
         const seed = document.getElementById('squire-avatar-seed').value || name;
-        const avatar = `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`;
         if (!name) return;
-        app.data.users.push({ id: 'sq_'+Date.now(), name, avatar, xp: 0, level: 1, managedBy: app.mainUser.id });
+        app.data.users.push({ id: 'sq_'+Date.now(), name, avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`, xp: 0, level: 1, managedBy: app.mainUser.id });
         await app.save(); app.hideModals();
     },
 
@@ -178,15 +174,15 @@ const app = {
     },
 
     async finishOnboarding() {
-        const name = document.getElementById('new-user-name').value;
+        const nameInput = document.getElementById('new-user-name');
+        const name = nameInput ? nameInput.value : '';
         const seed = document.getElementById('onboard-avatar-seed').value || name;
-        const avatar = `https://api.dicebear.com/7.x/${app.currentAvatarStyle}/svg?seed=${encodeURIComponent(seed)}`;
         if (!name) return alert("Nom requis !");
-        app.data.users.push({ id: 'u_'+Date.now(), name, avatar, email: auth.user.email, xp: 0, level: 1 });
+        app.data.users.push({ id: 'u_'+Date.now(), name, avatar: `https://api.dicebear.com/7.x/${app.currentAvatarStyle}/svg?seed=${encodeURIComponent(seed)}`, email: auth.user.email, xp: 0, level: 1 });
         await app.save(); app.hideModals();
     },
 
-    // --- Quest Actions ---
+    // --- Actions ---
     async claimQuest(instanceId) {
         const quest = app.data.activeQuests.find(q => q.id === instanceId);
         if (!quest) return;
@@ -227,18 +223,13 @@ const app = {
 
     isStealable(q) {
         if (!q.assignedTo || q.assignedTo === app.currentUser.id) return false;
-        const now = new Date();
-        const due = new Date(q.dueDate);
-        if (q.timeSlot && q.timeSlot.end) {
-            const [h, m] = q.timeSlot.end.split(':');
-            due.setHours(parseInt(h), parseInt(m), 0, 0);
-        } else due.setHours(23, 59, 59, 999);
+        const now = new Date(); const due = new Date(q.dueDate);
+        if (q.timeSlot && q.timeSlot.end) { const [h, m] = q.timeSlot.end.split(':'); due.setHours(parseInt(h), parseInt(m), 0, 0); } else due.setHours(23, 59, 59, 999);
         return now > due;
     },
 
     calculateNextDueDate(def, fromDate = new Date()) {
-        let next = new Date(fromDate); const int = parseInt(def.interval || 1);
-        const now = new Date(); now.setHours(0,0,0,0);
+        let next = new Date(fromDate); const int = parseInt(def.interval || 1); const now = new Date(); now.setHours(0,0,0,0);
         const add = (d) => {
             if (def.frequency === 'daily') d.setDate(d.getDate() + int);
             else if (def.frequency === 'weekly') {
@@ -256,7 +247,7 @@ const app = {
 
     calculateFirstDueDate(def) {
         const now = new Date(); now.setHours(0,0,0,0);
-        if (def.frequency === 'weekly' && def.days && def.days.includes(now.getDay().toString())) { const today = new Date(now); today.setHours(4,0,0,0); return today; }
+        if (def.frequency === 'weekly' && def.days && def.days.length > 0) { if (def.days.includes(now.getDay().toString())) { const today = new Date(now); today.setHours(4,0,0,0); return today; } }
         const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
         return app.calculateNextDueDate(def, yesterday);
     },
@@ -276,7 +267,6 @@ const app = {
         const def = { id: defId, title, baseXp: xp, frequency: freq, interval, days, timeSlot, defaultAssignee: assignee };
         app.data.questDefinitions.push(def);
         app.data.activeQuests.push({ id: 'inst_'+Date.now(), definitionId: defId, title, xp, dueDate: app.calculateFirstDueDate(def).toISOString(), timeSlot, assignedTo: assignee });
-        app.data.questLog.unshift({ id: 'log_cr_'+Date.now(), type: 'system', title: `Nouvelle quête : ${title}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
         await app.save(); app.hideModals();
     },
 
@@ -299,7 +289,7 @@ const app = {
     },
 
     async saveQuestEdits() {
-        app.askConfirm("Sauvegarder les modifications ?", async () => {
+        app.askConfirm("Sauvegarder ?", async () => {
             const defId = document.getElementById('edit-quest-id').value;
             const title = document.getElementById('edit-quest-title').value;
             const xp = parseInt(document.getElementById('edit-quest-difficulty').value);
@@ -321,7 +311,7 @@ const app = {
     },
 
     async archiveQuest() {
-        app.askConfirm("Supprimer cette quête ?", async () => {
+        app.askConfirm("Supprimer ?", async () => {
             const defId = document.getElementById('edit-quest-id').value;
             const def = app.data.questDefinitions.find(d => d.id === defId); if (def) def.archived = true;
             app.data.activeQuests = app.data.activeQuests.filter(q => q.definitionId !== defId);
@@ -330,7 +320,7 @@ const app = {
     },
 
     async undoLog(logId) {
-        app.askConfirm("Annuler cet exploit ?", async () => {
+        app.askConfirm("Annuler ?", async () => {
             const idx = app.data.questLog.findIndex(l => l.id === logId); if (idx === -1) return;
             const log = app.data.questLog[idx]; const user = app.data.users.find(u => u.id === log.completedBy);
             if (user) { user.xp -= log.xpEarned; if (user.xp < 0 && user.level > 1) { user.level--; user.xp += (user.level * 100); } else if (user.xp < 0) user.xp = 0; }
@@ -342,17 +332,17 @@ const app = {
         });
     },
 
-    // --- UI Rendering ---
+    // --- Renders ---
     render() {
         if (!app.currentUser) return;
         const isSquire = app.currentUser.id !== app.mainUser.id;
-        const elName = document.getElementById('user-name'); if (elName) elName.innerText = (isSquire ? '📜 ' : '') + app.currentUser.name;
-        const elAv = document.getElementById('user-avatar-display'); if (elAv) elAv.innerHTML = app.getAvatarHtml(app.currentUser.avatar, "80px");
-        const elLvl = document.getElementById('user-level'); if (elLvl) elLvl.innerText = app.currentUser.level || 1;
-        const elXp = document.getElementById('user-xp'); if (elXp) elXp.innerText = app.currentUser.xp;
+        document.getElementById('user-name').innerText = (isSquire ? '📜 ' : '') + app.currentUser.name;
+        document.getElementById('user-avatar-display').innerHTML = app.getAvatarHtml(app.currentUser.avatar, "80px");
+        document.getElementById('user-level').innerText = app.currentUser.level || 1;
+        document.getElementById('user-xp').innerText = app.currentUser.xp;
         const xpNeeded = (app.currentUser.level || 1) * 100;
-        const elNextXp = document.getElementById('next-level-xp'); if (elNextXp) elNextXp.innerText = xpNeeded;
-        const elProg = document.getElementById('xp-progress'); if (elProg) elProg.style.width = `${(app.currentUser.xp / xpNeeded) * 100}%`;
+        document.getElementById('next-level-xp').innerText = xpNeeded;
+        document.getElementById('xp-progress').style.width = `${(app.currentUser.xp / xpNeeded) * 100}%`;
         const profBtn = document.getElementById('profile-btn'); if (profBtn) profBtn.innerHTML = app.getAvatarHtml(app.currentUser.avatar, "40px");
         const squires = app.data.users.filter(u => u.managedBy === app.mainUser.id);
         const switchBtn = document.getElementById('quick-switch-btn');
@@ -361,19 +351,15 @@ const app = {
                 switchBtn.classList.remove('hidden'); const rotationList = [app.mainUser, ...squires]; const currentIndex = rotationList.findIndex(u => u.id === app.currentUser.id); const nextUser = rotationList[(currentIndex + 1) % rotationList.length]; switchBtn.innerHTML = app.getAvatarHtml(nextUser.avatar, "26px");
             } else switchBtn.classList.add('hidden');
         }
-        const qBoard = document.getElementById('quest-board'); const hBoard = document.getElementById('history-board');
-        if (app.currentView === 'board') { if (qBoard) qBoard.classList.remove('hidden'); if (hBoard) hBoard.classList.add('hidden'); app.renderBoard(); }
-        else { if (qBoard) qBoard.classList.add('hidden'); if (hBoard) hBoard.classList.remove('hidden'); app.renderHistory(); }
+        if (app.currentView === 'board') { document.getElementById('quest-board').classList.remove('hidden'); document.getElementById('history-board').classList.add('hidden'); app.renderBoard(); }
+        else { document.getElementById('quest-board').classList.add('hidden'); document.getElementById('history-board').classList.remove('hidden'); app.renderHistory(); }
     },
 
     renderBoard() {
         const now = new Date(); const endOfToday = new Date(now); endOfToday.setHours(23,59,59,999);
         const active = app.data.activeQuests.filter(q => new Date(q.dueDate) <= endOfToday);
         let upcoming = app.data.activeQuests.filter(q => new Date(q.dueDate) > endOfToday);
-        active.forEach(q => { const def = app.data.questDefinitions.find(d => d.id === q.definitionId); if (def && def.frequency && def.frequency !== 'none') {
-            const nextOccur = app.calculateNextDueDate(def, new Date(q.dueDate));
-            upcoming.push({ ...q, id: 'virtual_' + q.id, dueDate: nextOccur.toISOString(), isVirtual: true });
-        }});
+        active.forEach(q => { const def = app.data.questDefinitions.find(d => d.id === q.definitionId); if (def && def.frequency && def.frequency !== 'none') upcoming.push({ ...q, id: 'virtual_' + q.id, dueDate: app.calculateNextDueDate(def, new Date(q.dueDate)).toISOString(), isVirtual: true }); });
         upcoming.sort((a,b) => a.dueDate.localeCompare(b.dueDate));
         const html = (q, up) => {
             const rarity = app.getQuestRarity(q.xp);
@@ -392,11 +378,9 @@ const app = {
             }
             return `<div class="quest-card ${rarity} ${up ? 'upcoming' : ''}"><div class="quest-body" onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer">${assigneeHtml}<div class="quest-info"><h4>${freq} ${q.title}</h4><span>💰 ${q.xp} XP${time}</span></div></div><div class="quest-actions-container">${actionButtons}</div></div>`;
         };
-        const taskList = document.getElementById('task-list');
-        if (taskList) taskList.innerHTML = active.map(q => html(q, false)).join('') || '<p style="text-align:center; opacity:0.5;">Tout est fait !</p>';
+        document.getElementById('task-list').innerHTML = active.map(q => html(q, false)).join('') || '<p style="text-align:center; opacity:0.5;">Tout est fait !</p>';
         const groups = {}; upcoming.forEach(q => { const d = new Date(q.dueDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); if (!groups[d]) groups[d] = []; groups[d].push(q); });
-        const upTaskList = document.getElementById('upcoming-task-list');
-        if (upTaskList) upTaskList.innerHTML = Object.keys(groups).map(day => `<div class="upcoming-day-group"><div class="upcoming-day-title">${day}</div>${groups[day].map(q => html(q, true)).join('')}</div>`).join('') || '<p style="text-align:center; opacity:0.2;">Rien de prévu.</p>';
+        document.getElementById('upcoming-task-list').innerHTML = Object.keys(groups).map(day => `<div class="upcoming-day-group"><div class="upcoming-day-title">${day}</div>${groups[day].map(q => html(q, true)).join('')}</div>`).join('') || '<p style="text-align:center; opacity:0.2;">Rien de prévu.</p>';
     },
 
     renderHistory() {
@@ -433,17 +417,16 @@ const app = {
     },
 
     syncSettingsUI() {
-        const elName = document.getElementById('edit-guild-name'); if (elName) elName.value = app.data.meta.guildName;
+        document.getElementById('edit-guild-name').value = app.data.meta.guildName;
         app.renderGuildMembers();
         const memberOptions = `<option value="">❓ Pour tous</option>` + app.data.users.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
-        const elQAssignee = document.getElementById('quest-assignee'); if (elQAssignee) elQAssignee.innerHTML = memberOptions;
-        const elEditQAssignee = document.getElementById('edit-quest-assignee'); if (elEditQAssignee) elEditQAssignee.innerHTML = memberOptions;
-        const elUName = document.getElementById('edit-user-name'); if (elUName) elUName.value = app.currentUser.name;
-        const elSeed = document.getElementById('edit-avatar-seed'); if (elSeed && !elSeed.value && app.currentUser.avatar.includes('seed=')) { const urlParts = app.currentUser.avatar.split('seed='); if (urlParts.length > 1) elSeed.value = decodeURIComponent(urlParts[1]); }
+        document.getElementById('quest-assignee').innerHTML = memberOptions;
+        document.getElementById('edit-quest-assignee').innerHTML = memberOptions;
+        document.getElementById('edit-user-name').value = app.currentUser.name;
         app.updateAvatarPreview('edit');
         const squires = app.data.users.filter(u => u.managedBy === app.mainUser.id);
         const impersonatedId = localStorage.getItem('impersonatedHeroId');
-        const elSquireList = document.getElementById('squire-list'); if (elSquireList) elSquireList.innerHTML = squires.map(s => `<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; margin-bottom:5px;"><span>${app.getAvatarHtml(s.avatar, "20px")} <b>${s.name}</b></span>${impersonatedId === s.id ? `<button class="action-btn danger-btn" onclick="app.stopImpersonating()" style="width:auto; padding:2px 8px; font-size:0.7rem;">Quitter</button>` : `<button class="action-btn" onclick="app.impersonate('${s.id}')" style="width:auto; padding:2px 8px; font-size:0.7rem;">Incarner</button>`}</div>`).join('') || '<p style="font-size:0.7rem; opacity:0.5;">Aucun écuyer.</p>';
+        document.getElementById('squire-list').innerHTML = squires.map(s => `<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; margin-bottom:5px;"><span>${app.getAvatarHtml(s.avatar, "20px")} <b>${s.name}</b></span>${impersonatedId === s.id ? `<button class="action-btn danger-btn" onclick="app.stopImpersonating()" style="width:auto; padding:2px 8px; font-size:0.7rem;">Quitter</button>` : `<button class="action-btn" onclick="app.impersonate('${s.id}')" style="width:auto; padding:2px 8px; font-size:0.7rem;">Incarner</button>`}</div>`).join('') || '<p style="font-size:0.7rem; opacity:0.5;">Aucun écuyer.</p>';
         
         const btnAdmin = document.querySelector('button[onclick*="renderDevMode"]');
         if (btnAdmin) {
@@ -452,6 +435,7 @@ const app = {
         }
     },
 
+    // --- Admin ---
     switchDebugTab(tab) {
         document.querySelectorAll('.debug-tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.debug-content').forEach(c => c.classList.add('hidden'));

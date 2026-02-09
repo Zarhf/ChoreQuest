@@ -1,14 +1,14 @@
-const CACHE_NAME = 'chorequest-v90'; 
+const CACHE_NAME = 'chorequest-v94'; 
 const ASSETS = [
     './',
     './index.html',
-    './css/styles.css?v=90',
-    './js/app.js?v=90',
-    './js/auth.js?v=90',
-    './js/firebase-db.js?v=90',
-    './js/config.js?v=90',
-    './js/version-manager.js?v=90',
-    './v.json?v=90',
+    './css/styles.css',
+    './js/app.js',
+    './js/auth.js',
+    './js/firebase-db.js',
+    './js/config.js',
+    './js/version-manager.js',
+    './v.json',
     './manifest.json',
     './icons/icon.svg'
 ];
@@ -28,14 +28,20 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (e) => {
     const url = new URL(e.request.url);
-    if (url.pathname.endsWith('v.json') || url.pathname.endsWith('version.json') || url.pathname.endsWith('admin.html')) {
-        e.respondWith(fetch(e.request));
+    
+    // STRATÉGIE : Network First pour les fichiers de version et l'index
+    if (url.pathname.endsWith('v.json') || url.pathname.endsWith('version.json') || url.pathname.endsWith('index.html') || url.pathname === '/') {
+        e.respondWith(
+            fetch(e.request).then(res => {
+                const clone = res.clone();
+                caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+                return res;
+            }).catch(() => caches.match(e.request))
+        );
         return;
     }
-    if (e.request.mode === 'navigate') {
-        e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
-        return;
-    }
+
+    // Cache First pour les autres assets
     if (url.origin === location.origin) {
         e.respondWith(caches.match(e.request).then((res) => res || fetch(e.request)));
     }
