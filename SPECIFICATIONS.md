@@ -1,111 +1,56 @@
-# Spécifications : ChoreQuest (v2.16)
+# Spécifications : ChoreQuest (v2.21)
 
 ## 1. Concept
 **"Level up your home, one quest at a time."**
-ChoreQuest est une application web progressive (PWA) gamifiée qui transforme les corvées ménagères en une aventure RPG épique. Suivez vos tâches, gagnez de l'XP et montez en niveau en famille.
+ChoreQuest est une application web progressive (PWA) de management familial transformée en une aventure RPG médiévale. Les corvées deviennent des contrats négociés au Conseil, rapportant XP et Or pour gravir les échelons de la hiérarchie.
 
 ## 2. Architecture Technique
 
-*   **Frontend :** HTML5 / CSS3 (Mobile First) / Vanilla JS.
+*   **Frontend :** HTML5 / CSS3 (Thème Médiéval) / Vanilla JS.
 *   **Backend :** Google Firebase (Firestore + Auth).
-*   **Identité :** API **DiceBear** (Génération d'avatars SVG dynamiques via seeds).
-*   **Système de Mise à jour Automatique (3 Couches) :**
-    1.  **Stratégie "Network First" (Service Worker) :** Le SW est configuré pour toujours privilégier le réseau pour les fichiers critiques (`index.html`, `version.json`). Il ne sert le cache qu'en cas d'absence de connexion.
-    2.  **Vérification au Démarrage (Boot Check) :** Un script ultra-léger au sommet du HTML compare le build local (`localStorage`) avec le build serveur (`version.json?t=...`). En cas de différence, il force la désinscription du SW, vide le cache et recharge la page immédiatement.
-    3.  **"Kill Switch" Temps Réel (Firestore) :** L'application écoute en continu le document `system/config` sur Firebase. Dès que le `minBuild` distant est incrémenté, toutes les instances ouvertes déclenchent un rechargement forcé.
+*   **Système de Mise à jour "Nucléaire" :**
+    1.  **Cache Killer :** Script inline prioritaire dans le `<head>` comparant le build local au `version.json` distant à chaque chargement.
+    2.  **Force Reload :** Désinscription automatique du Service Worker et vidage des caches navigateurs en cas de montée de version.
+    3.  **Kill Switch Firestore :** Écoute en temps réel de `system/config` pour forcer le rafraîchissement global de toutes les instances actives.
 
-### Modèle de Données (Firestore)
-Collection `guilds` -> Document `{guildId}` :
-```json
-{
-  "meta": {
-    "version": 3,
-    "guildName": "Maison Gras",
-    "owner": "email@gmail.com",
-    "isPublic": true,
-    "isOpen": true
-  },
-  "memberEmails": ["..."],
-  "users": [
-    { 
-      "id": "u1", 
-      "name": "Yohann", 
-      "avatar": "https://api.dicebear.com/...", 
-      "xp": 1200, 
-      "level": 5, 
-      "email": "...", // Null pour les Écuyers
-      "managedBy": "u_admin_id" // Lien parent-enfant
-    }
-  ],
-  "questDefinitions": [
-    { 
-      "id": "def_1", 
-      "title": "Vaisselle", 
-      "baseXp": 50, 
-      "frequency": "weekly", 
-      "interval": "1", 
-      "days": ["1", "3", "5"], // Lundi, Mercredi, Vendredi
-      "defaultAssignee": "u1", // Optionnel
-      "timeSlot": { "start": "18:00", "end": "20:00" },
-      "archived": false
-    }
-  ],
-  "activeQuests": [
-    { 
-      "id": "inst_101", 
-      "definitionId": "def_1", 
-      "title": "Vaisselle", 
-      "xp": 50, 
-      "dueDate": "2026-02-07T04:00:00Z",
-      "assignedTo": "u1", // Peut être null (Pour tous)
-      "timeSlot": { "start": "18:00", "end": "20:00" }
-    }
-  ],
-  "questLog": [
-    {
-      "id": "log_1",
-      "type": "completion", // completion, system
-      "title": "Vaisselle",
-      "completedBy": "u1",
-      "completedAt": "2026-02-06T19:30:00Z",
-      "xpEarned": 50
-    }
-  ]
-}
-```
+## 3. Système Social & Hiérarchie
 
-## 3. Fonctionnalités Implémentées
+### 3.1. Rôles et Dashboard
+*   **Le Dashboard des Membres :** Un centre de commandement dans les réglages affichant l'avatar, le rôle, le niveau et l'or de chaque membre.
+*   **👑 Administrateurs :** Le propriétaire de la guilde (et `yohann.gras@gmail.com`) dispose des pleins pouvoirs : édition des quêtes, gestion de l'économie, et exclusion de membres.
+*   **🛡️ Chevaliers :** Membres standards avec un compte email lié. Ils votent au Conseil.
+*   **📜 Écuyers :** Comptes gérés (enfants) sans email. Ils ne votent pas et ne peuvent pas s'auto-incarner sans le compte parent.
 
-### 3.1. Gestion des Utilisateurs & Identité
-*   **Authentification :** Connexion Google.
-*   **Écuyers (Comptes Enfants) :** Création de héros sans email gérés par un compte parent.
-*   **Rotation Rapide :** Bouton dans le header pour basculer instantanément entre les héros de la suite familiale.
-*   **Personnalisation DiceBear :** Générateur d'avatar basé sur un "mot magique" (seed) avec plusieurs styles (RPG, Pixel, Mignon).
+### 3.2. Le Conseil (Négociation de Quêtes)
+Toute nouvelle quête ou mission royale passe par **Le Conseil** sous forme de Parchemin avant d'apparaître sur le tableau.
+*   **Vote à la Majorité :** Pour les quêtes "Pour tous", l'approbation de la majorité absolue des membres humains est requise. Les écuyers sont exclus du calcul de la majorité.
+*   **Double Signature :** Pour les quêtes assignées, l'accord conjoint du **Créateur** et de l'**Assigné** est obligatoire.
+*   **Négociation :** Pas de bouton "Rejeter". Le Conseil force le dialogue via des **Contre-offres** permettant de modifier titre, récompenses, assigné ou de justifier les changements par un message.
+*   **Traçabilité :** Historique des révisions (Rév. 1, 2...) affiché sur le parchemin.
 
-### 3.2. Système de Guilde
-*   **Multi-Guilde :** Un utilisateur peut appartenir à plusieurs guildes et basculer entre elles.
-*   **Recherche :** Trouver des guildes publiques ou rejoindre via un lien direct (`?join=ID`).
-*   **Administration :** Modifier le nom, la visibilité et l'accès (Ouvert/Fermé).
+## 4. Économie & Progression
 
-### 3.3. Système de Quêtes RPG
-*   **Affectation Flexible :** Quêtes assignées d'office ou libres (`?`).
-*   **Actions Dynamiques :**
+### 4.1. Fortune du Royaume
+*   **Monnaie Custom :** Chaque guilde définit le nom et le symbole de sa monnaie (ex: Écus 🪙, Cookies 🍪).
+*   **Boutique de la Guilde :** Les membres achètent des récompenses définies par l'admin.
+*   **Missions Royales :** Quêtes spéciales créées par les membres contre de l'or (gratuit pour les admins). Remboursement automatique si supprimées.
+
+### 4.2. Formule de Récompense
+Le mérite est récompensé par un bonus de niveau :
+`Gain Réel = Gain de Base * (1 + Niveau / 100)`
+(Chaque niveau apporte +1% de bonus permanent sur l'XP et l'Or).
+
+## 5. Système de Quêtes RPG
+
+*   **Affectation & Vol (🥷) :**
     *   **☝️ Je prends :** S'assigner une quête libre.
-    *   **❌ Abandonner :** Rendre une quête dont on était responsable.
-    *   **🥷 Voler :** Si une tâche est en retard, les autres membres peuvent la voler pour gagner l'XP à votre place.
-*   **Rareté Visuelle :** Cartes colorées selon l'XP (Gris, Vert, Bleu, Violet, Or).
-*   **Calendrier :** Section "Prochainement" avec projection intelligente des tâches récurrentes évitant les erreurs de dates passées.
+    *   **🥷 Voler :** Si une tâche est en retard, un membre peut la voler. Il dispose alors de **15 minutes** pour la valider, faute de quoi elle retourne au pot commun.
+*   **Rareté Visuelle :** Common, Uncommon, Rare, Epic, Legendary (Missions Royales).
+*   **Gestion du Temps :**
+    *   Héritage des créneaux horaires (Start/End).
+    *   Masquage des tâches futures.
+    *   Projection virtuelle des tâches récurrentes dans la section "Prochainement".
 
-### 3.4. UX & Administration
-*   **Console Admin Royale :** Modale plein écran accessible uniquement au propriétaire ou à l'administrateur principal. Permet d'éditer les statistiques des joueurs (XP, Niveau, Nom) et de réparer les dates corrompues.
-*   **Toasts :** Notifications en temps réel lors des actions des membres (vol, abandon, validation).
-*   **Journal :** Historique complet avec fonction d'annulation.
-
-## 4. Roadmap (Prochaines Évolutions)
-
-### 4.1. Économie & Récompenses
-*   **L'Or du Royaume :** Gagner des pièces d'or lors des validations.
-*   **Boutique de la Guilde :** Acheter des récompenses personnalisables (ex: "Temps d'écran").
-
-### 4.2. Rappels & Notifications Push
-*   Notifications au début de la plage horaire d'une quête et alertes de "volabilité".
+## 6. Journal & Audit
+*   **Journal du Royaume :** Historique complet des validations, achats, vols et décisions du Conseil.
+*   **Annulation Royale :** Les admins peuvent annuler n'importe quel log pour retirer l'XP/Or et remettre la quête en jeu en cas d'erreur.

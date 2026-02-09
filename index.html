@@ -8,11 +8,11 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>ChoreQuest</title>
         <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=119">
+    <link rel="stylesheet" href="css/styles.css?v=122">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
     <script>
-        // --- NUCLEAIRE CACHE KILLER (Build 119) ---
+        // --- NUCLEAIRE CACHE KILLER (Build 122) ---
         (async function() {
             try {
                 const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
@@ -247,14 +247,14 @@
                         <div><label style="font-size:0.7rem;">Icône :</label><select id="guild-currency-symbol" onchange="app.updateGuildEconomy()"><option value="🪙">🪙</option><option value="💰">💰</option><option value="💎">💎</option><option value="🌕">🌕</option><option value="🎟️">🎟️</option><option value="🍪">🍪</option><option value="🍬">🍬</option><option value="🛡️">🛡️</option><option value="⚔️">⚔️</option><option value="📜">📜</option></select></div>
                     </div>
 
-                    <h4>Hiérarchie (Titres)</h4>
-                    <div id="guild-ranks-list" style="margin-bottom:10px; max-height:150px; overflow-y:auto; background:rgba(0,0,0,0.2); padding:5px; border-radius:5px;"></div>
-                    <button class="action-btn" onclick="app.addRankRow()" style="font-size:0.7rem; width:auto; padding:5px 10px; margin-bottom:15px;">+ Nouveau Rang</button>
+                    <h4>🛡️ Dashboard des Membres</h4>
+                    <div id="guild-members-list" class="members-dashboard"></div>
+                    <div style="display:flex; gap:10px; margin-bottom:15px;">
+                        <button class="action-btn" onclick="app.copyInviteLink()" style="background-color:#27ae60; font-size:0.7rem; flex:1;">🔗 Inviter</button>
+                        <button class="action-btn secondary-btn" onclick="app.openGuildSwitcher()" style="font-size:0.7rem; flex:1;">🔄 Changer</button>
+                    </div>
 
-                    <h4>Membres</h4>
-                    <div id="guild-members-list"></div>
-                    <button class="action-btn" onclick="app.copyInviteLink()" style="background-color:#27ae60; font-size:0.8rem; margin-bottom:10px;">🔗 Copier lien d'invitation</button>
-                    <button class="action-btn secondary-btn" onclick="app.openGuildSwitcher()" style="font-size:0.8rem; margin-bottom:10px;">🔄 Changer de Guilde</button>
+                    <h4>Hiérarchie (Titres)</h4>
                     <button id="quit-guild-btn" class="action-btn danger-btn" onclick="app.leaveGuild()" style="font-size:0.8rem;">🚪 Quitter cette Guilde</button>
                 </div>
             </div>
@@ -357,10 +357,10 @@
 
     <div id="activity-toast" class="hidden"><div id="toast-avatar" class="assignee-badge" style="width:30px; height:30px;"></div> <span id="toast-message">...</span></div>
 
-    <script src="js/config.js?v=119"></script>
-    <script src="js/auth.js?v=119"></script>
-    <script src="js/firebase-db.js?v=119"></script>
-    <script src="js/app.js?v=119"></script>
+    <script src="js/config.js?v=122"></script>
+    <script src="js/auth.js?v=122"></script>
+    <script src="js/firebase-db.js?v=122"></script>
+    <script src="js/app.js?v=122"></script>
 
     <script>
         if ('serviceWorker' in navigator) {
