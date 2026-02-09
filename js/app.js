@@ -9,7 +9,7 @@ const app = {
     _pendingAction: null,
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 116 starting...");
+        console.log("🛡️ ChoreQuest Build 117 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -135,7 +135,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(116); 
+                db.setSystemConfig(117); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -981,7 +981,6 @@ const app = {
                         <span class="vote-progress" style="margin-right:auto;">${progressText}</span>
                         ${!isVoted ? `<button class="scroll-btn btn-approve" onclick="app.voteQuest('${q.id}', 'approve')">Approuver</button>` : `<span style="font-size:0.8rem; color:#27ae60; margin-right:10px;">Fait ✅</span>`}
                         <button class="scroll-btn btn-counter" onclick="app.openCounterOfferModal('${q.id}')">Négocier</button>
-                        <button class="scroll-btn btn-reject" onclick="app.askConfirm('Rejeter cette quête ?', () => app.voteQuest('${q.id}', 'reject'))">Rejeter</button>
                     </div>
                 </div>`;
             }).join('');
