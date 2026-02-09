@@ -6,6 +6,25 @@ body {
     color: #e0e0e0;
 }
 
+/* Animations de Butin */
+.loot-popup {
+    position: fixed;
+    pointer-events: none;
+    font-weight: bold;
+    font-size: 1.2rem;
+    z-index: 9999;
+    animation: lootFloat 1.2s ease-out forwards;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+@keyframes lootFloat {
+    0% { transform: translateY(0); opacity: 1; }
+    100% { transform: translateY(-100px); opacity: 0; }
+}
+
+.xp-gain { color: #4a90e2; }
+.gold-gain { color: #f1c40f; }
+
 /* Dashboard des Membres */
 .members-dashboard {
     display: flex;

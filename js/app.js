@@ -9,7 +9,7 @@ const app = {
     _pendingAction: null,
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 122 starting...");
+        console.log("🛡️ ChoreQuest Build 123 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -135,7 +135,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(122); 
+                db.setSystemConfig(123); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -303,7 +303,11 @@ const app = {
         const quest = app.data.activeQuests[index];
         const def = app.data.questDefinitions.find(d => d.id === quest.definitionId);
         
-        // Calcul du bonus de niveau (1% par niveau)
+        // Position du clic pour l'animation
+        const rect = event.target.getBoundingClientRect();
+        const x = rect.left + rect.width / 2;
+        const y = rect.top;
+
         const userLevel = app.currentUser.level || 1;
         const bonusMultiplier = 1 + (userLevel / 100);
         
@@ -312,6 +316,10 @@ const app = {
 
         app.currentUser.xp += earnedXp;
         app.currentUser.gold = (app.currentUser.gold || 0) + earnedGold;
+
+        // Déclencher les animations
+        app.showLootPopup(`+${earnedXp} XP`, x - 20, y, 'xp-gain');
+        setTimeout(() => app.showLootPopup(`+${earnedGold} ${app.data.currency.symbol}`, x + 20, y, 'gold-gain'), 200);
 
         const xpNeeded = (app.currentUser.level || 1) * 100;
         if (app.currentUser.xp >= xpNeeded) {
@@ -339,6 +347,16 @@ const app = {
             delete quest.stealDeadline;
         } else app.data.activeQuests.splice(index, 1);
         await app.save();
+    },
+
+    showLootPopup(text, x, y, className) {
+        const el = document.createElement('div');
+        el.className = `loot-popup ${className}`;
+        el.innerText = text;
+        el.style.left = `${x}px`;
+        el.style.top = `${y}px`;
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 1200);
     },
 
     isStealable(q) {
