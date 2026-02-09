@@ -414,32 +414,16 @@ const app = {
             dueDate = app.calculateFirstDueDate(def).toISOString();
         }
 
-        // Création avec statut pending et vote automatique du créateur
-        const def = { id: defId, title, baseXp: xp, baseGold: gold, frequency: freq, interval: 1, days, timeSlot, defaultAssignee: assignee, isRoyal: false, status: 'pending', votes: { [app.currentUser.id]: true } };
+        const def = { id: defId, title, baseXp: xp, baseGold: gold, frequency: freq, interval: 1, days, timeSlot, defaultAssignee: assignee, isRoyal: false, status: 'pending', votes: { [app.currentUser.id]: true }, createdBy: app.currentUser.id };
         
-        // Vérification immédiate de la majorité (ex: si guild de 1 personne)
         const totalMembers = app.data.users.length;
         const majority = Math.floor(totalMembers / 2) + 1;
-        console.log(`📜 Conseil Debug: Members=${totalMembers}, Majority=${majority}, Votes=${Object.keys(def.votes).length}`);
-        
         if (Object.keys(def.votes).length >= majority && !assignee) {
             def.status = 'active';
         }
 
         app.data.questDefinitions.push(def);
-        app.data.activeQuests.push({ 
-            id: 'inst_'+Date.now(), 
-            definitionId: defId, 
-            title, 
-            xp, 
-            gold, 
-            dueDate, 
-            timeSlot, 
-            assignedTo: assignee, 
-            isRoyal: false, 
-            status: def.status 
-        });
-        
+        app.data.activeQuests.push({ id: 'inst_'+Date.now(), definitionId: defId, title, xp, gold, dueDate, timeSlot, assignedTo: assignee, isRoyal: false, status: def.status, createdBy: app.currentUser.id });
         await app.save(); app.hideModals();
     },
 
@@ -458,10 +442,8 @@ const app = {
         }
 
         const defId = 'def_royal_'+Date.now();
-        // Création avec statut pending et vote automatique du créateur
-        const def = { id: defId, title, baseXp: xp, baseGold: gold, frequency: 'none', defaultAssignee: assignee, isRoyal: true, status: 'pending', votes: { [app.currentUser.id]: true } };
+        const def = { id: defId, title, baseXp: xp, baseGold: gold, frequency: 'none', defaultAssignee: assignee, isRoyal: true, status: 'pending', votes: { [app.currentUser.id]: true }, createdBy: app.currentUser.id };
         
-        // Vérification immédiate de la majorité
         const totalMembers = app.data.users.length;
         const majority = Math.floor(totalMembers / 2) + 1;
         if (Object.keys(def.votes).length >= majority && !assignee) {
@@ -478,12 +460,57 @@ const app = {
             dueDate: new Date().toISOString(), 
             assignedTo: assignee, 
             isRoyal: true,
-            status: def.status
+            status: def.status,
+            createdBy: app.currentUser.id
         });
         
         await app.save(); 
         app.hideModals();
         app.setView('board');
+    },
+
+    openCounterOfferModal(instanceId) {
+        const quest = app.data.activeQuests.find(q => q.id === instanceId);
+        if (!quest) return;
+        const def = app.data.questDefinitions.find(d => d.id === quest.definitionId);
+        if (!def) return;
+
+        document.getElementById('counter-quest-id').value = instanceId;
+        document.getElementById('counter-offer-text').innerText = `Négociation pour : ${quest.title}`;
+        document.getElementById('counter-xp').value = quest.xp;
+        document.getElementById('counter-gold').value = quest.gold;
+        
+        const memberOptions = `<option value="">❓ Pour tous</option>` + app.data.users.map(u => `<option value="${u.id}" ${u.id === quest.assignedTo ? 'selected' : ''}>${u.name}</option>`).join('');
+        document.getElementById('counter-assignee').innerHTML = memberOptions;
+        
+        app.showModal('counter-offer-modal');
+    },
+
+    async submitCounterOffer() {
+        const instanceId = document.getElementById('counter-quest-id').value;
+        const xp = parseInt(document.getElementById('counter-xp').value);
+        const gold = parseInt(document.getElementById('counter-gold').value);
+        const assignee = document.getElementById('counter-assignee').value || null;
+
+        const quest = app.data.activeQuests.find(q => q.id === instanceId);
+        if (!quest) return;
+        const def = app.data.questDefinitions.find(d => d.id === quest.definitionId);
+        if (!def) return;
+
+        def.baseXp = xp;
+        def.baseGold = gold;
+        def.defaultAssignee = assignee;
+        def.votes = { [app.currentUser.id]: true }; 
+        def.createdBy = app.currentUser.id; 
+
+        quest.xp = xp;
+        quest.gold = gold;
+        quest.assignedTo = assignee;
+
+        app.data.questLog.unshift({ id: 'log_counter_'+Date.now(), type: 'system', title: `Contre-offre de ${app.currentUser.name} sur : ${quest.title}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
+
+        await app.save();
+        app.hideModals();
     },
 
     async voteQuest(instanceId, type) {
@@ -496,13 +523,10 @@ const app = {
             if (!def.votes) def.votes = {};
             def.votes[app.currentUser.id] = true;
 
-            // Logique de validation
             let validated = false;
             if (def.defaultAssignee) {
-                // Si assigné, seul le destinataire valide
                 if (app.currentUser.id === def.defaultAssignee) validated = true;
             } else {
-                // Si pour tous, majorité (floor(membres/2) + 1)
                 const approvalCount = Object.keys(def.votes).length;
                 const totalMembers = app.data.users.length;
                 const majority = Math.floor(totalMembers / 2) + 1;

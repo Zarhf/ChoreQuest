@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChoreQuest</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=109">
+    <link rel="stylesheet" href="css/styles.css?v=110">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
 </head>
 <body>
     <script>
-        // --- NUCLEAIRE CACHE KILLER (Build 109) ---
+        // --- NUCLEAIRE CACHE KILLER (Build 110) ---
         (async function() {
             try {
                 const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
@@ -331,14 +331,32 @@
                 <button class="action-btn secondary-btn" onclick="app.hideModals()" style="margin-top:10px;">Fermer</button>
             </div>
         </div>
+
+        <div id="counter-offer-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header"><h2>📝 Contre-proposer</h2><button class="close-btn" onclick="app.hideModals()">X</button></div>
+                <p id="counter-offer-text" style="font-size:0.8rem; opacity:0.8; margin-bottom:15px;"></p>
+                <input type="hidden" id="counter-quest-id">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                    <div><label style="font-size:0.7rem;">XP :</label><input type="number" id="counter-xp"></div>
+                    <div><label style="font-size:0.7rem;">Or :</label><input type="number" id="counter-gold"></div>
+                </div>
+                <div>
+                    <label style="font-size:0.7rem;">Assigné à :</label>
+                    <select id="counter-assignee"></select>
+                </div>
+                <button class="action-btn" style="margin-top:20px; background:#f39c12;" onclick="app.submitCounterOffer()">Envoyer la contre-offre</button>
+                <button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button>
+            </div>
+        </div>
     </div>
 
     <div id="activity-toast" class="hidden"><div id="toast-avatar" class="assignee-badge" style="width:30px; height:30px;"></div> <span id="toast-message">...</span></div>
 
-    <script src="js/config.js?v=109"></script>
-    <script src="js/auth.js?v=109"></script>
-    <script src="js/firebase-db.js?v=109"></script>
-    <script src="js/app.js?v=109"></script>
+    <script src="js/config.js?v=110"></script>
+    <script src="js/auth.js?v=110"></script>
+    <script src="js/firebase-db.js?v=110"></script>
+    <script src="js/app.js?v=110"></script>
 
     <script>
         if ('serviceWorker' in navigator) {
