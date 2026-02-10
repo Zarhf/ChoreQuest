@@ -8,11 +8,11 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>ChoreQuest</title>
         <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=131">
+    <link rel="stylesheet" href="css/styles.css?v=132">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
     <script>
-        // --- NUCLEAIRE CACHE KILLER (Build 131) ---
+        // --- NUCLEAIRE CACHE KILLER (Build 132) ---
         (async function() {
             try {
                 const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
@@ -292,7 +292,20 @@
                 <button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button>
             </div>
         </div>
-        <div id="guild-switcher-modal" class="modal hidden"><div class="modal-content"><h2>Tes Guildes</h2><div id="guild-list-container"></div><hr style="border:0; border-top:1px solid #444; margin:1rem 0;"><div style="display:flex; gap:5px; margin-bottom:10px;"><input type="text" id="guild-search-input" placeholder="Nom..."><button class="action-btn" onclick="app.searchGuilds()" style="width:auto;">🔍</button></div><div id="guild-search-results"></div><button class="action-btn secondary-btn" onclick="app.hideModals()">Fermer</button></div></div>
+        <div id="guild-switcher-modal" class="modal hidden">
+            <div class="modal-content">
+                <h2>Tes Guildes</h2>
+                <div id="guild-list-container"></div>
+                <button class="action-btn" onclick="app.hideModals(); app.showModal('create-guild-modal')" style="background-color:#27ae60; margin-top:10px; font-size:0.8rem;">🏰 Fonder une nouvelle Guilde</button>
+                <hr style="border:0; border-top:1px solid #444; margin:1rem 0;">
+                <div style="display:flex; gap:5px; margin-bottom:10px;">
+                    <input type="text" id="guild-search-input" placeholder="Rechercher une guilde publique...">
+                    <button class="action-btn" onclick="app.searchGuilds()" style="width:auto;">🔍</button>
+                </div>
+                <div id="guild-search-results"></div>
+                <button class="action-btn secondary-btn" onclick="app.hideModals()">Fermer</button>
+            </div>
+        </div>
         <div id="create-guild-modal" class="modal hidden"><div class="modal-content"><h2>Fonder une Guilde</h2><input type="text" id="new-guild-name" placeholder="Nom"><div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:1rem;"><div><label style="font-size:0.7rem;">Visibilité :</label><select id="new-guild-public"><option value="false">Privée</option><option value="true">Publique</option></select></div><div><label style="font-size:0.7rem;">Accès :</label><select id="new-guild-open"><option value="true">Ouverte</option><option value="false">Fermée</option></select></div></div><button class="action-btn" onclick="app.confirmCreateGuild()" style="background-color:#27ae60;">Créer</button><button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button></div></div>
         <div id="create-squire-modal" class="modal hidden"><div class="modal-content"><h2>Nouvel Écuyer</h2><div class="avatar-preview-container"><div class="avatar-circle" id="squire-avatar-preview">👤</div><input type="text" id="squire-avatar-seed" placeholder="Nom..." oninput="app.updateAvatarPreview('squire')" style="margin-top:10px;"></div><input type="text" id="squire-name" placeholder="Nom"><button class="action-btn" onclick="app.addSquire()" style="background-color:#27ae60;">Ajouter</button><button class="action-btn secondary-btn" onclick="app.hideModals()">Annuler</button></div></div>
         
