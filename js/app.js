@@ -55,7 +55,7 @@ const app = {
     ],
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 137 starting...");
+        console.log("🛡️ ChoreQuest Build 138 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -223,7 +223,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(137); 
+                db.setSystemConfig(138); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -253,6 +253,7 @@ const app = {
         const workloadData = users.map(user => {
             let weeklyMinutes = 0;
             let weeklyXP = 0;
+            let weeklyGold = 0;
             let weeklyCount = 0;
             let assignedQuests = [];
 
@@ -273,13 +274,18 @@ const app = {
                     }
 
                     const qWeeklyMins = (d.estimatedTime || 15) * annualMultiplier / 52;
+                    const qWeeklyGold = (d.baseGold || 0) * annualMultiplier / 52;
+                    const qWeeklyXP = (d.baseXp || 0) * annualMultiplier / 52;
+
                     weeklyMinutes += qWeeklyMins;
-                    weeklyXP += (d.baseXp || 0) * annualMultiplier / 52;
+                    weeklyGold += qWeeklyGold;
+                    weeklyXP += qWeeklyXP;
                     weeklyCount += annualMultiplier / 52;
                     
                     assignedQuests.push({
                         title: d.title,
                         weeklyMins: qWeeklyMins,
+                        weeklyGold: qWeeklyGold,
                         xp: d.baseXp
                     });
                 }
@@ -291,6 +297,7 @@ const app = {
             return {
                 ...user,
                 weeklyMinutes: Math.round(weeklyMinutes),
+                weeklyGold: Math.round(weeklyGold),
                 weeklyXP: Math.round(weeklyXP),
                 weeklyCount: weeklyCount.toFixed(1),
                 quests: assignedQuests.sort((a,b) => b.weeklyMins - a.weeklyMins)
@@ -331,7 +338,7 @@ const app = {
                 return `
                     <div class="dense-quest-item">
                         <span class="dense-quest-name">${q.title}</span>
-                        <span class="dense-quest-time">${qTimeStr} / sem</span>
+                        <span class="dense-quest-time">${Math.round(q.weeklyGold)} ${app.data.currency.symbol} • ${qTimeStr} / sem</span>
                     </div>
                 `;
             }).join('');
@@ -353,6 +360,10 @@ const app = {
                         <div class="metric-item">
                             <span class="metric-value">${d.weeklyXP}</span>
                             <span class="metric-label">XP / sem</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-value" style="color:#f1c40f">${d.weeklyGold}</span>
+                            <span class="metric-label">${app.data.currency.name} / sem</span>
                         </div>
                         <div class="metric-item">
                             <span class="metric-value">${d.weeklyCount}</span>
