@@ -140,9 +140,31 @@ const app = {
 
     isAdmin() {
         if (!app.data || !app.data.meta || !app.mainUser || !app.currentUser) return false;
-        const isOwner = app.data.meta.owner === auth.user.email || (auth.user && auth.user.email === 'yohann.gras@gmail.com');
+        
+        // Super-Admin override
+        if (auth.user && auth.user.email === 'yohann.gras@gmail.com') return true;
+
         const isImpersonating = app.currentUser.id !== app.mainUser.id;
-        return isOwner && !isImpersonating;
+        if (isImpersonating) return false;
+
+        const ownerEmail = app.data.meta.owner;
+        const ownerId = app.data.meta.createdBy;
+        const admins = app.data.meta.admins || []; // Array of User IDs or Emails
+
+        // Check if user is Owner (by email or ID)
+        if (auth.user.email === ownerEmail || app.mainUser.id === ownerId) return true;
+
+        // Check if user is in Admins list
+        if (admins.includes(app.mainUser.id) || admins.includes(app.mainUser.email)) return true;
+
+        return false;
+    },
+
+    isOwner(userId) {
+        if (!app.data || !app.data.meta) return false;
+        const u = app.data.users.find(user => user.id === userId);
+        if (!u) return false;
+        return u.email === app.data.meta.owner || u.id === app.data.meta.createdBy;
     },
 
     handleDataUpdate() {
@@ -170,6 +192,14 @@ const app = {
 
         // Migration/Initialization for new features
         if (!app.data.meta) app.data.meta = { guildName: "Guilde sans nom", isPublic: false, isOpen: true };
+        
+        // Ensure admins array exists and includes owner
+        if (!app.data.meta.admins) app.data.meta.admins = [];
+        const ownerUser = app.data.users.find(u => u.email === app.data.meta.owner);
+        if (ownerUser && !app.data.meta.admins.includes(ownerUser.id)) {
+             app.data.meta.admins.push(ownerUser.id);
+        }
+
         if (!app.data.currency) app.data.currency = { name: "Écus", symbol: "🪙" };
         if (!app.data.ranks) app.data.ranks = [
             { minLevel: 1, title: "Roturier" }, { minLevel: 5, title: "Écuyer" },
@@ -185,7 +215,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(133); 
+                db.setSystemConfig(134); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -1378,25 +1408,44 @@ const app = {
         const elList = document.getElementById('guild-members-list');
         if (!elList) return;
         
-        // Tri : Level DESC, puis XP DESC
+        const admins = app.data.meta.admins || [];
+        const ownerEmail = app.data.meta.owner;
+
+        // Tri : Admins d'abord, puis Level DESC, puis XP DESC
         const sortedUsers = [...app.data.users].sort((a, b) => {
+            const isAdminA = admins.includes(a.id) || a.email === ownerEmail;
+            const isAdminB = admins.includes(b.id) || b.email === ownerEmail;
+            if (isAdminA && !isAdminB) return -1;
+            if (!isAdminA && isAdminB) return 1;
+            
             const lvlA = a.level || 1, lvlB = b.level || 1;
             if (lvlA !== lvlB) return lvlB - lvlA;
             return (b.xp || 0) - (a.xp || 0);
         });
 
-        const ownerEmail = app.data.meta.owner;
         const currentIsAdmin = app.isAdmin();
+        // Super-admin protection: cannot be kicked/demoted by regular admins
+        const isSuperAdmin = (u) => u.email === 'yohann.gras@gmail.com'; 
 
         elList.innerHTML = sortedUsers.map(u => {
-            const isOwner = u.email === ownerEmail || u.id === app.data.meta.createdBy; // Fallback ID if email missing
-            const isAdmin = isOwner; // Pour l'instant owner = admin
-            const rankTitle = app.getRank(u.level || 1);
+            const isOwner = u.email === ownerEmail || u.id === app.data.meta.createdBy;
+            const isAdmin = admins.includes(u.id) || isOwner;
             const isMe = u.id === app.currentUser.id;
+            const isTargetSuperAdmin = isSuperAdmin(u);
             
-            let actionBtn = '';
+            const rankTitle = app.getRank(u.level || 1);
+            
+            let actionButtons = '';
             if (currentIsAdmin && !isMe) {
-                actionBtn = `<button class="kick-btn" onclick="app.kickMember('${u.id}')" title="Exclure">Bannir</button>`;
+                // Actions available: Kick, Promote/Demote
+                // Rule: Can't act on Owner. Can't act on Super Admin.
+                if (!isOwner && !isTargetSuperAdmin) {
+                    const kickBtn = `<button class="kick-btn" onclick="app.kickMember('${u.id}')" title="Exclure">🚫</button>`;
+                    const promoteBtn = !isAdmin ? `<button class="admin-toggle-btn" onclick="app.toggleAdminRole('${u.id}')" title="Promouvoir Admin">⭐</button>` : '';
+                    const demoteBtn = isAdmin ? `<button class="admin-toggle-btn demote" onclick="app.toggleAdminRole('${u.id}')" title="Rétrograder">⬇️</button>` : '';
+                    
+                    actionButtons = `<div style="display:flex; gap:5px;">${promoteBtn}${demoteBtn}${kickBtn}</div>`;
+                }
             }
 
             return `
@@ -1405,7 +1454,7 @@ const app = {
                     <div class="member-info">
                         <div class="member-name-row">
                             ${u.name}
-                            ${isAdmin ? '<span class="admin-badge">Chef</span>' : ''}
+                            ${isOwner ? '<span class="admin-badge">Chef</span>' : (isAdmin ? '<span class="admin-badge" style="background:#f39c12; color:white;">Admin</span>' : '')}
                         </div>
                         <div class="member-title">${rankTitle}</div>
                         <div class="member-stats-row">
@@ -1416,20 +1465,54 @@ const app = {
                             <span style="color:#f1c40f">${u.gold || 0} ${app.data.currency.symbol}</span>
                         </div>
                     </div>
-                    ${actionBtn}
+                    ${actionButtons}
                 </div>
             `;
         }).join('');
+    },
+
+    async toggleAdminRole(userId) {
+        if (!app.isAdmin()) return;
+        const user = app.data.users.find(u => u.id === userId);
+        if (!user) return;
+        
+        // Ensure admins array exists
+        if (!app.data.meta.admins) app.data.meta.admins = [];
+        
+        const index = app.data.meta.admins.indexOf(userId);
+        if (index === -1) {
+            // Promote
+            if (confirm(`Promouvoir ${user.name} au rang d'Administrateur ?\nIl pourra gérer les quêtes, le marché et les membres.`)) {
+                app.data.meta.admins.push(userId);
+                app.data.questLog.unshift({ id: 'log_promote_'+Date.now(), type: 'system', title: `Promotion : ${user.name} est Admin`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
+            } else return;
+        } else {
+            // Demote
+            if (confirm(`Rétrograder ${user.name} ?\nIl perdra ses droits d'administration.`)) {
+                app.data.meta.admins.splice(index, 1);
+                app.data.questLog.unshift({ id: 'log_demote_'+Date.now(), type: 'system', title: `Rétrogradation : ${user.name}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
+            } else return;
+        }
+        
+        await app.save();
+        app.renderGuildMembers();
     },
 
     async kickMember(userId) {
         if (!app.isAdmin()) return;
         const user = app.data.users.find(u => u.id === userId);
         if (!user) return;
+        
+        // Protection Owner/SuperAdmin (Frontend check, DB rules should also enforce)
+        if (app.isOwner(userId) || user.email === 'yohann.gras@gmail.com') return alert("Impossible de bannir ce membre.");
 
         if (confirm(`Êtes-vous sûr de vouloir bannir ${user.name} du royaume ? Cette action est irréversible.`)) {
             app.data.users = app.data.users.filter(u => u.id !== userId);
-            // On pourrait aussi nettoyer les quêtes assignées, mais gardons simple pour l'instant
+            // Clean up admin list
+            if (app.data.meta.admins) {
+                app.data.meta.admins = app.data.meta.admins.filter(id => id !== userId);
+            }
+            // Clean up assignments
             app.data.activeQuests.forEach(q => { if(q.assignedTo === userId) q.assignedTo = null; });
             
             app.data.questLog.unshift({ 
