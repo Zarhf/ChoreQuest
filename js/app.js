@@ -54,7 +54,7 @@ const app = {
     ],
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 129 starting...");
+        console.log("🛡️ ChoreQuest Build 131 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -185,7 +185,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(130); 
+                db.setSystemConfig(131); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -1460,6 +1460,25 @@ const app = {
         app.data.meta.guildName = newName; 
         await app.save(); 
         app.syncSettingsUI(); // Refresh title
+    },
+    async confirmCreateGuild() {
+        const nameIn = document.getElementById('new-guild-name');
+        const name = nameIn ? nameIn.value : "";
+        if (!name) return alert("Le nom de la guilde est obligatoire !");
+        
+        const isPublic = document.getElementById('new-guild-public').value === 'true';
+        const isOpen = document.getElementById('new-guild-open').value === 'true';
+        
+        app.showLoading(true);
+        try {
+            const guildId = await db.createGuild(auth.user.email, name, isPublic, isOpen);
+            localStorage.setItem('currentGuildId', guildId);
+            window.location.reload(); // Recharger pour initialiser la nouvelle guilde
+        } catch (err) {
+            console.error(err);
+            alert("Erreur lors de la création.");
+            app.showLoading(false);
+        }
     },
     async openGuildSwitcher() { app.showLoading(true); const guilds = await db.getAvailableGuilds(auth.user.email); app.showLoading(false); const cont = document.getElementById('guild-list-container'); if (cont) cont.innerHTML = guilds.map(g => `<div style="background:${g.id === app.guildId ? '#4a90e2' : '#0f3460'}; padding:10px; margin-bottom:5px; border-radius:5px; cursor:pointer;" onclick="app.switchGuild('${g.id}')"><strong>${g.meta.guildName}</strong></div>`).join(''); app.showModal('guild-switcher-modal'); },
     async searchGuilds() { const qIn = document.getElementById('guild-search-input'); const q = qIn ? qIn.value : ''; if (!q) return; app.showLoading(true); const results = await db.searchPublicGuilds(q); app.showLoading(false); const resEl = document.getElementById('guild-search-results'); if (resEl) resEl.innerHTML = results.length ? results.map(g => `<div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between; align-items:center;"><span>${g.meta.guildName}</span><button class="action-btn" style="width:auto; padding:5px 10px;" onclick="app.handleJoinLink('${g.id}')">Rejoindre</button></div>`).join('') : "<p>Rien trouvé.</p>"; },
