@@ -147,7 +147,11 @@ const app = {
 
     handleDataUpdate() {
         app.watchForToasts();
-        if (!app.data || !app.data.users) return;
+        if (!app.data || !app.data.users) {
+            console.warn("⚠️ Données de guilde incomplètes ou absentes.");
+            app.showView('entry-choice-screen');
+            return;
+        }
 
         app.mainUser = app.data.users.find(u => u.email === auth.user.email);
         
@@ -165,6 +169,7 @@ const app = {
         app.checkDeadlines();
 
         // Migration/Initialization for new features
+        if (!app.data.meta) app.data.meta = { guildName: "Guilde sans nom", isPublic: false, isOpen: true };
         if (!app.data.currency) app.data.currency = { name: "Écus", symbol: "🪙" };
         if (!app.data.ranks) app.data.ranks = [
             { minLevel: 1, title: "Roturier" }, { minLevel: 5, title: "Écuyer" },
@@ -180,7 +185,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(129); 
+                db.setSystemConfig(130); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -1250,19 +1255,30 @@ const app = {
     },
 
     syncSettingsUI() {
+        if (!app.data || !app.data.meta) return;
+
         // En-tête de Guilde
-        document.getElementById('guild-name-display').innerText = app.data.meta.guildName;
-        const memberCount = app.data.users.length;
+        document.getElementById('guild-name-display').innerText = app.data.meta.guildName || "Sans nom";
+        const memberCount = (app.data.users || []).length;
         document.getElementById('guild-stats-display').innerText = `${memberCount} Membre${memberCount>1?'s':''} • ${app.data.meta.isPublic ? '🌍 Publique' : '🔒 Privée'}`;
 
         // Admin Edit Fields
-        document.getElementById('edit-guild-name').value = app.data.meta.guildName;
-        document.getElementById('edit-guild-public').value = app.data.meta.isPublic.toString();
-        document.getElementById('edit-guild-open').value = app.data.meta.isOpen.toString();
+        const elName = document.getElementById('edit-guild-name');
+        if (elName) elName.value = app.data.meta.guildName || "";
+        
+        const elPublic = document.getElementById('edit-guild-public');
+        if (elPublic) elPublic.value = (app.data.meta.isPublic ?? false).toString();
+        
+        const elOpen = document.getElementById('edit-guild-open');
+        if (elOpen) elOpen.value = (app.data.meta.isOpen ?? true).toString();
         
         // Economy settings
-        document.getElementById('guild-currency-name').value = app.data.currency.name;
-        document.getElementById('guild-currency-symbol').value = app.data.currency.symbol;
+        const elCurrName = document.getElementById('guild-currency-name');
+        if (elCurrName) elCurrName.value = (app.data.currency?.name || "Écus");
+        
+        const elCurrSym = document.getElementById('guild-currency-symbol');
+        if (elCurrSym) elCurrSym.value = (app.data.currency?.symbol || "🪙");
+        
         app.renderGuildRanks();
 
         app.renderGuildMembers();
