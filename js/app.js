@@ -200,6 +200,13 @@ const app = {
              app.data.meta.admins.push(ownerUser.id);
         }
 
+        // Migration pour estimatedTime
+        if (app.data.questDefinitions) {
+            app.data.questDefinitions.forEach(d => {
+                if (d.estimatedTime === undefined) d.estimatedTime = 15;
+            });
+        }
+
         if (!app.data.currency) app.data.currency = { name: "Écus", symbol: "🪙" };
         if (!app.data.ranks) app.data.ranks = [
             { minLevel: 1, title: "Roturier" }, { minLevel: 5, title: "Écuyer" },
@@ -215,7 +222,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(135); 
+                db.setSystemConfig(136); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -229,6 +236,91 @@ const app = {
         if (!hasSeenTutorial) {
             setTimeout(() => app.startTutorial(), 1000);
         }
+    },
+
+    // --- Stats & Workload ---
+    renderStats() {
+        const statsList = document.getElementById('stats-list');
+        if (!statsList) return;
+
+        const users = [...app.data.users, { id: null, name: "❓ Libres", avatar: "?" }];
+        const defs = app.data.questDefinitions.filter(d => !d.archived);
+        
+        const workloadData = users.map(user => {
+            let weeklyMinutes = 0;
+            let weeklyXP = 0;
+            let weeklyCount = 0;
+
+            defs.forEach(d => {
+                if (d.defaultAssignee === user.id) {
+                    let annualMultiplier = 0;
+                    const interval = parseInt(d.interval || 1);
+
+                    if (d.frequency === 'daily') {
+                        annualMultiplier = 365 / interval;
+                    } else if (d.frequency === 'weekly') {
+                        const daysCount = (d.days || []).length || 1;
+                        annualMultiplier = (52 / interval) * daysCount;
+                    } else if (d.frequency === 'monthly') {
+                        annualMultiplier = 12 / interval;
+                    } else {
+                        annualMultiplier = 1;
+                    }
+
+                    weeklyMinutes += (d.estimatedTime || 15) * annualMultiplier / 52;
+                    weeklyXP += (d.baseXp || 0) * annualMultiplier / 52;
+                    weeklyCount += annualMultiplier / 52;
+                }
+            });
+
+            return {
+                ...user,
+                weeklyMinutes: Math.round(weeklyMinutes),
+                weeklyXP: Math.round(weeklyXP),
+                weeklyCount: weeklyCount.toFixed(1)
+            };
+        });
+
+        const maxMins = Math.max(...workloadData.map(d => d.weeklyMinutes), 60);
+
+        statsList.innerHTML = workloadData.map(d => {
+            const hours = Math.floor(d.weeklyMinutes / 60);
+            const mins = d.weeklyMinutes % 60;
+            const timeStr = hours > 0 ? `${hours}h${mins.toString().padStart(2, '0')}` : `${mins}min`;
+            
+            const percentage = (d.weeklyMinutes / maxMins) * 100;
+            let loadClass = 'load-low';
+            if (d.weeklyMinutes > 180) loadClass = 'load-extreme';
+            else if (d.weeklyMinutes > 120) loadClass = 'load-high';
+            else if (d.weeklyMinutes > 60) loadClass = 'load-medium';
+
+            return `
+                <div class="stat-card">
+                    <div class="stat-header">
+                        ${app.getAvatarHtml(d.avatar, "30px")}
+                        <h4>${d.name}</h4>
+                        <span style="font-size:0.8rem; font-weight:bold;">${timeStr} / sem</span>
+                    </div>
+                    <div class="workload-bar-container">
+                        <div class="workload-bar ${loadClass}" style="width: ${percentage}%"></div>
+                    </div>
+                    <div class="workload-metrics">
+                        <div class="metric-item">
+                            <span class="metric-value">${d.weeklyXP}</span>
+                            <span class="metric-label">XP / sem</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-value">${d.weeklyCount}</span>
+                            <span class="metric-label">Tâches / sem</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-value">${app.getRank(d.level || 1)}</span>
+                            <span class="metric-label">Rang</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
     },
 
     startTutorial() {
@@ -576,6 +668,7 @@ const app = {
         const titleEl = document.getElementById('quest-title');
         const xpEl = document.getElementById('quest-difficulty');
         const goldEl = document.getElementById('quest-gold');
+        const durationEl = document.getElementById('quest-duration');
         const freqEl = document.getElementById('quest-frequency');
         const dateEl = document.getElementById('quest-date');
         const assigneeEl = document.getElementById('quest-assignee');
@@ -585,6 +678,7 @@ const app = {
         const title = titleEl.value;
         const xp = parseInt(xpEl.value);
         const gold = parseInt(goldEl ? goldEl.value : 0) || 0;
+        const duration = parseInt(durationEl ? durationEl.value : 15) || 15;
         const freq = freqEl ? freqEl.value : 'none';
         const assignee = assigneeEl ? assigneeEl.value : null;
         
@@ -605,7 +699,7 @@ const app = {
             dueDate = app.calculateFirstDueDate(def).toISOString();
         }
 
-        const def = { id: defId, title, baseXp: xp, baseGold: gold, frequency: freq, interval: 1, days, timeSlot, defaultAssignee: assignee, isRoyal: false, status: 'pending', votes: { [app.currentUser.id]: true }, createdBy: app.currentUser.id };
+        const def = { id: defId, title, baseXp: xp, baseGold: gold, estimatedTime: duration, frequency: freq, interval: 1, days, timeSlot, defaultAssignee: assignee, isRoyal: false, status: 'pending', votes: { [app.currentUser.id]: true }, createdBy: app.currentUser.id };
         
         const totalMembers = app.data.users.length;
         const majority = Math.floor(totalMembers / 2) + 1;
@@ -789,13 +883,11 @@ const app = {
         const def = app.data.questDefinitions.find(d => d.id === defId);
         if (!def) return;
         
-        // Don't open standard edit for Royal Missions from board if you want them special, 
-        // but for now let's just populate.
-        
         document.getElementById('edit-quest-id').value = def.id; 
         document.getElementById('edit-quest-title').value = def.title;
         document.getElementById('edit-quest-difficulty').value = def.baseXp;
         document.getElementById('edit-quest-gold').value = def.baseGold || 0;
+        document.getElementById('edit-quest-duration').value = def.estimatedTime || 15;
         document.getElementById('edit-quest-frequency').value = def.frequency || 'none';
         const elAssignee = document.getElementById('edit-quest-assignee'); if (elAssignee) elAssignee.value = def.defaultAssignee || '';
         if (def.timeSlot) { document.getElementById('edit-quest-time-start').value = def.timeSlot.start; document.getElementById('edit-quest-time-end').value = def.timeSlot.end; }
@@ -815,6 +907,7 @@ const app = {
             const title = document.getElementById('edit-quest-title').value;
             const xp = parseInt(document.getElementById('edit-quest-difficulty').value);
             const gold = parseInt(document.getElementById('edit-quest-gold').value || 0);
+            const duration = parseInt(document.getElementById('edit-quest-duration').value || 15);
             const freq = document.getElementById('edit-quest-frequency').value;
             const interval = document.getElementById('edit-quest-interval').value;
             const assignee = document.getElementById('edit-quest-assignee').value || null;
@@ -826,7 +919,7 @@ const app = {
             const oldDef = app.data.questDefinitions[defIdx];
             const timeSlot = (tStart && tEnd) ? { start: tStart, end: tEnd } : null;
             const changed = oldDef.frequency !== freq || JSON.stringify(oldDef.days) !== JSON.stringify(days) || oldDef.interval !== interval;
-            app.data.questDefinitions[defIdx] = { ...oldDef, title, baseXp: xp, baseGold: gold, frequency: freq, interval, days, timeSlot, defaultAssignee: assignee };
+            app.data.questDefinitions[defIdx] = { ...oldDef, title, baseXp: xp, baseGold: gold, estimatedTime: duration, frequency: freq, interval, days, timeSlot, defaultAssignee: assignee };
             app.data.activeQuests.forEach(q => { if (q.definitionId === defId) { q.title = title; q.xp = xp; q.gold = gold; q.timeSlot = timeSlot; if (changed) q.dueDate = app.calculateFirstDueDate(app.data.questDefinitions[defIdx]).toISOString(); if (!q.assignedTo || q.assignedTo === oldDef.defaultAssignee) q.assignedTo = assignee; } });
             await app.save(); app.hideModals();
         });
@@ -1118,16 +1211,25 @@ const app = {
         
         if (app.currentView === 'board') { 
             document.getElementById('quest-board').classList.remove('hidden'); 
+            document.getElementById('stats-board').classList.add('hidden');
             document.getElementById('market-board').classList.add('hidden');
             document.getElementById('history-board').classList.add('hidden'); 
             app.renderBoard(); 
+        } else if (app.currentView === 'stats') {
+            document.getElementById('quest-board').classList.add('hidden');
+            document.getElementById('stats-board').classList.remove('hidden');
+            document.getElementById('market-board').classList.add('hidden');
+            document.getElementById('history-board').classList.add('hidden');
+            app.renderStats();
         } else if (app.currentView === 'market') {
             document.getElementById('quest-board').classList.add('hidden');
+            document.getElementById('stats-board').classList.add('hidden');
             document.getElementById('market-board').classList.remove('hidden');
             document.getElementById('history-board').classList.add('hidden');
             app.renderMarket();
         } else { 
             document.getElementById('quest-board').classList.add('hidden'); 
+            document.getElementById('stats-board').classList.add('hidden');
             document.getElementById('market-board').classList.add('hidden');
             document.getElementById('history-board').classList.remove('hidden'); 
             app.renderHistory(); 
@@ -1530,7 +1632,22 @@ const app = {
     },
 
     updateCurrentUserInfo() { app.currentUser.name = document.getElementById('edit-user-name').value; app.save(); },
-    setView(v) { app.currentView = v; document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.id === `tab-${v}`)); app.render(); },
+    setView(v) { 
+        app.currentView = v; 
+        document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.id === `tab-${v}`)); 
+        
+        // Hide all boards
+        ['quest-board', 'stats-board', 'market-board', 'history-board'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        });
+
+        // Show target board
+        const target = document.getElementById(`${v}-board`);
+        if (target) target.classList.remove('hidden');
+
+        app.render(); 
+    },
     showLoading(s) { const el = document.getElementById('loading'); if (el) el.classList.toggle('hidden', !s); },
     showModal(id) { const el = document.getElementById(id); if (el) el.classList.remove('hidden'); },
     hideModals() { document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')); },

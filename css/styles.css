@@ -538,6 +538,81 @@ input, select {
     font-weight: bold;
 }
 
+/* Stats & Workload */
+.stats-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.stat-card {
+    background: #0f3460;
+    border-radius: 12px;
+    padding: 15px;
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+.stat-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 12px;
+}
+
+.stat-header h4 {
+    margin: 0;
+    font-size: 1.1rem;
+    flex: 1;
+}
+
+.workload-bar-container {
+    background: #16213e;
+    height: 10px;
+    border-radius: 5px;
+    overflow: hidden;
+    margin: 10px 0;
+}
+
+.workload-bar {
+    height: 100%;
+    width: 0%;
+    transition: width 1s ease-in-out, background-color 0.5s;
+}
+
+.workload-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 10px;
+    background: rgba(0,0,0,0.2);
+    padding: 10px;
+    border-radius: 8px;
+}
+
+.metric-item {
+    text-align: center;
+}
+
+.metric-value {
+    display: block;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.metric-label {
+    font-size: 0.65rem;
+    opacity: 0.6;
+    text-transform: uppercase;
+}
+
+/* Colors for workload levels */
+.load-low { background: #27ae60; }
+.load-medium { background: #f1c40f; }
+.load-high { background: #e67e22; }
+.load-extreme { background: #e74c3c; box-shadow: 0 0 10px #e74c3c; }
+
 /* Header Actions */
 .header-actions { display: flex; gap: 10px; }
 .icon-btn {

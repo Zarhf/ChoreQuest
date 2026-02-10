@@ -90,6 +90,7 @@
 
                 <div class="nav-tabs">
                     <button id="tab-board" class="nav-tab active" onclick="app.setView('board')">Quêtes</button>
+                    <button id="tab-stats" class="nav-tab" onclick="app.setView('stats')">Charge</button>
                     <button id="tab-market" class="nav-tab" onclick="app.setView('market')">Marché</button>
                     <button id="tab-history" class="nav-tab" onclick="app.setView('history')">Journal</button>
                 </div>
@@ -104,6 +105,12 @@
                     <h2 style="margin-top:2rem; opacity:0.7;">Prochainement</h2>
                     <div id="upcoming-task-list"></div>
                     <button class="action-btn" style="margin-top:2rem;" onclick="app.showModal('quest-modal')">+ Nouvelle Quête</button>
+                </div>
+
+                <div id="stats-board" class="hidden">
+                    <h2>📊 Équité & Charge du Royaume</h2>
+                    <p style="font-size:0.7rem; opacity:0.6; margin-bottom:20px; text-align:center;">Moyenne hebdomadaire basée sur la projection annuelle.</p>
+                    <div id="stats-list" class="stats-grid"></div>
                 </div>
 
                 <div id="market-board" class="hidden">
@@ -187,9 +194,10 @@
             <div class="modal-content">
                 <h2>Nouvelle Quête</h2>
                 <input type="text" id="quest-title" placeholder="Titre">
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
                     <div><label style="font-size:0.7rem;">XP :</label><input type="number" id="quest-difficulty" value="50"></div>
-                    <div><label style="font-size:0.7rem;">Récompense (<span class="currency-name-label">...</span>) :</label><input type="number" id="quest-gold" value="10"></div>
+                    <div><label style="font-size:0.7rem;">Récompense :</label><input type="number" id="quest-gold" value="10"></div>
+                    <div><label style="font-size:0.7rem;">Durée (min) :</label><input type="number" id="quest-duration" value="15"></div>
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
                     <div><label style="font-size:0.7rem;">Récurrence :</label><select id="quest-frequency" onchange="app.toggleRecurrenceUI('quest')"><option value="none">Une seule fois</option><option value="daily">Jours</option><option value="weekly">Semaines</option><option value="monthly">Mois</option></select></div>
@@ -212,9 +220,10 @@
                 <div class="modal-header"><h2>Modifier</h2><button class="close-btn" onclick="app.hideModals()">X</button></div>
                 <input type="hidden" id="edit-quest-id">
                 <input type="text" id="edit-quest-title">
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
                     <div><label style="font-size:0.7rem;">XP :</label><input type="number" id="edit-quest-difficulty"></div>
-                    <div><label style="font-size:0.7rem;">Récompense (<span class="currency-name-label">...</span>) :</label><input type="number" id="edit-quest-gold"></div>
+                    <div><label style="font-size:0.7rem;">Récompense :</label><input type="number" id="edit-quest-gold"></div>
+                    <div><label style="font-size:0.7rem;">Durée (min) :</label><input type="number" id="edit-quest-duration"></div>
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
                     <div><label style="font-size:0.7rem;">Horaires :</label><div style="display:flex; gap:2px;"><input type="time" id="edit-quest-time-start"><input type="time" id="edit-quest-time-end"></div></div>
