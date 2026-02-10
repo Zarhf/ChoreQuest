@@ -7,6 +7,7 @@ const app = {
     lastLogId: null,
     currentAvatarStyle: 'adventurer',
     _pendingAction: null,
+    _expandedStatUserId: null,
     currentTutorialStep: 0,
     tutorialSteps: [
         {
@@ -54,7 +55,7 @@ const app = {
     ],
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 135 starting...");
+        console.log("🛡️ ChoreQuest Build 137 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -222,7 +223,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(136); 
+                db.setSystemConfig(137); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -246,10 +247,14 @@ const app = {
         const users = [...app.data.users, { id: null, name: "❓ Libres", avatar: "?" }];
         const defs = app.data.questDefinitions.filter(d => !d.archived);
         
+        let totalGuildMinutes = 0;
+        const memberCount = app.data.users.length || 1;
+
         const workloadData = users.map(user => {
             let weeklyMinutes = 0;
             let weeklyXP = 0;
             let weeklyCount = 0;
+            let assignedQuests = [];
 
             defs.forEach(d => {
                 if (d.defaultAssignee === user.id) {
@@ -267,39 +272,79 @@ const app = {
                         annualMultiplier = 1;
                     }
 
-                    weeklyMinutes += (d.estimatedTime || 15) * annualMultiplier / 52;
+                    const qWeeklyMins = (d.estimatedTime || 15) * annualMultiplier / 52;
+                    weeklyMinutes += qWeeklyMins;
                     weeklyXP += (d.baseXp || 0) * annualMultiplier / 52;
                     weeklyCount += annualMultiplier / 52;
+                    
+                    assignedQuests.push({
+                        title: d.title,
+                        weeklyMins: qWeeklyMins,
+                        xp: d.baseXp
+                    });
                 }
             });
+
+            // On ne compte que les membres réels dans la charge totale de guilde pour la moyenne
+            if (user.id !== null) totalGuildMinutes += weeklyMinutes;
 
             return {
                 ...user,
                 weeklyMinutes: Math.round(weeklyMinutes),
                 weeklyXP: Math.round(weeklyXP),
-                weeklyCount: weeklyCount.toFixed(1)
+                weeklyCount: weeklyCount.toFixed(1),
+                quests: assignedQuests.sort((a,b) => b.weeklyMins - a.weeklyMins)
             };
         });
+
+        const guildAverage = totalGuildMinutes / memberCount;
+
+        // Tri par durée totale décroissante
+        workloadData.sort((a, b) => b.weeklyMinutes - a.weeklyMinutes);
 
         const maxMins = Math.max(...workloadData.map(d => d.weeklyMinutes), 60);
 
         statsList.innerHTML = workloadData.map(d => {
+            const isExpanded = app._expandedStatUserId === d.id;
             const hours = Math.floor(d.weeklyMinutes / 60);
             const mins = d.weeklyMinutes % 60;
             const timeStr = hours > 0 ? `${hours}h${mins.toString().padStart(2, '0')}` : `${mins}min`;
             
             const percentage = (d.weeklyMinutes / maxMins) * 100;
+            
+            // Calcul de la couleur selon l'écart à la moyenne (seulement pour les membres)
             let loadClass = 'load-low';
-            if (d.weeklyMinutes > 180) loadClass = 'load-extreme';
-            else if (d.weeklyMinutes > 120) loadClass = 'load-high';
-            else if (d.weeklyMinutes > 60) loadClass = 'load-medium';
+            if (d.id !== null && guildAverage > 0) {
+                const deviation = Math.abs(d.weeklyMinutes - guildAverage) / guildAverage;
+                if (deviation > 0.75) loadClass = 'load-extreme';
+                else if (deviation > 0.50) loadClass = 'load-high';
+                else if (deviation > 0.25) loadClass = 'load-medium';
+                else loadClass = 'load-low';
+            } else if (d.id === null) {
+                loadClass = 'load-low'; // Pour les libres
+            }
+
+            const questsHtml = d.quests.map(q => {
+                const qHours = Math.floor(q.weeklyMins / 60);
+                const qMins = Math.round(q.weeklyMins % 60);
+                const qTimeStr = qHours > 0 ? `${qHours}h${qMins.toString().padStart(2, '0')}` : `${qMins}m`;
+                return `
+                    <div class="dense-quest-item">
+                        <span class="dense-quest-name">${q.title}</span>
+                        <span class="dense-quest-time">${qTimeStr} / sem</span>
+                    </div>
+                `;
+            }).join('');
 
             return `
-                <div class="stat-card">
+                <div class="stat-card ${isExpanded ? 'expanded' : ''}" onclick="app.toggleStatCard('${d.id}')">
                     <div class="stat-header">
                         ${app.getAvatarHtml(d.avatar, "30px")}
                         <h4>${d.name}</h4>
-                        <span style="font-size:0.8rem; font-weight:bold;">${timeStr} / sem</span>
+                        <div style="text-align:right;">
+                            <div style="font-size:0.85rem; font-weight:bold;">${timeStr} / sem</div>
+                            ${d.id !== null ? `<div style="font-size:0.6rem; opacity:0.5;">Moyenne: ${Math.round(guildAverage)}m</div>` : ''}
+                        </div>
                     </div>
                     <div class="workload-bar-container">
                         <div class="workload-bar ${loadClass}" style="width: ${percentage}%"></div>
@@ -311,16 +356,29 @@ const app = {
                         </div>
                         <div class="metric-item">
                             <span class="metric-value">${d.weeklyCount}</span>
-                            <span class="metric-label">Tâches / sem</span>
+                            <span class="metric-label">Tâches</span>
                         </div>
                         <div class="metric-item">
-                            <span class="metric-value">${app.getRank(d.level || 1)}</span>
+                            <span class="metric-value">${d.id !== null ? app.getRank(d.level || 1) : '-'}</span>
                             <span class="metric-label">Rang</span>
                         </div>
                     </div>
+                    ${isExpanded ? `
+                        <div class="workload-details">
+                            <div style="font-size:0.7rem; text-transform:uppercase; opacity:0.6; margin-bottom:8px; font-weight:bold;">Détail des Quêtes</div>
+                            <div class="dense-quest-list">${questsHtml || '<p style="font-size:0.7rem; opacity:0.5;">Aucune tâche assignée.</p>'}</div>
+                        </div>
+                    ` : ''}
                 </div>
             `;
         }).join('');
+    },
+
+    toggleStatCard(userId) {
+        // userId est stringifié par le template literal, attention au null
+        const id = userId === "null" ? null : userId;
+        app._expandedStatUserId = (app._expandedStatUserId === id) ? null : id;
+        app.renderStats();
     },
 
     startTutorial() {

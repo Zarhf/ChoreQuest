@@ -552,6 +552,19 @@ input, select {
     padding: 15px;
     border: 1px solid rgba(255,255,255,0.1);
     box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.stat-card:hover {
+    border-color: #4a90e2;
+    background: #16213e;
+}
+
+.stat-card.expanded {
+    background: #16213e;
+    border-color: #f1c40f;
 }
 
 .stat-header {
@@ -565,6 +578,47 @@ input, select {
     margin: 0;
     font-size: 1.1rem;
     flex: 1;
+}
+
+.workload-details {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.dense-quest-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.dense-quest-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    padding: 6px 10px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 4px;
+}
+
+.dense-quest-name {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    margin-right: 10px;
+}
+
+.dense-quest-time {
+    font-weight: bold;
+    color: #4a90e2;
+    flex-shrink: 0;
 }
 
 .workload-bar-container {
