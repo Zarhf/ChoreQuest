@@ -54,7 +54,7 @@ const app = {
     ],
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 133 starting...");
+        console.log("🛡️ ChoreQuest Build 135 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -215,7 +215,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(134); 
+                db.setSystemConfig(135); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -1568,7 +1568,80 @@ const app = {
     async copyInviteLink() { const url = `${window.location.origin}${window.location.pathname}?join=${app.guildId}`; await navigator.clipboard.writeText(url); alert("Lien copié !"); },
     switchGuild(id) { localStorage.setItem('currentGuildId', id); window.location.reload(); },
     async toggleGuildPublic() { app.data.meta.isPublic = !app.data.meta.isPublic; await app.save(); app.syncSettingsUI(); },
-    async leaveGuild() { if (!confirm("Quitter ?")) return; app.showLoading(true); await db.leaveGuild(app.guildId, auth.user.email); localStorage.removeItem('currentGuildId'); window.location.reload(); },
+    async leaveGuild() { 
+        if (!confirm("Voulez-vous vraiment quitter cette Guilde ?\nSi vous êtes le chef, le pouvoir sera transmis à l'aventurier le plus valeureux.")) return;
+        
+        app.showLoading(true);
+        try {
+            const userId = app.mainUser.id;
+            const isOwner = app.isOwner(userId);
+            
+            // On retire l'utilisateur de la liste
+            app.data.users = app.data.users.filter(u => u.id !== userId);
+            
+            // On retire l'utilisateur de la liste des admins
+            if (app.data.meta.admins) {
+                app.data.meta.admins = app.data.meta.admins.filter(id => id !== userId);
+            }
+
+            if (app.data.users.length === 0) {
+                // Dernier membre : On supprime la guilde
+                await db.deleteGuild(app.guildId);
+            } else {
+                if (isOwner) {
+                    // Transfert de propriété
+                    const admins = app.data.meta.admins || [];
+                    
+                    // Tri pour trouver le successeur : 
+                    // 1. Admins d'abord
+                    // 2. Plus haut niveau ensuite
+                    const candidates = [...app.data.users].sort((a, b) => {
+                        const isAAdmin = admins.includes(a.id);
+                        const isBAdmin = admins.includes(b.id);
+                        if (isAAdmin && !isBAdmin) return -1;
+                        if (!isAAdmin && isBAdmin) return 1;
+                        return (b.level || 1) - (a.level || 1);
+                    });
+
+                    const successor = candidates[0];
+                    app.data.meta.owner = successor.email || ""; // Si c'est un écuyer sans email, l'admin pourra toujours gérer via son ID
+                    app.data.meta.createdBy = successor.id;
+                    
+                    // On s'assure que le successeur est admin
+                    if (!admins.includes(successor.id)) {
+                        app.data.meta.admins.push(successor.id);
+                    }
+
+                    app.data.questLog.unshift({ 
+                        id: 'log_succession_'+Date.now(), 
+                        type: 'system', 
+                        title: `Nouveau Chef : ${successor.name} prend les rênes !`, 
+                        completedBy: userId, 
+                        completedAt: new Date().toISOString(), 
+                        xpEarned: 0 
+                    });
+                } else {
+                    app.data.questLog.unshift({ 
+                        id: 'log_leave_'+Date.now(), 
+                        type: 'system', 
+                        title: `Départ : ${app.mainUser.name} a quitté l'aventure`, 
+                        completedBy: userId, 
+                        completedAt: new Date().toISOString(), 
+                        xpEarned: 0 
+                    });
+                }
+                
+                await app.save();
+            }
+
+            localStorage.removeItem('currentGuildId');
+            window.location.reload();
+        } catch (err) {
+            console.error(err);
+            alert("Erreur lors du départ.");
+            app.showLoading(false);
+        }
+    },
     async updateGuildSettings() { 
         if (!app.isAdmin()) return;
         if (!app.data) return; 

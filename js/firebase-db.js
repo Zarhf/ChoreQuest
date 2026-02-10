@@ -112,6 +112,10 @@ const db = {
         });
     },
 
+    async deleteGuild(guildId) {
+        await this.firestore.collection('guilds').doc(guildId).delete();
+    },
+
     listenToSystemConfig(callback) {
         this.firestore.collection('system').doc('config').onSnapshot((doc) => {
             if (doc.exists) callback(doc.data());
