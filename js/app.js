@@ -55,7 +55,7 @@ const app = {
     ],
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 138 starting...");
+        console.log("🛡️ ChoreQuest Build 139 starting...");
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -223,7 +223,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(138); 
+                db.setSystemConfig(139); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
@@ -299,7 +299,7 @@ const app = {
                 weeklyMinutes: Math.round(weeklyMinutes),
                 weeklyGold: Math.round(weeklyGold),
                 weeklyXP: Math.round(weeklyXP),
-                weeklyCount: weeklyCount.toFixed(1),
+                weeklyCount: Math.round(weeklyCount),
                 quests: assignedQuests.sort((a,b) => b.weeklyMins - a.weeklyMins)
             };
         });
