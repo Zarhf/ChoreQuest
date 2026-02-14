@@ -8,14 +8,14 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>ChoreQuest</title>
         <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=182">
+    <link rel="stylesheet" href="css/styles.css?v=183">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=MedievalSharp&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <script>
-        // --- NUCLEAIRE CACHE KILLER (Build 182) ---
+        // --- NUCLEAIRE CACHE KILLER (Build 183) ---
         (async function() {
             try {
                 const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
@@ -139,8 +139,17 @@
                         <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 20px 0;">
                     </div>
                     <div id="task-list"></div>
+                    
                     <h2 style="margin-top:2rem; opacity:0.7;">Prochainement</h2>
                     <div id="upcoming-task-list"></div>
+
+                    <div id="linked-quests-container" style="margin-top:2rem;">
+                        <button class="action-btn secondary-btn" style="padding:10px; font-size:0.8rem; border-style:dashed;" onclick="app.toggleLinkedQuestsVisibility()">
+                            🔗 Quêtes Liées (Suite auto) <span id="linked-quests-count" class="badge" style="background:var(--primary);">0</span> <span id="linked-quests-arrow">▼</span>
+                        </button>
+                        <div id="linked-task-list" class="hidden" style="margin-top:10px; background:rgba(0,0,0,0.1); padding:10px; border-radius:12px; border:1px solid rgba(255,255,255,0.05);"></div>
+                    </div>
+
                     <button class="action-btn" style="margin-top:2rem;" onclick="app.toggleRecurrenceUI('quest'); app.showModal('quest-modal')">+ Nouvelle Quête</button>
                 </div>
 
@@ -543,10 +552,10 @@
 
     <div id="activity-toast" class="hidden"><div id="toast-avatar" class="assignee-badge" style="width:30px; height:30px;"></div> <span id="toast-message">...</span></div>
 
-    <script src="js/config.js?v=182"></script>
-    <script src="js/auth.js?v=182"></script>
-    <script src="js/firebase-db.js?v=182"></script>
-    <script src="js/app.js?v=182"></script>
+    <script src="js/config.js?v=183"></script>
+    <script src="js/auth.js?v=183"></script>
+    <script src="js/firebase-db.js?v=183"></script>
+    <script src="js/app.js?v=183"></script>
 
     <script>
         if ('serviceWorker' in navigator) {

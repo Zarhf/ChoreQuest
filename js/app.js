@@ -1964,7 +1964,7 @@ const app = {
         
         upcoming.sort((a,b) => (a.dueDate || '').localeCompare(b.dueDate || ''));
         
-        const html = (q, up) => {
+        const html = (q, mode) => {
             const isRoyal = q.isRoyal;
             const rarity = isRoyal ? 'rarity-legendary royal-quest' : app.getQuestRarity(q.xp);
             const def = app.data.questDefinitions.find(d => d.id === q.definitionId);
@@ -1979,12 +1979,9 @@ const app = {
 
             const assignee = app.data.users.find(u => u.id === q.assignedTo);
             const assigneeHtml = `<div class="assignee-badge ${!assignee ? 'empty' : ''}">${app.getAvatarHtml(assignee ? assignee.avatar : '?', "36px")}</div>`;
-            const isMe = q.assignedTo === app.currentUser.id; const isNobody = !q.assignedTo; const isStealable = !up && app.isStealable(q);
             
             let actionButtons = '';
-            if (!up) {
-                const def = app.data.questDefinitions.find(d => d.id === q.definitionId);
-                const isMandatory = def && def.defaultAssignee;
+            if (mode === 'active') {
                 const isMe = q.assignedTo === app.currentUser.id;
                 const isNobody = !q.assignedTo;
                 const isStealable = app.isStealable(q);
@@ -1997,7 +1994,6 @@ const app = {
                 } else if (isStealable) {
                     actionButtons += `<button class="quest-action-btn btn-steal" style="flex: 2;" onclick="event.stopPropagation(); app.askConfirm('🥷 VOLER ?', () => app.claimQuest('${q.id}'))" title="🥷 Voler">🥷</button>`;
                 } else {
-                    // Place occupée même si rien à faire (pour garder le layout)
                     actionButtons += `<div style="flex: 2; opacity: 0.2; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.1);">🔒</div>`;
                 }
 
@@ -2006,20 +2002,52 @@ const app = {
                 actionButtons += `<button class="quest-action-btn btn-complete" style="flex: 2; ${!canComplete ? 'opacity: 0.3; cursor: not-allowed;' : ''}" ${canComplete ? `onclick="event.stopPropagation(); app.askConfirm('Terminer ?', () => app.completeTask('${q.id}'))"` : ''} title="Valider">✅</button>`;
 
                 // Bouton 3 (1/6) : Proposer Modif
-                actionButtons += `<button class="quest-action-btn btn-counter" style="flex: 1; font-size: 1.1rem; background: #f39c12;" onclick="event.stopPropagation(); app.openCounterOfferModal('${q.id}')" title="Proposer une modification (Renégocier)">📝</button>`;
+                actionButtons += `<button class="quest-action-btn btn-counter" style="flex: 1; font-size: 1.1rem;" onclick="event.stopPropagation(); app.openCounterOfferModal('${q.id}')" title="Proposer une modification">📝</button>`;
 
                 // Bouton 4 (1/6) : Annuler
-                actionButtons += `<button class="quest-action-btn btn-cancel-req" style="flex: 1; font-size: 1.1rem;" onclick="event.stopPropagation(); app.requestQuestCancellation('${q.id}')" title="Demander l'annulation au Conseil">🚫</button>`;
+                actionButtons += `<button class="quest-action-btn btn-cancel-req" style="flex: 1; font-size: 1.1rem;" onclick="event.stopPropagation(); app.requestQuestCancellation('${q.id}')" title="Demander l'annulation">🚫</button>`;
+            } else {
+                // Mode Inactif (Prochainement ou Lié) : On ne montre que les actions de modification/annulation
+                actionButtons += `<div style="flex: 4; opacity: 0.3; display: flex; align-items: center; padding-left: 15px; font-size: 0.7rem; font-style: italic; background: rgba(0,0,0,0.05); color: white;">En attente...</div>`;
+                actionButtons += `<button class="quest-action-btn btn-counter" style="flex: 1; font-size: 1.1rem;" onclick="event.stopPropagation(); app.openCounterOfferModal('${q.id}')" title="Modifier la définition">📝</button>`;
+                actionButtons += `<button class="quest-action-btn btn-cancel-req" style="flex: 1; font-size: 1.1rem;" onclick="event.stopPropagation(); app.requestQuestCancellation('${q.id}')" title="Annuler définitivement">🚫</button>`;
             }
+
             const canEdit = app.isAdmin();
-            return `<div class="quest-card ${rarity} ${up ? 'upcoming' : ''}"><div class="quest-body" ${canEdit ? `onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer"` : ''}>${assigneeHtml}<div class="quest-info"><h4>${freq} ${q.title}${timerHtml}</h4><span>💰 ${q.xp} XP${q.gold ? ' • ' + app.data.currency.symbol + ' ' + q.gold : ''}${time}</span></div></div><div class="quest-actions-container">${actionButtons}</div></div>`;
+            return `<div class="quest-card ${rarity} ${mode !== 'active' ? 'upcoming' : ''}"><div class="quest-body" ${canEdit ? `onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer"` : ''}>${assigneeHtml}<div class="quest-info"><h4>${freq} ${q.title}${timerHtml}</h4><span>💰 ${q.xp} XP${q.gold ? ' • ' + app.data.currency.symbol + ' ' + q.gold : ''}${time}</span></div></div><div class="quest-actions-container">${actionButtons}</div></div>`;
         };
-        document.getElementById('task-list').innerHTML = active.map(q => html(q, false)).join('') || '<p style="text-align:center; opacity:0.5;">Tout est fait !</p>';
+
+        document.getElementById('task-list').innerHTML = active.map(q => html(q, 'active')).join('') || '<p style="text-align:center; opacity:0.5;">Tout est fait !</p>';
+        
+        // Groupes Prochainement
         const groups = {}; upcoming.forEach(q => { 
             const d = q.dueDate ? new Date(q.dueDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) : 'Plus tard'; 
             if (!groups[d]) groups[d] = []; groups[d].push(q); 
         });
-        document.getElementById('upcoming-task-list').innerHTML = Object.keys(groups).map(day => `<div class="upcoming-day-group"><div class="upcoming-day-title">${day}</div>${groups[day].map(q => html(q, true)).join('')}</div>`).join('') || '<p style="text-align:center; opacity:0.2;">Rien de prévu.</p>';
+        document.getElementById('upcoming-task-list').innerHTML = Object.keys(groups).map(day => `<div class="upcoming-day-group"><div class="upcoming-day-title">${day}</div>${groups[day].map(q => html(q, 'upcoming')).join('')}</div>`).join('') || '<p style="text-align:center; opacity:0.2;">Rien de prévu.</p>';
+
+        // Quêtes Liées Validées (Dormantes)
+        const linkedDefs = app.data.questDefinitions.filter(d => d.frequency === 'linked' && d.status === 'active' && !d.archived);
+        const linkedList = document.getElementById('linked-task-list');
+        const linkedCount = document.getElementById('linked-quests-count');
+        
+        if (linkedList && linkedCount) {
+            linkedCount.innerText = linkedDefs.length;
+            linkedList.innerHTML = linkedDefs.map(d => {
+                // Créer un faux objet "quête" pour réutiliser le template HTML
+                const fakeQuest = {
+                    id: d.id, // Ici on utilise l'ID de la définition car il n'y a pas d'instance active
+                    definitionId: d.id,
+                    title: d.title,
+                    xp: d.baseXp,
+                    gold: d.baseGold,
+                    assignedTo: d.defaultAssignee,
+                    isRoyal: d.isRoyal,
+                    timeSlot: d.timeSlot
+                };
+                return html(fakeQuest, 'linked');
+            }).join('') || '<p style="text-align:center; opacity:0.5; font-size:0.7rem;">Aucune quête en suite automatique.</p>';
+        }
     },
 
     renderHistory() {
@@ -2367,6 +2395,16 @@ const app = {
     showModal(id) { const el = document.getElementById(id); if (el) el.classList.remove('hidden'); },
     hideModals() { document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')); },
     forceAppReset() { if(confirm('Réinitialiser ?')) { localStorage.clear(); window.location.reload(); } },
+    
+    toggleLinkedQuestsVisibility() {
+        const list = document.getElementById('linked-task-list');
+        const arrow = document.getElementById('linked-quests-arrow');
+        if (list) {
+            const isHidden = list.classList.toggle('hidden');
+            if (arrow) arrow.innerText = isHidden ? '▼' : '▲';
+        }
+    },
+
     async renameGuild() { 
         if (!app.isAdmin()) return;
         if (!app.data) return; 
