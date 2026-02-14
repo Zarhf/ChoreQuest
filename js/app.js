@@ -2009,7 +2009,7 @@ const app = {
                 actionButtons += `<button class="quest-action-btn btn-counter" style="flex: 1; font-size: 1.1rem; background: #f39c12;" onclick="event.stopPropagation(); app.openCounterOfferModal('${q.id}')" title="Proposer une modification (Renégocier)">📝</button>`;
 
                 // Bouton 4 (1/6) : Annuler
-                actionButtons += `<button class="quest-action-btn btn-abandon" style="flex: 1; font-size: 1.1rem; background: #e94560;" onclick="event.stopPropagation(); app.requestQuestCancellation('${q.id}')" title="Demander l'annulation au Conseil">🚫</button>`;
+                actionButtons += `<button class="quest-action-btn btn-cancel-req" style="flex: 1; font-size: 1.1rem;" onclick="event.stopPropagation(); app.requestQuestCancellation('${q.id}')" title="Demander l'annulation au Conseil">🚫</button>`;
             }
             const canEdit = app.isAdmin();
             return `<div class="quest-card ${rarity} ${up ? 'upcoming' : ''}"><div class="quest-body" ${canEdit ? `onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer"` : ''}>${assigneeHtml}<div class="quest-info"><h4>${freq} ${q.title}${timerHtml}</h4><span>💰 ${q.xp} XP${q.gold ? ' • ' + app.data.currency.symbol + ' ' + q.gold : ''}${time}</span></div></div><div class="quest-actions-container">${actionButtons}</div></div>`;
