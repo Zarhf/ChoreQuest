@@ -192,12 +192,16 @@
 
         <div id="quest-modal" class="modal hidden">
             <div class="modal-content">
-                <h2>Nouvelle Quête</h2>
+                <div class="modal-header">
+                    <h2>Nouvelle Quête</h2>
+                    <button class="icon-btn" onclick="app.startQuestTutorial('quest')" style="background:rgba(74, 144, 226, 0.2); border-radius:50%; width:30px; height:30px; padding:0; display:flex; align-items:center; justify-content:center; font-size:0.8rem; color:#4a90e2;">i</button>
+                    <button class="close-btn" onclick="app.hideModals()">X</button>
+                </div>
                 <input type="text" id="quest-title" placeholder="Titre">
                 <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
-                    <div><label style="font-size:0.7rem;">XP :</label><input type="number" id="quest-difficulty" value="50"></div>
+                    <div><label style="font-size:0.7rem;">Durée (min) :</label><input type="number" id="quest-duration" value="15" oninput="app.updateXpPreview('quest')"></div>
+                    <div><label style="font-size:0.7rem;">XP (Calculé) :</label><input type="number" id="quest-difficulty" value="30" readonly style="background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.1); color:#4a90e2; font-weight:bold;"></div>
                     <div><label style="font-size:0.7rem;">Récompense :</label><input type="number" id="quest-gold" value="10"></div>
-                    <div><label style="font-size:0.7rem;">Durée (min) :</label><input type="number" id="quest-duration" value="15"></div>
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-top:10px;">
                     <div><label style="font-size:0.7rem;">Récurrence :</label><select id="quest-frequency" onchange="app.toggleRecurrenceUI('quest')"><option value="none">Une seule fois</option><option value="daily">Jours</option><option value="weekly">Semaines</option><option value="monthly">Mois</option></select></div>
@@ -218,13 +222,17 @@
         </div>
         <div id="edit-quest-modal" class="modal hidden">
             <div class="modal-content">
-                <div class="modal-header"><h2>Modifier</h2><button class="close-btn" onclick="app.hideModals()">X</button></div>
+                <div class="modal-header">
+                    <h2>Modifier la Quête</h2>
+                    <button class="icon-btn" onclick="app.startQuestTutorial('edit-quest')" style="background:rgba(74, 144, 226, 0.2); border-radius:50%; width:30px; height:30px; padding:0; display:flex; align-items:center; justify-content:center; font-size:0.8rem; color:#4a90e2;">i</button>
+                    <button class="close-btn" onclick="app.hideModals()">X</button>
+                </div>
                 <input type="hidden" id="edit-quest-id">
                 <input type="text" id="edit-quest-title">
                 <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
-                    <div><label style="font-size:0.7rem;">XP :</label><input type="number" id="edit-quest-difficulty"></div>
+                    <div><label style="font-size:0.7rem;">Durée (min) :</label><input type="number" id="edit-quest-duration" oninput="app.updateXpPreview('edit-quest')"></div>
+                    <div><label style="font-size:0.7rem;">XP (Calculé) :</label><input type="number" id="edit-quest-difficulty" readonly style="background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.1); color:#4a90e2; font-weight:bold;"></div>
                     <div><label style="font-size:0.7rem;">Récompense :</label><input type="number" id="edit-quest-gold"></div>
-                    <div><label style="font-size:0.7rem;">Durée (min) :</label><input type="number" id="edit-quest-duration"></div>
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
                     <div><label style="font-size:0.7rem;">Horaires :</label><div style="display:flex; gap:2px;"><input type="time" id="edit-quest-time-start"><input type="time" id="edit-quest-time-end"></div></div>
@@ -374,14 +382,18 @@
 
         <div id="counter-offer-modal" class="modal hidden">
             <div class="modal-content">
-                <div class="modal-header"><h2>📝 Contre-proposer</h2><button class="close-btn" onclick="app.hideModals()">X</button></div>
+                <div class="modal-header">
+                    <h2>📝 Contre-proposer</h2>
+                    <button class="icon-btn" onclick="app.startQuestTutorial('counter')" style="background:rgba(74, 144, 226, 0.2); border-radius:50%; width:30px; height:30px; padding:0; display:flex; align-items:center; justify-content:center; font-size:0.8rem; color:#4a90e2;">i</button>
+                    <button class="close-btn" onclick="app.hideModals()">X</button>
+                </div>
                 <p id="counter-offer-text" style="font-size:0.8rem; opacity:0.8; margin-bottom:15px;"></p>
                 <input type="hidden" id="counter-quest-id">
                 <div><label style="font-size:0.7rem;">Titre de la quête :</label><input type="text" id="counter-title"></div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
-                    <div><label style="font-size:0.7rem;">XP :</label><input type="number" id="counter-xp"></div>
+                    <div><label style="font-size:0.7rem;">Durée (min) :</label><input type="number" id="counter-duration" oninput="app.updateXpPreview('counter')"></div>
+                    <div><label style="font-size:0.7rem;">XP (Calculé) :</label><input type="number" id="counter-xp" readonly style="background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.1); color:#4a90e2; font-weight:bold;"></div>
                     <div><label style="font-size:0.7rem;">Or :</label><input type="number" id="counter-gold"></div>
-                    <div><label style="font-size:0.7rem;">Durée (min) :</label><input type="number" id="counter-duration"></div>
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-top:10px;">
                     <div><label style="font-size:0.7rem;">Récurrence :</label><select id="counter-frequency" onchange="app.toggleRecurrenceUI('counter')"><option value="none">Une seule fois</option><option value="daily">Jours</option><option value="weekly">Semaines</option><option value="monthly">Mois</option></select></div>

@@ -968,6 +968,11 @@ input, select {
     box-shadow: 0 0 15px rgba(241, 196, 15, 0.4), inset 0 0 40px rgba(241, 196, 15, 0.1);
 }
 
+.scroll-card.cancel-req-card {
+    border: 2px solid #e94560;
+    background: #fff0f0;
+}
+
 .scroll-card h4 { margin: 0; font-family: sans-serif; font-weight: bold; }
 
 .scroll-actions {

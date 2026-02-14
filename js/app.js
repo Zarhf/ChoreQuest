@@ -477,6 +477,11 @@ const app = {
         if (backdrop) backdrop.classList.add('hidden');
         app.hideModals();
         app.setView('board');
+        // Restaurer le tuto principal si on était dans un tuto spécifique
+        if (app._originalTutorialSteps) {
+            app.tutorialSteps = app._originalTutorialSteps;
+            app._originalTutorialSteps = null;
+        }
     },
 
     showView(viewId) {
@@ -772,6 +777,17 @@ const app = {
         }
     },
 
+    updateXpPreview(prefix) {
+        const durationEl = document.getElementById(`${prefix}-duration`);
+        const xpEl = document.getElementById(`${prefix}-difficulty`);
+        if (!durationEl || !xpEl) return;
+        
+        const duration = parseInt(durationEl.value) || 0;
+        // Formule : 2 XP par minute
+        const xp = duration * 2;
+        xpEl.value = xp;
+    },
+
     async addQuest() {
         const titleEl = document.getElementById('quest-title');
         const xpEl = document.getElementById('quest-difficulty');
@@ -785,9 +801,10 @@ const app = {
         if (!titleEl || !xpEl) return;
 
         const title = titleEl.value;
-        const xp = parseInt(xpEl.value);
-        const gold = parseInt(goldEl ? goldEl.value : 0) || 0;
         const duration = parseInt(durationEl ? durationEl.value : 15) || 15;
+        // L'XP est maintenant calculée auto : 2 XP par minute
+        const xp = duration * 2;
+        const gold = parseInt(goldEl ? goldEl.value : 0) || 0;
         const freq = freqEl ? freqEl.value : 'none';
         const interval = parseInt(intervalEl ? intervalEl.value : 1) || 1;
         const assignee = assigneeEl ? assigneeEl.value : null;
@@ -796,7 +813,7 @@ const app = {
         const tEnd = document.getElementById('quest-time-end').value;
         const days = Array.from(document.querySelectorAll('input[name="quest-day"]:checked')).map(cb => cb.value);
         
-        if (!title || isNaN(xp)) return;
+        if (!title) return;
 
         const defId = 'def_'+Date.now();
         const timeSlot = (tStart || tEnd) ? { start: tStart, end: tEnd } : null;
@@ -900,9 +917,10 @@ const app = {
     async submitCounterOffer() {
         const instanceId = document.getElementById('counter-quest-id').value;
         const title = document.getElementById('counter-title').value;
-        const xp = parseInt(document.getElementById('counter-xp').value);
-        const gold = parseInt(document.getElementById('counter-gold').value);
         const duration = parseInt(document.getElementById('counter-duration').value);
+        // XP liée à la durée
+        const xp = duration * 2;
+        const gold = parseInt(document.getElementById('counter-gold').value);
         const frequency = document.getElementById('counter-frequency').value;
         const interval = parseInt(document.getElementById('counter-interval').value || 1) || 1;
         const tStart = document.getElementById('counter-time-start').value;
@@ -965,6 +983,101 @@ const app = {
 
         await app.save();
         app.hideModals();
+    },
+
+    startQuestTutorial(prefix) {
+        const steps = [
+            {
+                title: "📜 Titre de la Quête",
+                body: "Donne un nom clair à la tâche (ex: 'Vaisselle', 'Ranger la chambre').",
+                highlight: `#${prefix}-title`
+            },
+            {
+                title: "⏳ Durée & XP",
+                body: "Estime le temps nécessaire. <b>L'XP est calculée automatiquement (2 XP par minute)</b>. Plus c'est long, plus tu gagnes de mérite !",
+                highlight: `#${prefix}-duration`
+            },
+            {
+                title: "💰 Récompense en Or",
+                body: "Détermine la prime en monnaie du royaume. Elle servira à acheter des lots au Marché.",
+                highlight: `#${prefix}-gold`
+            },
+            {
+                title: "🔄 Récurrence",
+                body: "Choisis si la quête revient (tous les jours, semaines...) ou si elle est unique. Tu peux aussi définir un intervalle (ex: tous les 2 jours).",
+                highlight: `#${prefix}-frequency`
+            },
+            {
+                title: "👤 Assignation",
+                body: "Désigne un Héros ou laisse la quête libre (❓ Pour tous). Si elle est assignée, l'accord du destinataire sera requis au Conseil !",
+                highlight: `#${prefix}-assignee`
+            }
+        ];
+        
+        const oldSteps = app.tutorialSteps;
+        app.tutorialSteps = steps;
+        app.currentTutorialStep = 0;
+        app.renderTutorialStep();
+        document.getElementById('tutorial-modal').classList.remove('hidden');
+        document.getElementById('tutorial-backdrop').classList.remove('hidden');
+        app._originalTutorialSteps = oldSteps;
+    },
+
+    async requestQuestCancellation(instanceId) {
+        const quest = app.data.activeQuests.find(q => q.id === instanceId);
+        if (!quest) return;
+        const def = app.data.questDefinitions.find(d => d.id === quest.definitionId);
+        if (!def) return;
+
+        const reason = prompt("Pourquoi demander l'annulation de cette quête ?");
+        if (reason === null || reason.trim() === "") return;
+
+        def.status = 'pending_cancel';
+        def.cancelReason = reason;
+        def.cancelRequestedBy = app.currentUser.id;
+        def.votes = { [app.currentUser.id]: true }; 
+        
+        quest.status = 'pending_cancel';
+
+        app.data.questLog.unshift({ id: 'log_cancel_req_'+Date.now(), type: 'system', title: `Demande d'annulation : ${quest.title}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
+
+        await app.save();
+        app.renderBoard();
+    },
+
+    async voteCancellation(instanceId, type) {
+        const quest = app.data.activeQuests.find(q => q.id === instanceId);
+        if (!quest) return;
+        const def = app.data.questDefinitions.find(d => d.id === quest.definitionId);
+        if (!def) return;
+
+        if (type === 'approve') {
+            def.votes[app.currentUser.id] = true;
+            
+            const totalMembers = app.data.users.filter(u => !u.managedBy).length;
+            const majority = Math.floor(totalMembers / 2) + 1;
+            const approvalCount = Object.keys(def.votes).length;
+
+            if (approvalCount >= majority) {
+                const idxDef = app.data.questDefinitions.findIndex(d => d.id === quest.definitionId);
+                const idxInst = app.data.activeQuests.findIndex(q => q.id === instanceId);
+                if (idxDef !== -1) app.data.questDefinitions.splice(idxDef, 1);
+                if (idxInst !== -1) app.data.activeQuests.splice(idxInst, 1);
+                
+                app.data.questLog.unshift({ id: 'log_cancel_done_'+Date.now(), type: 'system', title: `Annulation validée : ${quest.title}`, completedBy: 'Council', completedAt: new Date().toISOString(), xpEarned: 0 });
+            }
+        } else {
+            def.status = 'active';
+            quest.status = 'active';
+            def.votes = { [def.createdBy]: true }; 
+            delete def.cancelReason;
+            delete def.cancelRequestedBy;
+            
+            app.data.questLog.unshift({ id: 'log_cancel_rej_'+Date.now(), type: 'system', title: `Annulation rejetée : ${quest.title}`, completedBy: 'Council', completedAt: new Date().toISOString(), xpEarned: 0 });
+        }
+
+        await app.save();
+        app.renderBoard();
     },
 
     async voteQuest(instanceId, type) {
@@ -1048,16 +1161,17 @@ const app = {
         app.askConfirm("Sauvegarder ?", async () => {
             const defId = document.getElementById('edit-quest-id').value;
             const title = document.getElementById('edit-quest-title').value;
-            const xp = parseInt(document.getElementById('edit-quest-difficulty').value);
-            const gold = parseInt(document.getElementById('edit-quest-gold').value || 0);
             const duration = parseInt(document.getElementById('edit-quest-duration').value || 15);
+            // XP liée à la durée
+            const xp = duration * 2;
+            const gold = parseInt(document.getElementById('edit-quest-gold').value || 0);
             const freq = document.getElementById('edit-quest-frequency').value;
             const interval = parseInt(document.getElementById('edit-quest-interval').value || 1);
             const assignee = document.getElementById('edit-quest-assignee').value || null;
             const tStart = document.getElementById('edit-quest-time-start').value;
             const tEnd = document.getElementById('edit-quest-time-end').value;
             const days = Array.from(document.querySelectorAll('input[name="edit-quest-day"]:checked')).map(cb => cb.value);
-            if (!title || isNaN(xp)) return;
+            if (!title) return;
             const defIdx = app.data.questDefinitions.findIndex(d => d.id === defId); if (defIdx === -1) return;
             const oldDef = app.data.questDefinitions[defIdx];
             const timeSlot = (tStart && tEnd) ? { start: tStart, end: tEnd } : null;
@@ -1400,7 +1514,7 @@ const app = {
         const endOfToday = new Date(now); endOfToday.setHours(23,59,59,999);
         
         // Séparer les quêtes en attente (Conseil)
-        const pending = app.data.activeQuests.filter(q => q.status === 'pending');
+        const pending = app.data.activeQuests.filter(q => q.status === 'pending' || q.status === 'pending_cancel');
         const count = pending.length;
         const councilContainer = document.getElementById('council-container');
         if (councilContainer) {
@@ -1409,17 +1523,32 @@ const app = {
             if (councilCount) councilCount.innerText = count;
             document.getElementById('council-list').innerHTML = pending.map(q => {
                 const def = app.data.questDefinitions.find(d => d.id === q.definitionId);
+                const isCancelReq = q.status === 'pending_cancel';
                 const approvals = (def && def.votes) ? Object.keys(def.votes).length : 0;
                 const total = app.data.users.filter(u => !u.managedBy).length;
                 const majority = Math.floor(total / 2) + 1;
-                const progressText = (def && def.defaultAssignee) ? `Accord requis (Créateur + Assigné)` : `Approbations : ${approvals} / ${majority}`;
+                
+                let progressText = "";
+                if (isCancelReq) {
+                    progressText = `Annulation : ${approvals} / ${majority}`;
+                } else {
+                    progressText = (def && def.defaultAssignee) ? `Accord requis (Créateur + Assigné)` : `Approbations : ${approvals} / ${majority}`;
+                }
+                
                 const isVoted = def && def.votes && def.votes[app.currentUser.id];
                 
                 const assignee = q.assignedTo ? app.data.users.find(u=>u.id===q.assignedTo) : null;
                 const assigneeName = assignee ? assignee.name : 'Pour tous';
                 const creator = app.data.users.find(u => u.id === (def?.createdBy || q.createdBy))?.name || 'Ancien';
-                const revisionHtml = (def?.revision > 0) ? `<span class="badge" style="background:#f39c12; margin-left:5px;">Rév. ${def.revision}</span>` : '';
-                const reasonHtml = def?.lastReason ? `<div style="font-size:0.7rem; color:#8b4513; margin-top:5px; font-style:italic; border-left:2px solid #f39c12; padding-left:5px;">"${def.lastReason}"</div>` : '';
+                const revisionHtml = (!isCancelReq && def?.revision > 0) ? `<span class="badge" style="background:#f39c12; margin-left:5px;">Rév. ${def.revision}</span>` : '';
+                
+                let reasonHtml = "";
+                if (isCancelReq) {
+                    const requester = app.data.users.find(u => u.id === def?.cancelRequestedBy)?.name || "Héros";
+                    reasonHtml = `<div style="font-size:0.7rem; color:#e94560; margin-top:5px; font-style:italic; border-left:2px solid #e94560; padding-left:5px;"><b>Demande d'annulation par ${requester} :</b> "${def?.cancelReason || 'Pas de raison'}"</div>`;
+                } else if (def?.lastReason) {
+                    reasonHtml = `<div style="font-size:0.7rem; color:#8b4513; margin-top:5px; font-style:italic; border-left:2px solid #f39c12; padding-left:5px;">"${def.lastReason}"</div>`;
+                }
                 
                 const votersList = (def && def.votes) ? Object.keys(def.votes).map(vId => {
                     const u = app.data.users.find(usr => usr.id === vId);
@@ -1452,11 +1581,24 @@ const app = {
                 const durationText = (def && def.estimatedTime) ? ` • ⏳ ${def.estimatedTime}m` : '';
                 const timeText = q.timeSlot ? ` • 🕒 ${q.timeSlot.start}${q.timeSlot.end ? '-' + q.timeSlot.end : ''}` : '';
 
-                return `<div class="scroll-card ${q.isRoyal ? 'royal-quest-card' : ''}">
+                let actionsHtml = "";
+                if (isCancelReq) {
+                    actionsHtml = `
+                        ${!isVoted ? `<button class="scroll-btn btn-approve" onclick="app.voteCancellation('${q.id}', 'approve')">Approuver l'annulation</button>` : `<span style="font-size:0.8rem; color:#27ae60; margin-right:10px;">Voté ✅</span>`}
+                        <button class="scroll-btn btn-reject" onclick="app.voteCancellation('${q.id}', 'reject')">Refuser</button>
+                    `;
+                } else {
+                    actionsHtml = `
+                        ${!isVoted ? `<button class="scroll-btn btn-approve" onclick="app.voteQuest('${q.id}', 'approve')">Approuver</button>` : `<span style="font-size:0.8rem; color:#27ae60; margin-right:10px;">Fait ✅</span>`}
+                        <button class="scroll-btn btn-counter" onclick="app.openCounterOfferModal('${q.id}')">Négocier</button>
+                    `;
+                }
+
+                return `<div class="scroll-card ${q.isRoyal ? 'royal-quest-card' : ''} ${isCancelReq ? 'cancel-req-card' : ''}">
                     <div style="display:flex; justify-content:space-between; align-items:start;">
                         <div style="flex:1; padding-right:10px;">
-                            <h4 style="display:flex; align-items:center;">${q.isRoyal ? '👑' : '📜'} ${q.title} ${revisionHtml}</h4>
-                            <div style="font-size:0.7rem; margin-top:2px; opacity:0.6;">Proposé par : <strong>${creator}</strong></div>
+                            <h4 style="display:flex; align-items:center;">${isCancelReq ? '⚠️' : (q.isRoyal ? '👑' : '📜')} ${q.title} ${revisionHtml}</h4>
+                            <div style="font-size:0.7rem; margin-top:2px; opacity:0.6;">${isCancelReq ? '<b>ANNULATION DEMANDÉE</b>' : 'Proposé par : <strong>'+creator+'</strong>'}</div>
                             ${reasonHtml}
                         </div>
                         <div style="display:flex; gap:2px; flex-shrink:0;">${votersList}</div>
@@ -1475,8 +1617,7 @@ const app = {
 
                     <div class="scroll-actions">
                         <span class="vote-progress" style="margin-right:auto;">${progressText}</span>
-                        ${!isVoted ? `<button class="scroll-btn btn-approve" onclick="app.voteQuest('${q.id}', 'approve')">Approuver</button>` : `<span style="font-size:0.8rem; color:#27ae60; margin-right:10px;">Fait ✅</span>`}
-                        <button class="scroll-btn btn-counter" onclick="app.openCounterOfferModal('${q.id}')">Négocier</button>
+                        ${actionsHtml}
                     </div>
                 </div>`;
             }).join('');
@@ -1540,10 +1681,14 @@ const app = {
                 const def = app.data.questDefinitions.find(d => d.id === q.definitionId);
                 const isMandatory = def && def.defaultAssignee;
 
-                if (isMe || isNobody) actionButtons += `<button class="quest-action-btn btn-complete" onclick="event.stopPropagation(); app.askConfirm('Terminer ?', () => app.completeTask('${q.id}'))" title="Valider">✅</button>`;
+                            if (isMe || isNobody) actionButtons += `<button class="quest-action-btn btn-complete" onclick="event.stopPropagation(); app.askConfirm('Terminer ?', () => app.completeTask('${q.id}'))" title="Valider">✅</button>`;
+                            
+                            // Bouton de demande d'annulation au Conseil
+                            if (isMe || isNobody) {
+                                actionButtons += `<button class="quest-action-btn btn-abandon" style="background:rgba(233,69,96,0.6); border-left:1px solid rgba(255,255,255,0.1);" onclick="event.stopPropagation(); app.requestQuestCancellation('${q.id}')" title="Demander l'annulation au Conseil">🚫</button>`;
+                            }
                 
-                if (isMe && !isMandatory) actionButtons += `<button class="quest-action-btn btn-abandon" onclick="event.stopPropagation(); app.askConfirm('Abandonner ?', () => app.unclaimQuest('${q.id}'))" title="Abandonner">❌</button>`;
-                else if (isNobody) actionButtons += `<button class="quest-action-btn btn-claim" onclick="event.stopPropagation(); app.askConfirm('Prendre ?', () => app.claimQuest('${q.id}'))" title="☝️ Je prends">☝️</button>`;
+                            if (isMe && !isMandatory) actionButtons += `<button class="quest-action-btn btn-abandon" onclick="event.stopPropagation(); app.askConfirm('Abandonner ?', () => app.unclaimQuest('${q.id}'))" title="Abandonner">❌</button>`;                else if (isNobody) actionButtons += `<button class="quest-action-btn btn-claim" onclick="event.stopPropagation(); app.askConfirm('Prendre ?', () => app.claimQuest('${q.id}'))" title="☝️ Je prends">☝️</button>`;
                 else if (isStealable) actionButtons += `<button class="quest-action-btn btn-steal" onclick="event.stopPropagation(); app.askConfirm('🥷 VOLER ?', () => app.claimQuest('${q.id}'))" title="🥷 Voler">🥷</button>`;
             }
             const canEdit = app.isAdmin();
