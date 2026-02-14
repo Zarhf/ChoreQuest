@@ -55,7 +55,8 @@ const app = {
     ],
 
     async init() {
-        console.log("🛡️ ChoreQuest Build 139 starting...");
+        localStorage.setItem('app_build', CONFIG.BUILD);
+        console.log(`🛡️ ChoreQuest Build ${CONFIG.BUILD} starting...`);
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
             if (el) el.innerText = `v${v.version}.${v.build}`;
@@ -65,9 +66,9 @@ const app = {
             if (user) {
                 db.listenToSystemConfig((config) => {
                     if (config && config.minBuild) {
-                        const localBuild = parseInt(localStorage.getItem('app_build') || '0');
-                        if (config.minBuild > localBuild) {
-                            console.log(`🔥 KILL SWITCH: Remote ${config.minBuild} > Local ${localBuild}`);
+                        const currentBuild = CONFIG.BUILD;
+                        if (config.minBuild > currentBuild) {
+                            console.log(`🔥 KILL SWITCH: Remote ${config.minBuild} > Local ${currentBuild}`);
                             
                             // Nuke Cache
                             if ('serviceWorker' in navigator) {
@@ -80,8 +81,6 @@ const app = {
                                     for (let name of names) caches.delete(name);
                                 });
                             }
-                            
-                            localStorage.setItem('app_build', config.minBuild);
                             
                             // Reload with cache busting
                             window.location.reload(true);
@@ -224,7 +223,7 @@ const app = {
 
         if (app.isAdmin()) {
             if (!sessionStorage.getItem('system_version_pushed')) {
-                db.setSystemConfig(139); 
+                db.setSystemConfig(CONFIG.BUILD); 
                 sessionStorage.setItem('system_version_pushed', 'true');
             }
         }
