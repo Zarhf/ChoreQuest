@@ -1,4 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#4a90e2"/>
-  <text x="50%" y="50%" font-family="Arial" font-size="250" fill="white" text-anchor="middle" dy=".3em">CQ</text>
+  <defs>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#16213e;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+  
+  <!-- Shield Base -->
+  <path d="M256 32 C256 32 64 64 64 192 C64 368 256 480 256 480 C256 480 448 368 448 192 C448 64 256 32 256 32 Z" 
+        fill="url(#shieldGrad)" stroke="#f1c40f" stroke-width="20" filter="url(#shadow)"/>
+  
+  <!-- Parchment Scroll -->
+  <rect x="156" y="120" width="200" height="240" rx="5" ry="5" fill="#fdf6e3" stroke="#d3c6a3" stroke-width="4" />
+  
+  <!-- Fake Text Lines -->
+  <line x1="180" y1="160" x2="330" y2="160" stroke="#d3c6a3" stroke-width="8" stroke-linecap="round" />
+  <line x1="180" y1="190" x2="300" y2="190" stroke="#d3c6a3" stroke-width="8" stroke-linecap="round" />
+  <line x1="180" y1="220" x2="330" y2="220" stroke="#d3c6a3" stroke-width="8" stroke-linecap="round" />
+  
+  <!-- Green Checkmark / Wax Seal -->
+  <circle cx="320" cy="320" r="50" fill="#27ae60" stroke="#219150" stroke-width="5" />
+  <path d="M295 320 L315 340 L345 300" fill="none" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
 </svg>
