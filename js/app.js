@@ -1954,10 +1954,8 @@ const app = {
         
         active.forEach(q => { 
             const def = app.data.questDefinitions.find(d => d.id === q.definitionId); 
-            if (def && def.frequency && def.frequency !== 'none') {
+            if (def && def.frequency && def.frequency !== 'none' && def.frequency !== 'linked') {
                 // Pour la projection virtuelle, on base sur la dueDate de l'instance active
-                // Si la quête est en retard, la projection virtuelle doit quand même montrer la SUIVANTE
-                // On utilise calculateNextDueDate par rapport à la dueDate actuelle
                 upcoming.push({ ...q, id: 'virtual_' + q.id, dueDate: app.calculateNextDueDate(def, new Date(q.dueDate)).toISOString(), isVirtual: true }); 
             }
         });
@@ -1969,7 +1967,16 @@ const app = {
             const rarity = isRoyal ? 'rarity-legendary royal-quest' : app.getQuestRarity(q.xp);
             const def = app.data.questDefinitions.find(d => d.id === q.definitionId);
             const freq = (def && def.frequency !== 'none') ? '🔄' : '';
-            const time = q.timeSlot ? ` • 🕒 ${q.timeSlot.start || ''}${q.timeSlot.end ? '-' + q.timeSlot.end : ''}` : '';
+            
+            let timeInfo = '';
+            if (q.timeSlot) {
+                timeInfo = `🕒 ${q.timeSlot.start || ''}${q.timeSlot.end ? '-' + q.timeSlot.end : ''}`;
+            } else if (mode === 'upcoming' && q.dueDate) {
+                const d = new Date(q.dueDate);
+                timeInfo = `⏰ ${d.getHours()}h${d.getMinutes().toString().padStart(2, '0')}`;
+            }
+            
+            const timeStr = timeInfo ? ` • ${timeInfo}` : '';
             
             let timerHtml = '';
             if (q.stealDeadline) {
