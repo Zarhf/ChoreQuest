@@ -30,7 +30,7 @@ async function sendPushToUser(email, title, body, data = {}) {
             ...data,
             title: title,
             body: body,
-            click_action: "https://chorequest-1c5b6.web.app/"
+            click_action: "https://zarhf.github.io/ChoreQuest/"
         },
         token: token,
         webpush: {
@@ -79,6 +79,28 @@ exports.testnotification = onCall(async (request) => {
     
     const result = await sendPushToUser(email, "🛡️ Test ChoreQuest", "Si tu vois ce message, les notifications fonctionnent !");
     return { success: !!result, info: result ? "Sent" : "No token found" };
+});
+
+exports.remindvoters = onCall(async (request) => {
+    const { guildId, questTitle, voterIds } = request.data;
+    const callerEmail = request.auth.token.email;
+    
+    if (!guildId || !voterIds || voterIds.length === 0) return { success: false };
+
+    const guildDoc = await db.collection("guilds").doc(guildId).get();
+    if (!guildDoc.exists) return { success: false };
+    const guildData = guildDoc.data();
+
+    const callerName = (guildData.users || []).find(u => u.email === callerEmail)?.name || "Un membre";
+
+    for (const uid of voterIds) {
+        const user = guildData.users.find(u => u.id === uid);
+        if (user && user.email) {
+            await sendPushToUser(user.email, "🔔 Rappel du Conseil", `${callerName} attend ton vote pour : ${questTitle}`);
+        }
+    }
+
+    return { success: true };
 });
 
 exports.onguildupdate = onDocumentUpdated("guilds/{guildId}", async (event) => {

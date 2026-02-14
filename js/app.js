@@ -1897,7 +1897,11 @@ const app = {
                         <button class="scroll-btn btn-reject" onclick="app.voteCancellation('${q.id}', 'reject')">Refuser</button>
                     `;
                 } else {
+                    const voterIds = app.data.users.filter(u => !u.managedBy && !def.votes[u.id]).map(u => u.id);
+                    const canRemind = voterIds.length > 0;
+                    
                     actionsHtml = `
+                        ${canRemind ? `<button class="scroll-btn" style="background:#f1c40f; color:#000; font-size:1.1rem; padding: 5px 10px;" onclick="app.remindVoters('${q.id}')" title="Relancer les retardataires">🔔</button>` : ''}
                         ${!isVoted ? `<button class="scroll-btn btn-approve" onclick="app.voteQuest('${q.id}', 'approve')">Approuver</button>` : `<span style="font-size:0.8rem; color:#27ae60; margin-right:10px;">Fait ✅</span>`}
                         <button class="scroll-btn btn-counter" onclick="app.openCounterOfferModal('${q.id}')">Négocier</button>
                     `;
@@ -2473,6 +2477,30 @@ const app = {
         app.data.meta.isPublic = document.getElementById('edit-guild-public').value === 'true'; 
         app.data.meta.isOpen = document.getElementById('edit-guild-open').value === 'true'; 
         await app.save(); 
+    },
+
+    async remindVoters(instanceId) {
+        const quest = app.data.activeQuests.find(q => q.id === instanceId);
+        if (!quest) return;
+        const def = app.data.questDefinitions.find(d => d.id === quest.definitionId);
+        if (!def) return;
+
+        // Trouver ceux qui n'ont pas encore voté
+        const voterIds = app.data.users.filter(u => !u.managedBy && !def.votes[u.id]).map(u => u.id);
+        if (voterIds.length === 0) return alert("Tout le monde a déjà voté !");
+
+        try {
+            const remindFunc = db.functions.httpsCallable('remindvoters');
+            await remindFunc({
+                guildId: app.guildId,
+                questTitle: quest.title,
+                voterIds: voterIds
+            });
+            alert("🔔 Le cor de rappel a sonné ! Les retardataires ont été prévenus.");
+        } catch (e) {
+            console.error("Remind voters failed", e);
+            alert("❌ Le messager s'est perdu en route...");
+        }
     },
 
     handleNotificationInteraction(data) {
