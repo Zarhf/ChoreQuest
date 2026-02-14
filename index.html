@@ -8,11 +8,11 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>ChoreQuest</title>
         <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=153">
+    <link rel="stylesheet" href="css/styles.css?v=154">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
     <script>
-        // --- NUCLEAIRE CACHE KILLER (Build 153) ---
+        // --- NUCLEAIRE CACHE KILLER (Build 154) ---
         (async function() {
             try {
                 const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
@@ -37,6 +37,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
 
     <div id="app">
         <header>
@@ -163,6 +164,12 @@
                     <h4>Mes Écuyers (Enfants)</h4>
                     <div id="squire-list" style="margin-bottom:10px;"></div>
                     <button class="action-btn" style="background:#27ae60; font-size:0.7rem; width:auto; padding:5px 10px;" onclick="app.showModal('create-squire-modal')">+ Ajouter un Écuyer</button>
+                </div>
+                <div class="settings-group" id="notif-settings-group">
+                    <h4>🔔 Alertes du Royaume</h4>
+                    <p style="font-size:0.65rem; opacity:0.7; margin-bottom:10px;">Reçois un message quand une quête est proposée ou volable.</p>
+                    <button id="btn-enable-notifs" class="action-btn" style="background:#8e44ad; font-size:0.7rem;" onclick="app.requestNotifPermission()">📣 Activer les Notifications</button>
+                    <p id="notif-status-msg" class="hidden" style="font-size:0.7rem; text-align:center; color:#27ae60; margin-top:5px;">✅ Alertes activées</p>
                 </div>
                 <button class="action-btn secondary-btn" onclick="auth.logout()" style="font-size:0.8rem;">Déconnexion</button>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
@@ -486,10 +493,10 @@
 
     <div id="activity-toast" class="hidden"><div id="toast-avatar" class="assignee-badge" style="width:30px; height:30px;"></div> <span id="toast-message">...</span></div>
 
-    <script src="js/config.js?v=153"></script>
-    <script src="js/auth.js?v=153"></script>
-    <script src="js/firebase-db.js?v=153"></script>
-    <script src="js/app.js?v=153"></script>
+    <script src="js/config.js?v=154"></script>
+    <script src="js/auth.js?v=154"></script>
+    <script src="js/firebase-db.js?v=154"></script>
+    <script src="js/app.js?v=154"></script>
 
     <script>
         if ('serviceWorker' in navigator) {

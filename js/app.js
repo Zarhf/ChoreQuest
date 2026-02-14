@@ -91,10 +91,57 @@ const app = {
                 const joinId = params.get('join');
                 if (joinId) await app.handleJoinLink(joinId);
                 else await app.loadGuild();
+
+                // Initialiser les notifications si supportées
+                app.initNotifications();
             } else {
                 app.showView('welcome-screen');
             }
         });
+    },
+
+    initNotifications() {
+        if (!('Notification' in window) || !db.messaging) {
+            const group = document.getElementById('notif-settings-group');
+            if (group) group.classList.add('hidden');
+            return;
+        }
+
+        if (Notification.permission === 'granted') {
+            app.updateNotifUI(true);
+            // On rafraîchit le token silencieusement
+            app.requestNotifPermission(true);
+        } else {
+            app.updateNotifUI(false);
+        }
+    },
+
+    updateNotifUI(enabled) {
+        const btn = document.getElementById('btn-enable-notifs');
+        const msg = document.getElementById('notif-status-msg');
+        if (btn) btn.classList.toggle('hidden', enabled);
+        if (msg) msg.classList.toggle('hidden', !enabled);
+    },
+
+    async requestNotifPermission(silent = false) {
+        try {
+            if (!silent) {
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') return;
+            }
+
+            const token = await db.messaging.getToken({
+                vapidKey: CONFIG.VAPID_PUBLIC_KEY
+            });
+
+            if (token) {
+                await db.saveUserToken(auth.user.email, token);
+                app.updateNotifUI(true);
+                if (!silent) console.log("🔔 Notifications activées !");
+            }
+        } catch (e) {
+            console.error("Permission request failed", e);
+        }
     },
 
     async handleJoinLink(id) {

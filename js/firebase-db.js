@@ -1,9 +1,29 @@
 const db = {
     firestore: null,
+    messaging: null,
     unsubscribe: null,
 
     init() {
         this.firestore = firebase.firestore();
+        try {
+            this.messaging = firebase.messaging();
+        } catch (e) {
+            console.warn("FCM not supported in this browser or environment.");
+        }
+    },
+
+    async saveUserToken(userEmail, token) {
+        // On enregistre le token dans une collection globale ou directement dans la guilde.
+        // Pour être efficace, on va le stocker dans un document utilisateur dédié pour les notifications.
+        try {
+            await this.firestore.collection('push_tokens').doc(userEmail).set({
+                token: token,
+                updatedAt: new Date().toISOString(),
+                platform: navigator.platform
+            }, { merge: true });
+        } catch (e) {
+            console.error("Error saving push token:", e);
+        }
     },
 
     listenToGuild(guildId, callback) {
