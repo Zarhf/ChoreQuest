@@ -165,36 +165,48 @@ const app = {
                 serviceWorkerRegistration: registration
             });
 
+            const token = await db.messaging.getToken({
+                vapidKey: CONFIG.VAPID_PUBLIC_KEY,
+                serviceWorkerRegistration: registration
+            });
+
             if (token) {
+                console.log(`🔑 Jeton FCM actuel (fin) : ...${token.substring(token.length - 5)}`);
                 await db.saveUserToken(auth.user.email, token);
                 app.updateNotifUI(true);
                 app.hideModals();
                 if (!silent) console.log("🔔 Notifications activées !");
 
-                // Gérer les notifications au premier plan
-                db.messaging.onMessage((payload) => {
-                    console.log("🔔 Notification reçue au premier plan:", payload);
-                    const { title, body } = payload.notification;
-                    
-                    // Option 1 : Afficher une notification système même si on est sur la page
-                    if (Notification.permission === 'granted') {
-                        new Notification(title, {
-                            body: body,
-                            icon: 'icons/icon.svg'
-                        });
-                    }
-                    
-                    // Option 2 : Afficher aussi un petit toast dans l'app
-                    app.showActivityToast({
-                        title: title,
-                        type: 'system',
-                        completedBy: 'Système'
-                    });
-                });
+                // S'assurer que l'écouteur est bien attaché
+                app.attachMessageListener();
             }
         } catch (e) {
             console.error("Permission request failed", e);
         }
+    },
+
+    attachMessageListener() {
+        if (!db.messaging) return;
+        
+        // Supprimer l'ancien écouteur s'il existe (FCM ne permet pas facilement de vérifier, on le réattache)
+        db.messaging.onMessage((payload) => {
+            console.log("🔔 Notification reçue au premier plan:", payload);
+            const { title, body } = payload.notification;
+            
+            if (Notification.permission === 'granted') {
+                new Notification(title, {
+                    body: body,
+                    icon: 'icons/icon.svg'
+                });
+            }
+            
+            app.showActivityToast({
+                title: title,
+                type: 'system',
+                completedBy: 'Système'
+            });
+        });
+        console.log("📡 Écouteur de notifications actif.");
     },
 
     async handleJoinLink(id) {
