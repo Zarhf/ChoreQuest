@@ -218,7 +218,8 @@ const app = {
                 { id: 'day_off', title: 'Une journée de congé', cost: 1000, description: 'Remet toutes vos quêtes du jour au pot commun.', icon: '🏖️', isSpecial: true }
             ];
         } else {
-            if (!app.data.market.find(i => i.id === 'day_off')) {
+            if (!app.data.market.find(i => i.id === 'day_off' || i.title === 'Une journée de congé')) {
+                // On s'assure d'utiliser l'ID 'day_off'
                 app.data.market.push({ id: 'day_off', title: 'Une journée de congé', cost: 1000, description: 'Remet toutes vos quêtes du jour au pot commun.', icon: '🏖️', isSpecial: true });
             }
             if (!app.data.market.find(i => i.id === 'royal_bounty')) {
@@ -1359,7 +1360,7 @@ const app = {
             const isAdmin = app.isAdmin();
             
             let actionBtn = '';
-            if (item.isSpecial) {
+            if (item.id === 'royal_bounty') {
                 actionBtn = `<button class="action-btn" onclick="app.openRoyalMissionModal()" style="background:linear-gradient(135deg, #d97706, #78350f); color:white; border:1px solid #fcd34d;">👑 Proposer</button>`;
             } else {
                 actionBtn = `<button class="action-btn" onclick="app.buyItem('${item.id}')" ${(!canAfford || isOut) ? 'disabled' : ''}>Acheter</button>`;
