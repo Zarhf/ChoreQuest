@@ -1057,9 +1057,9 @@ const app = {
 
         const def = { id: defId, title, baseXp: xp, baseGold: gold, effort, estimatedTime: duration, frequency: freq, interval: interval, days, timeSlot, defaultAssignee: assignee, isRoyal: false, status: 'pending', votes: { [app.currentUser.id]: true }, createdBy: app.currentUser.id, linkedQuestId: linkedId, linkedQuestDelay: linkedDelay };
         
-        const totalMembers = app.data.users.length;
+        const totalMembers = app.data.users.filter(u => !u.managedBy).length;
         const majority = Math.floor(totalMembers / 2) + 1;
-        if (Object.keys(def.votes).length >= majority && !assignee) {
+        if (Object.keys(def.votes).length >= majority) {
             def.status = 'active';
         }
 
@@ -1094,9 +1094,9 @@ const app = {
         const defId = 'def_royal_'+Date.now();
         const def = { id: defId, title, baseXp: xp, baseGold: gold, frequency: 'none', defaultAssignee: assignee, isRoyal: true, status: 'pending', votes: { [app.currentUser.id]: true }, createdBy: app.currentUser.id };
         
-        const totalMembers = app.data.users.length;
+        const totalMembers = app.data.users.filter(u => !u.managedBy).length;
         const majority = Math.floor(totalMembers / 2) + 1;
-        if (Object.keys(def.votes).length >= majority && !assignee) {
+        if (Object.keys(def.votes).length >= majority) {
             def.status = 'active';
         }
 
@@ -1225,17 +1225,9 @@ const app = {
             quest.dueDate = app.calculateFirstDueDate(def).toISOString();
         }
 
-        let validated = false;
-        if (assignee) {
-            const hasCreatorVoted = def.votes[def.createdBy];
-            const hasAssigneeVoted = def.votes[def.defaultAssignee];
-            if (hasCreatorVoted && hasAssigneeVoted) validated = true;
-        } else {
-            const approvalCount = Object.keys(def.votes).length;
-            const totalMembers = app.data.users.length;
-            const majority = Math.floor(totalMembers / 2) + 1;
-            if (approvalCount >= majority) validated = true;
-        }
+        const totalMembers = app.data.users.filter(u => !u.managedBy).length;
+        const majority = Math.floor(totalMembers / 2) + 1;
+        const validated = Object.keys(def.votes).length >= majority;
 
         if (validated) {
             def.status = 'active';
@@ -1364,17 +1356,9 @@ const app = {
             if (!def.votes) def.votes = { [def.createdBy]: true };
             def.votes[app.currentUser.id] = true;
 
-            let validated = false;
-            if (def.defaultAssignee) {
-                const hasCreatorVoted = def.votes[def.createdBy];
-                const hasAssigneeVoted = def.votes[def.defaultAssignee];
-                if (hasCreatorVoted && hasAssigneeVoted) validated = true;
-            } else {
-                const totalMembers = app.data.users.filter(u => !u.managedBy).length;
-                const majority = Math.floor(totalMembers / 2) + 1;
-                const approvalCount = Object.keys(def.votes).length;
-                if (approvalCount >= majority) validated = true;
-            }
+            const totalMembers = app.data.users.filter(u => !u.managedBy).length;
+            const majority = Math.floor(totalMembers / 2) + 1;
+            const validated = Object.keys(def.votes).length >= majority;
 
             if (validated) {
                 def.status = 'active';
@@ -1846,7 +1830,7 @@ const app = {
                 if (isCancelReq) {
                     progressText = `Annulation : ${approvals} / ${majority}`;
                 } else {
-                    progressText = (def && def.defaultAssignee) ? `Accord requis (Créateur + Assigné)` : `Approbations : ${approvals} / ${majority}`;
+                    progressText = `Approbations : ${approvals} / ${majority}`;
                 }
                 
                 const isVoted = def && def.votes && def.votes[app.currentUser.id];
