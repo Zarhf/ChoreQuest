@@ -13,9 +13,16 @@ setGlobalOptions({ region: "us-central1" });
 
 // --- Helpers ---
 async function sendPushToUser(email, title, body, data = {}) {
+    logger.info(`Attempting to send push to ${email}`);
     const tokenDoc = await db.collection("push_tokens").doc(email).get();
-    if (!tokenDoc.exists) return;
+    
+    if (!tokenDoc.exists) {
+        logger.warn(`No push token found for user ${email}`);
+        return null;
+    }
+    
     const token = tokenDoc.data().token;
+    logger.info(`Token found for ${email}: ${token.substring(0, 10)}...`);
 
     const message = {
         notification: { title, body },
@@ -25,12 +32,14 @@ async function sendPushToUser(email, title, body, data = {}) {
 
     try {
         await admin.messaging().send(message);
-        logger.info(`Notification sent to ${email}`);
+        logger.info(`Notification sent successfully to ${email}`);
+        return true;
     } catch (error) {
         logger.error(`Error sending to ${email}:`, error);
         if (error.code === 'messaging/registration-token-not-registered') {
             await db.collection("push_tokens").doc(email).delete();
         }
+        return false;
     }
 }
 
@@ -50,10 +59,15 @@ async function sendToGuildMembers(guildData, title, body, excludeEmail = null) {
 
 exports.testnotification = onCall(async (request) => {
     const email = request.auth.token.email;
-    if (!email) return { success: false, error: "No email in auth token" };
+    logger.info(`Test notification requested for email: ${email}`);
     
-    await sendPushToUser(email, "🛡️ Test ChoreQuest", "Si tu vois ce message, les notifications fonctionnent !");
-    return { success: true };
+    if (!email) {
+        logger.error("No email found in auth token");
+        return { success: false, error: "No email in auth token" };
+    }
+    
+    const result = await sendPushToUser(email, "🛡️ Test ChoreQuest", "Si tu vois ce message, les notifications fonctionnent !");
+    return { success: !!result, info: result ? "Sent" : "No token found" };
 });
 
 exports.onguildupdate = onDocumentUpdated("guilds/{guildId}", async (event) => {
