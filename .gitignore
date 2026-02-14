@@ -23,6 +23,7 @@ public/
 # Sensitive data
 js/config.js
 *.local.js
+test files/
 *serviceAccount.json
 *-adminsdk-*.json
 .env
