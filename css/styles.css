@@ -258,7 +258,53 @@ main {
 
 /* --- MODALS --- */
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 3000; padding: 10px; }
-.modal-content { background: var(--bg-panel); padding: 1.5rem; border-radius: 16px; width: 100%; max-width: 450px; max-height: 90vh; overflow-y: auto; border: 1px solid rgba(74, 144, 226, 0.3); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+.modal-content {
+    background: var(--bg-panel); padding: 1.5rem; border-radius: 16px;
+    width: 100%; max-width: 450px; max-height: 90vh; overflow-y: auto;
+    border: 1px solid rgba(74, 144, 226, 0.3);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+/* Masquer la scrollbar moche mais garder le scroll fonctionnel */
+.modal-content::-webkit-scrollbar {
+    width: 6px;
+}
+.modal-content::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.1);
+}
+.modal-content::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 10px;
+}
+
+/* Style des croix de fermeture */
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.close-btn {
+    background: rgba(255,255,255,0.1);
+    border: none;
+    color: var(--text);
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: bold; font-family: sans-serif;
+    transition: all 0.2s;
+}
+
+.close-btn:hover {
+    background: var(--danger);
+    color: white;
+    transform: rotate(90deg);
+}
+
 .settings-group { background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 10px; margin-bottom: 1rem; }
 .settings-group h4 { margin: 0 0 8px 0; color: var(--primary); font-size: 0.75rem; text-transform: uppercase; }
 
