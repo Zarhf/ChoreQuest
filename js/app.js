@@ -212,10 +212,19 @@ const app = {
             { minLevel: 1, title: "Roturier" }, { minLevel: 5, title: "Écuyer" },
             { minLevel: 10, title: "Chevalier" }, { minLevel: 20, title: "Héros" }, { minLevel: 50, title: "Légende" }
         ];
-        if (!app.data.market) app.data.market = [
-            { id: 'royal_bounty', title: 'Mission Royale', cost: 0, description: 'Quête spéciale créée par le chef de guilde.', icon: '👑', isSpecial: true },
-            { id: 'day_off', title: 'Une journée de congé', cost: 1000, description: 'Fait sauter toutes vos quêtes de la journée !', icon: '🏖️', isSpecial: true }
-        ];
+        if (!app.data.market) {
+            app.data.market = [
+                { id: 'royal_bounty', title: 'Mission Royale', cost: 0, description: 'Quête spéciale créée par le chef de guilde.', icon: '👑', isSpecial: true },
+                { id: 'day_off', title: 'Une journée de congé', cost: 1000, description: 'Remet toutes vos quêtes du jour au pot commun.', icon: '🏖️', isSpecial: true }
+            ];
+        } else {
+            if (!app.data.market.find(i => i.id === 'day_off')) {
+                app.data.market.push({ id: 'day_off', title: 'Une journée de congé', cost: 1000, description: 'Remet toutes vos quêtes du jour au pot commun.', icon: '🏖️', isSpecial: true });
+            }
+            if (!app.data.market.find(i => i.id === 'royal_bounty')) {
+                app.data.market.unshift({ id: 'royal_bounty', title: 'Mission Royale', cost: 0, description: 'Quête spéciale créée par le chef de guilde.', icon: '👑', isSpecial: true });
+            }
+        }
         app.data.users.forEach(u => {
             if (u.gold === undefined) u.gold = 0;
             if (u.inventory === undefined) u.inventory = [];

@@ -1,5 +1,5 @@
 const CONFIG = {
-    BUILD: 148,
+    BUILD: 149,
     firebase: {
         apiKey: "AIzaSyA-utrSA-wu_Hjmxa4a8eox2vJ--b5ccr4",
         authDomain: "chorequest-1c5b6.firebaseapp.com",
