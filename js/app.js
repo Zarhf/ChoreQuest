@@ -170,6 +170,27 @@ const app = {
                 app.updateNotifUI(true);
                 app.hideModals();
                 if (!silent) console.log("🔔 Notifications activées !");
+
+                // Gérer les notifications au premier plan
+                db.messaging.onMessage((payload) => {
+                    console.log("🔔 Notification reçue au premier plan:", payload);
+                    const { title, body } = payload.notification;
+                    
+                    // Option 1 : Afficher une notification système même si on est sur la page
+                    if (Notification.permission === 'granted') {
+                        new Notification(title, {
+                            body: body,
+                            icon: 'icons/icon.svg'
+                        });
+                    }
+                    
+                    // Option 2 : Afficher aussi un petit toast dans l'app
+                    app.showActivityToast({
+                        title: title,
+                        type: 'system',
+                        completedBy: 'Système'
+                    });
+                });
             }
         } catch (e) {
             console.error("Permission request failed", e);
