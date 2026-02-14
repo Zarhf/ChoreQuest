@@ -22,7 +22,7 @@ async function sendPushToUser(email, title, body, data = {}) {
     }
     
     const token = tokenDoc.data().token;
-    logger.info(`Token found for ${email}: ${token.substring(0, 10)}...`);
+    logger.info(`Token found for ${email}: ${token.substring(0, 10)}...${token.substring(token.length - 5)}`);
 
     const message = {
         notification: { title, body },
