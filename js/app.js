@@ -208,7 +208,8 @@ const app = {
                             body: body,
                             icon: 'icons/icon.svg',
                             badge: 'icons/icon.svg',
-                            tag: 'chorequest-notif'
+                            requireInteraction: true,
+                            tag: Date.now().toString() // Utiliser un timestamp pour empiler
                         });
                     });
                 } catch(e) {

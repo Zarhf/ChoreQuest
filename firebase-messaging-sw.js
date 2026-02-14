@@ -25,7 +25,9 @@ messaging.onBackgroundMessage((payload) => {
     body: payload.notification?.body || payload.data?.body || "",
     icon: 'icons/icon.svg',
     badge: 'icons/icon.svg',
-    data: payload.data
+    data: payload.data,
+    tag: payload.data?.tag || Date.now().toString(), // Tag unique par défaut pour empiler
+    requireInteraction: true // Reste affiché jusqu'au clic/fermeture
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
