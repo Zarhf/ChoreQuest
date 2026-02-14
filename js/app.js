@@ -1239,7 +1239,13 @@ const app = {
 
         if (validated) {
             def.status = 'active';
-            quest.status = 'active';
+            if (def.frequency === 'linked') {
+                // Pour les quêtes liées, on supprime l'instance de négociation car elle doit attendre sa parente
+                const idx = app.data.activeQuests.findIndex(q => q.id === instanceId);
+                if (idx !== -1) app.data.activeQuests.splice(idx, 1);
+            } else {
+                quest.status = 'active';
+            }
         }
 
         app.data.questLog.unshift({ id: 'log_counter_'+Date.now(), type: 'system', title: `Contre-offre (${def.revision}) : ${quest.title}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
@@ -1372,7 +1378,13 @@ const app = {
 
             if (validated) {
                 def.status = 'active';
-                quest.status = 'active';
+                if (def.frequency === 'linked') {
+                    // Supprimer l'instance de vote, elle attendra son parent
+                    const idxInst = app.data.activeQuests.findIndex(qi => qi.id === instanceId);
+                    if (idxInst !== -1) app.data.activeQuests.splice(idxInst, 1);
+                } else {
+                    quest.status = 'active';
+                }
                 app.data.questLog.unshift({ id: 'log_council_'+Date.now(), type: 'system', title: `Le Conseil a validé : ${quest.title}`, completedBy: 'Council', completedAt: new Date().toISOString(), xpEarned: 0 });
             }
         } else if (type === 'reject') {
@@ -1938,25 +1950,16 @@ const app = {
             }).join('');
         }
 
-        const nonPending = app.data.activeQuests.filter(q => q.status !== 'pending');
+        const nonPending = app.data.activeQuests.filter(q => q.status !== 'pending' && q.status !== 'pending_cancel');
         
         const active = nonPending.filter(q => {
             if (!q.dueDate) return true;
             const due = new Date(q.dueDate);
             
-            // Si la date d'échéance est passée (et la quête n'est pas terminée), elle est active
-            if (due < now) return true;
+            // Une quête est active seulement si son échéance/activation est passée
+            if (due <= now) return true;
 
-            // Si c'est aujourd'hui, vérifier l'heure de début
-            if (due.toDateString() === now.toDateString()) {
-                if (q.timeSlot && q.timeSlot.start) {
-                    const [h, m] = q.timeSlot.start.split(':');
-                    const startTime = new Date(now);
-                    startTime.setHours(parseInt(h), parseInt(m), 0, 0);
-                    return now >= startTime;
-                }
-                return true;
-            }
+            // Sinon, elle reste dans "Prochainement"
             return false;
         });
 
