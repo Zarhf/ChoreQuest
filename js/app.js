@@ -530,20 +530,55 @@ const app = {
     },
 
     calculateNextDueDate(def, fromDate = new Date()) {
-        let next = new Date(fromDate); const int = parseInt(def.interval || 1); const now = new Date(); now.setHours(0,0,0,0);
+        let next = new Date(fromDate); 
+        const int = parseInt(def.interval || 1); 
+        const now = new Date(); 
+        now.setHours(0,0,0,0);
+        
+        const isWeeklyWithDays = def.frequency === 'weekly' && def.days && def.days.length > 0;
+
         const add = (d) => {
             if (def.frequency === 'daily') d.setDate(d.getDate() + int);
             else if (def.frequency === 'weekly') {
-                let found = false;
-                for (let i = 1; i <= 7 * int; i++) {
-                    let check = new Date(d); check.setDate(d.getDate() + i);
-                    if (def.days && def.days.includes(check.getDay().toString())) { d.setTime(check.getTime()); found = true; break; }
+                if (isWeeklyWithDays) {
+                    let found = false;
+                    // Pour le hebdo avec jours, on cherche le prochain jour valide
+                    // On commence à chercher à partir du lendemain du fromDate
+                    for (let i = 1; i <= 7 * int; i++) {
+                        let check = new Date(d); check.setDate(d.getDate() + i);
+                        if (def.days.includes(check.getDay().toString())) { 
+                            // Si on a un intervalle > 1, on ne valide que si on est dans la bonne semaine
+                            if (int > 1) {
+                                // Calcul simplifié des semaines d'écart
+                                const weeksDiff = Math.floor((check.getTime() - new Date(fromDate).getTime()) / (7 * 24 * 3600 * 1000));
+                                if (weeksDiff % int !== 0) continue;
+                            }
+                            d.setTime(check.getTime()); found = true; break; 
+                        }
+                    }
+                    if (!found) d.setDate(d.getDate() + 7 * int);
+                } else {
+                    d.setDate(d.getDate() + 7 * int);
                 }
-                if (!found) d.setDate(d.getDate() + 7 * int);
             } else if (def.frequency === 'monthly') d.setMonth(d.getMonth() + int);
         };
-        add(next); let safety = 0; while (next < now && safety < 100) { safety++; add(next); }
-        next.setHours(4, 0, 0, 0); return next;
+
+        add(next); 
+        
+        // Sécurité : si la date calculée est encore dans le passé par rapport à AUJOURD'HUI
+        // (sauf pour hebdo avec jours où on veut peut-être rattraper le retard de la semaine en cours si on vient juste de finir)
+        // Mais la demande dit : "la prochaine exécution doit être calculée par rapport à la date de la dernière exécution"
+        // Donc si c'est tous les 2 jours, et que je le fais avec 4 jours de retard, la suivante est dans 2 jours.
+        // C'est ce que fait `add(next)` une seule fois.
+        
+        // Pour les hebdomadaires à jours fixes, si on a fini une tâche en retard, on veut quand même que la prochaine respecte le planning.
+        if (isWeeklyWithDays) {
+            let safety = 0;
+            while (next < now && safety < 100) { safety++; add(next); }
+        }
+
+        next.setHours(4, 0, 0, 0); 
+        return next;
     },
 
     calculateFirstDueDate(def) {
@@ -676,7 +711,11 @@ const app = {
         
         if (app.data.questLog.length > 50) app.data.questLog.pop();
         if (def && def.frequency && def.frequency !== 'none') {
-            quest.dueDate = app.calculateNextDueDate(def, new Date(quest.dueDate)).toISOString();
+            // Si c'est un hebdo à jours fixes, on garde le calcul par rapport à la dueDate initiale pour ne pas décaler le planning
+            const isWeeklyWithDays = def.frequency === 'weekly' && def.days && def.days.length > 0;
+            const fromDate = isWeeklyWithDays ? new Date(quest.dueDate) : new Date();
+            
+            quest.dueDate = app.calculateNextDueDate(def, fromDate).toISOString();
             quest.assignedTo = def.defaultAssignee || null;
             delete quest.stealDeadline;
         } else app.data.activeQuests.splice(index, 1);
@@ -739,6 +778,7 @@ const app = {
         const goldEl = document.getElementById('quest-gold');
         const durationEl = document.getElementById('quest-duration');
         const freqEl = document.getElementById('quest-frequency');
+        const intervalEl = document.getElementById('quest-interval');
         const dateEl = document.getElementById('quest-date');
         const assigneeEl = document.getElementById('quest-assignee');
         
@@ -749,6 +789,7 @@ const app = {
         const gold = parseInt(goldEl ? goldEl.value : 0) || 0;
         const duration = parseInt(durationEl ? durationEl.value : 15) || 15;
         const freq = freqEl ? freqEl.value : 'none';
+        const interval = parseInt(intervalEl ? intervalEl.value : 1) || 1;
         const assignee = assigneeEl ? assigneeEl.value : null;
         
         const tStart = document.getElementById('quest-time-start').value;
@@ -764,11 +805,11 @@ const app = {
         if (freq === 'none') {
             dueDate = dateEl.value ? new Date(dateEl.value).toISOString() : null;
         } else {
-            const def = { frequency: freq, days, interval: 1 };
-            dueDate = app.calculateFirstDueDate(def).toISOString();
+            const tempDef = { frequency: freq, days, interval: interval };
+            dueDate = app.calculateFirstDueDate(tempDef).toISOString();
         }
 
-        const def = { id: defId, title, baseXp: xp, baseGold: gold, estimatedTime: duration, frequency: freq, interval: 1, days, timeSlot, defaultAssignee: assignee, isRoyal: false, status: 'pending', votes: { [app.currentUser.id]: true }, createdBy: app.currentUser.id };
+        const def = { id: defId, title, baseXp: xp, baseGold: gold, estimatedTime: duration, frequency: freq, interval: interval, days, timeSlot, defaultAssignee: assignee, isRoyal: false, status: 'pending', votes: { [app.currentUser.id]: true }, createdBy: app.currentUser.id };
         
         const totalMembers = app.data.users.length;
         const majority = Math.floor(totalMembers / 2) + 1;
@@ -836,6 +877,7 @@ const app = {
         document.getElementById('counter-gold').value = quest.gold;
         document.getElementById('counter-duration').value = def.estimatedTime || 15;
         document.getElementById('counter-frequency').value = def.frequency || 'none';
+        document.getElementById('counter-interval').value = def.interval || 1;
         document.getElementById('counter-time-start').value = (def.timeSlot && def.timeSlot.start) ? def.timeSlot.start : '';
         document.getElementById('counter-time-end').value = (def.timeSlot && def.timeSlot.end) ? def.timeSlot.end : '';
         
@@ -862,6 +904,7 @@ const app = {
         const gold = parseInt(document.getElementById('counter-gold').value);
         const duration = parseInt(document.getElementById('counter-duration').value);
         const frequency = document.getElementById('counter-frequency').value;
+        const interval = parseInt(document.getElementById('counter-interval').value || 1) || 1;
         const tStart = document.getElementById('counter-time-start').value;
         const tEnd = document.getElementById('counter-time-end').value;
         const days = Array.from(document.querySelectorAll('input[name="counter-day"]:checked')).map(cb => cb.value);
@@ -875,11 +918,14 @@ const app = {
 
         if (!title) return alert("Le contrat doit avoir un titre !");
 
+        const changed = def.frequency !== frequency || JSON.stringify(def.days) !== JSON.stringify(days) || def.interval !== interval;
+
         def.title = title;
         def.baseXp = xp;
         def.baseGold = gold;
         def.estimatedTime = duration;
         def.frequency = frequency;
+        def.interval = interval;
         def.days = days;
         def.timeSlot = (tStart || tEnd) ? { start: tStart, end: tEnd } : null;
         def.defaultAssignee = assignee;
@@ -893,8 +939,8 @@ const app = {
         quest.assignedTo = assignee;
         quest.timeSlot = def.timeSlot;
 
-        // Recalculer la dueDate si la fréquence a changé
-        if (frequency !== 'none') {
+        // Recalculer la dueDate si la fréquence ou l'intervalle a changé
+        if (frequency !== 'none' && changed) {
             quest.dueDate = app.calculateFirstDueDate(def).toISOString();
         }
 
@@ -1006,7 +1052,7 @@ const app = {
             const gold = parseInt(document.getElementById('edit-quest-gold').value || 0);
             const duration = parseInt(document.getElementById('edit-quest-duration').value || 15);
             const freq = document.getElementById('edit-quest-frequency').value;
-            const interval = document.getElementById('edit-quest-interval').value;
+            const interval = parseInt(document.getElementById('edit-quest-interval').value || 1);
             const assignee = document.getElementById('edit-quest-assignee').value || null;
             const tStart = document.getElementById('edit-quest-time-start').value;
             const tEnd = document.getElementById('edit-quest-time-end').value;
@@ -1382,13 +1428,27 @@ const app = {
 
                 const freqMap = { none: 'Unique', daily: 'Quotidien', weekly: 'Hebdo', monthly: 'Mensuel' };
                 const dayMap = { '1': 'L', '2': 'M', '3': 'M', '4': 'J', '5': 'V', '6': 'S', '0': 'D' };
-                let freqText = def ? freqMap[def.frequency] || 'Unique' : 'Unique';
-                if (def && def.frequency === 'weekly' && def.days && def.days.length > 0) {
-                    freqText += ` (${def.days.map(d => dayMap[d]).join(',')})`;
-                } else if (def && def.frequency === 'none' && q.dueDate) {
-                    const d = new Date(q.dueDate);
-                    freqText += ` (${d.toLocaleDateString()})`;
+                
+                let freqText = '';
+                if (def) {
+                    const int = parseInt(def.interval || 1);
+                    if (int > 1) {
+                        const freqLabel = { daily: 'jours', weekly: 'semaines', monthly: 'mois' }[def.frequency];
+                        freqText = `Tous les ${int} ${freqLabel || ''}`;
+                    } else {
+                        freqText = freqMap[def.frequency] || 'Unique';
+                    }
+
+                    if (def.frequency === 'weekly' && def.days && def.days.length > 0) {
+                        freqText += ` (${def.days.map(d => dayMap[d]).join(',')})`;
+                    } else if (def.frequency === 'none' && q.dueDate) {
+                        const d = new Date(q.dueDate);
+                        freqText += ` (${d.toLocaleDateString()})`;
+                    }
+                } else {
+                    freqText = 'Unique';
                 }
+
                 const durationText = (def && def.estimatedTime) ? ` • ⏳ ${def.estimatedTime}m` : '';
                 const timeText = q.timeSlot ? ` • 🕒 ${q.timeSlot.start}${q.timeSlot.end ? '-' + q.timeSlot.end : ''}` : '';
 
@@ -1427,16 +1487,21 @@ const app = {
         const active = nonPending.filter(q => {
             if (!q.dueDate) return true;
             const due = new Date(q.dueDate);
-            if (due > endOfToday) return false;
             
+            // Si la date d'échéance est passée (et la quête n'est pas terminée), elle est active
+            if (due < now) return true;
+
             // Si c'est aujourd'hui, vérifier l'heure de début
-            if (due.toDateString() === now.toDateString() && q.timeSlot && q.timeSlot.start) {
-                const [h, m] = q.timeSlot.start.split(':');
-                const startTime = new Date(now);
-                startTime.setHours(parseInt(h), parseInt(m), 0, 0);
-                return now >= startTime;
+            if (due.toDateString() === now.toDateString()) {
+                if (q.timeSlot && q.timeSlot.start) {
+                    const [h, m] = q.timeSlot.start.split(':');
+                    const startTime = new Date(now);
+                    startTime.setHours(parseInt(h), parseInt(m), 0, 0);
+                    return now >= startTime;
+                }
+                return true;
             }
-            return true;
+            return false;
         });
 
         let upcoming = nonPending.filter(q => !active.includes(q));
@@ -1444,6 +1509,9 @@ const app = {
         active.forEach(q => { 
             const def = app.data.questDefinitions.find(d => d.id === q.definitionId); 
             if (def && def.frequency && def.frequency !== 'none') {
+                // Pour la projection virtuelle, on base sur la dueDate de l'instance active
+                // Si la quête est en retard, la projection virtuelle doit quand même montrer la SUIVANTE
+                // On utilise calculateNextDueDate par rapport à la dueDate actuelle
                 upcoming.push({ ...q, id: 'virtual_' + q.id, dueDate: app.calculateNextDueDate(def, new Date(q.dueDate)).toISOString(), isVirtual: true }); 
             }
         });
