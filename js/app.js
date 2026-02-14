@@ -2021,7 +2021,7 @@ const app = {
             }
 
             const canEdit = app.isAdmin();
-            return `<div class="quest-card ${rarity} ${mode !== 'active' ? 'upcoming' : ''}"><div class="quest-body" ${canEdit ? `onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer"` : ''}>${assigneeHtml}<div class="quest-info"><h4>${freq} ${q.title}${timerHtml}</h4><span>💰 ${q.xp} XP${q.gold ? ' • ' + app.data.currency.symbol + ' ' + q.gold : ''}${time}</span></div></div><div class="quest-actions-container">${actionButtons}</div></div>`;
+            return `<div class="quest-card ${rarity} ${mode !== 'active' ? 'upcoming' : ''}"><div class="quest-body" ${canEdit ? `onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer"` : ''}>${assigneeHtml}<div class="quest-info"><h4>${freq} ${q.title}${timerHtml}</h4><span>💰 ${q.xp} XP${q.gold ? ' • ' + app.data.currency.symbol + ' ' + q.gold : ''}${timeStr}</span></div></div><div class="quest-actions-container">${actionButtons}</div></div>`;
         };
 
         document.getElementById('task-list').innerHTML = active.map(q => html(q, 'active')).join('') || '<p style="text-align:center; opacity:0.5;">Tout est fait !</p>';
