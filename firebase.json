@@ -2,5 +2,25 @@
   "functions": {
     "source": "functions",
     "runtime": "nodejs22"
+  },
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "functions/**",
+      "ClipMinder/**",
+      "Cosmos JSON Formatter/**",
+      "Cosmos Visualizer/**",
+      "Leaflet Planner/**",
+      "Magic Linker/**",
+      "PWA_Drive_Architecture/**",
+      "Rapport MCP/**",
+      "Requête contrôle pré-reservations de stock/**",
+      "Suivi commande pilote/**",
+      "Team Pulse/**",
+      "Train monitor/**"
+    ]
   }
 }

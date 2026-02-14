@@ -5,6 +5,29 @@ Thumbs.db
 # IDE files
 .idea/
 .vscode/
+*.swp
+*.swo
 
-# Config files with keys (although our current config is public client ID)
-# config.local.js
+# Node dependencies
+node_modules/
+package-lock.json
+
+# Firebase / Cloud Functions
+firebase-debug.log
+.firebase/
+functions/node_modules/
+functions/package-lock.json
+functions/.env
+public/
+
+# Sensitive data
+js/config.js
+*.local.js
+*serviceAccount.json
+*-adminsdk-*.json
+.env
+.env.local
+
+# Build artifacts
+dist/
+build/

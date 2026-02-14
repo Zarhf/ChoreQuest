@@ -1,5 +1,6 @@
 const { onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { onCall } = require("firebase-functions/v2/https");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const admin = require("firebase-admin");
 const logger = require("firebase-functions/logger");
@@ -46,6 +47,14 @@ async function sendToGuildMembers(guildData, title, body, excludeEmail = null) {
 }
 
 // --- Triggers v2 ---
+
+exports.testnotification = onCall(async (request) => {
+    const email = request.auth.token.email;
+    if (!email) return { success: false, error: "No email in auth token" };
+    
+    await sendPushToUser(email, "🛡️ Test ChoreQuest", "Si tu vois ce message, les notifications fonctionnent !");
+    return { success: true };
+});
 
 exports.onguildupdate = onDocumentUpdated("guilds/{guildId}", async (event) => {
     const newData = event.data.after.data();

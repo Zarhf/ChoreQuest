@@ -127,9 +127,21 @@ const app = {
 
     updateNotifUI(enabled) {
         const btn = document.getElementById('btn-enable-notifs');
-        const msg = document.getElementById('notif-status-msg');
+        const container = document.getElementById('notif-status-container');
         if (btn) btn.classList.toggle('hidden', enabled);
-        if (msg) msg.classList.toggle('hidden', !enabled);
+        if (container) container.classList.toggle('hidden', !enabled);
+    },
+
+    async testNotifications() {
+        try {
+            // Utiliser la fonction Cloud via Firebase
+            const testFunc = db.functions.httpsCallable('testnotification');
+            await testFunc();
+            alert("🪄 Sortilège lancé ! Si tes notifications sont bien configurées, tu devrais recevoir un message d'ici quelques secondes.");
+        } catch (e) {
+            console.error("Test notification failed", e);
+            alert("❌ Échec du sortilège : " + e.message);
+        }
     },
 
     async requestNotifPermission(silent = false) {
