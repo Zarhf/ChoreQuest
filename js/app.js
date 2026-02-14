@@ -834,19 +834,37 @@ const app = {
         document.getElementById('counter-title').value = quest.title;
         document.getElementById('counter-xp').value = quest.xp;
         document.getElementById('counter-gold').value = quest.gold;
+        document.getElementById('counter-duration').value = def.estimatedTime || 15;
+        document.getElementById('counter-frequency').value = def.frequency || 'none';
+        document.getElementById('counter-time-start').value = (def.timeSlot && def.timeSlot.start) ? def.timeSlot.start : '';
+        document.getElementById('counter-time-end').value = (def.timeSlot && def.timeSlot.end) ? def.timeSlot.end : '';
+        
+        // Jours pour récurrence hebdo
+        const days = def.days || [];
+        document.querySelectorAll('input[name="counter-day"]').forEach(cb => {
+            cb.checked = days.includes(cb.value);
+        });
+
         document.getElementById('counter-reason').value = '';
         
         const memberOptions = `<option value="">❓ Pour tous</option>` + app.data.users.map(u => `<option value="${u.id}" ${u.id === quest.assignedTo ? 'selected' : ''}>${u.name}</option>`).join('');
         const select = document.getElementById('counter-assignee');
         if (select) select.innerHTML = memberOptions;
         
+        app.toggleRecurrenceUI('counter');
         app.showModal('counter-offer-modal');
     },
 
     async submitCounterOffer() {
         const instanceId = document.getElementById('counter-quest-id').value;
+        const title = document.getElementById('counter-title').value;
         const xp = parseInt(document.getElementById('counter-xp').value);
         const gold = parseInt(document.getElementById('counter-gold').value);
+        const duration = parseInt(document.getElementById('counter-duration').value);
+        const frequency = document.getElementById('counter-frequency').value;
+        const tStart = document.getElementById('counter-time-start').value;
+        const tEnd = document.getElementById('counter-time-end').value;
+        const days = Array.from(document.querySelectorAll('input[name="counter-day"]:checked')).map(cb => cb.value);
         const assignee = document.getElementById('counter-assignee').value || null;
         const reason = document.getElementById('counter-reason').value || '';
 
@@ -860,6 +878,10 @@ const app = {
         def.title = title;
         def.baseXp = xp;
         def.baseGold = gold;
+        def.estimatedTime = duration;
+        def.frequency = frequency;
+        def.days = days;
+        def.timeSlot = (tStart || tEnd) ? { start: tStart, end: tEnd } : null;
         def.defaultAssignee = assignee;
         def.votes = { [app.currentUser.id]: true }; 
         def.lastReason = reason;
@@ -869,6 +891,12 @@ const app = {
         quest.xp = xp;
         quest.gold = gold;
         quest.assignedTo = assignee;
+        quest.timeSlot = def.timeSlot;
+
+        // Recalculer la dueDate si la fréquence a changé
+        if (frequency !== 'none') {
+            quest.dueDate = app.calculateFirstDueDate(def).toISOString();
+        }
 
         let validated = false;
         if (assignee) {
@@ -1325,7 +1353,9 @@ const app = {
                 const majority = Math.floor(total / 2) + 1;
                 const progressText = (def && def.defaultAssignee) ? `Accord requis (Créateur + Assigné)` : `Approbations : ${approvals} / ${majority}`;
                 const isVoted = def && def.votes && def.votes[app.currentUser.id];
-                const assigneeName = q.assignedTo ? (app.data.users.find(u=>u.id===q.assignedTo)?.name || 'Inconnu') : 'Pour tous';
+                
+                const assignee = q.assignedTo ? app.data.users.find(u=>u.id===q.assignedTo) : null;
+                const assigneeName = assignee ? assignee.name : 'Pour tous';
                 const creator = app.data.users.find(u => u.id === (def?.createdBy || q.createdBy))?.name || 'Ancien';
                 const revisionHtml = (def?.revision > 0) ? `<span class="badge" style="background:#f39c12; margin-left:5px;">Rév. ${def.revision}</span>` : '';
                 const reasonHtml = def?.lastReason ? `<div style="font-size:0.7rem; color:#8b4513; margin-top:5px; font-style:italic; border-left:2px solid #f39c12; padding-left:5px;">"${def.lastReason}"</div>` : '';
@@ -1335,16 +1365,39 @@ const app = {
                     return `<div class="assignee-badge" style="width:20px; height:20px; border:1px solid #27ae60;">${app.getAvatarHtml(u ? u.avatar : '?', "20px")}</div>`;
                 }).join('') : '';
 
-                return `<div class="scroll-card">
+                const freqMap = { none: 'Unique', daily: 'Quotidien', weekly: 'Hebdo', monthly: 'Mensuel' };
+                const dayMap = { '1': 'L', '2': 'M', '3': 'M', '4': 'J', '5': 'V', '6': 'S', '0': 'D' };
+                let freqText = def ? freqMap[def.frequency] || 'Unique' : 'Unique';
+                if (def && def.frequency === 'weekly' && def.days && def.days.length > 0) {
+                    freqText += ` (${def.days.map(d => dayMap[d]).join(',')})`;
+                } else if (def && def.frequency === 'none' && q.dueDate) {
+                    const d = new Date(q.dueDate);
+                    freqText += ` (${d.toLocaleDateString()})`;
+                }
+                const durationText = (def && def.estimatedTime) ? ` • ⏳ ${def.estimatedTime}m` : '';
+                const timeText = q.timeSlot ? ` • 🕒 ${q.timeSlot.start}${q.timeSlot.end ? '-' + q.timeSlot.end : ''}` : '';
+
+                return `<div class="scroll-card ${q.isRoyal ? 'royal-quest-card' : ''}">
                     <div style="display:flex; justify-content:space-between; align-items:start;">
                         <div style="flex:1; padding-right:10px;">
-                            <h4 style="display:flex; align-items:center;">📜 ${q.title} ${revisionHtml}</h4>
-                            <div style="font-size:0.75rem; margin-top:5px; opacity:0.8;">Proposé par : <strong>${creator}</strong></div>
+                            <h4 style="display:flex; align-items:center;">${q.isRoyal ? '👑' : '📜'} ${q.title} ${revisionHtml}</h4>
+                            <div style="font-size:0.7rem; margin-top:2px; opacity:0.6;">Proposé par : <strong>${creator}</strong></div>
                             ${reasonHtml}
                         </div>
                         <div style="display:flex; gap:2px; flex-shrink:0;">${votersList}</div>
                     </div>
-                    <div style="font-size:0.75rem; margin-top:5px;">💰 ${q.xp} XP • ${app.data.currency.symbol} ${q.gold} • 👤 ${assigneeName}</div>
+                    
+                    <div style="background: rgba(0,0,0,0.1); border-radius: 4px; padding: 8px; margin: 8px 0; border: 1px dashed rgba(255,255,255,0.1);">
+                        <div style="font-size:0.8rem; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <span style="color: #f1c40f;">💰 ${q.xp} XP • ${app.data.currency.symbol} ${q.gold}</span>
+                            <span style="opacity: 0.8;">🔄 ${freqText}${durationText}${timeText}</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:5px; margin-top:5px;">
+                            <div class="assignee-badge ${!assignee ? 'empty' : ''}" style="width:20px; height:20px;">${app.getAvatarHtml(assignee ? assignee.avatar : '?', "20px")}</div>
+                            <span style="font-size:0.75rem; opacity: 0.9;">Assigné : <strong>${assigneeName}</strong></span>
+                        </div>
+                    </div>
+
                     <div class="scroll-actions">
                         <span class="vote-progress" style="margin-right:auto;">${progressText}</span>
                         ${!isVoted ? `<button class="scroll-btn btn-approve" onclick="app.voteQuest('${q.id}', 'approve')">Approuver</button>` : `<span style="font-size:0.8rem; color:#27ae60; margin-right:10px;">Fait ✅</span>`}
