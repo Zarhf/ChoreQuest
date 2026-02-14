@@ -165,11 +165,6 @@ const app = {
                 serviceWorkerRegistration: registration
             });
 
-            const token = await db.messaging.getToken({
-                vapidKey: CONFIG.VAPID_PUBLIC_KEY,
-                serviceWorkerRegistration: registration
-            });
-
             if (token) {
                 console.log(`🔑 Jeton FCM actuel (fin) : ...${token.substring(token.length - 5)}`);
                 await db.saveUserToken(auth.user.email, token);
