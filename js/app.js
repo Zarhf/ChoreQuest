@@ -1238,6 +1238,9 @@ const app = {
             } else {
                 quest.status = 'active';
             }
+        } else {
+            def.status = 'pending';
+            quest.status = 'pending';
         }
 
         app.data.questLog.unshift({ id: 'log_counter_'+Date.now(), type: 'system', title: `Contre-offre (${def.revision}) : ${quest.title}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
@@ -1982,16 +1985,31 @@ const app = {
             if (!up) {
                 const def = app.data.questDefinitions.find(d => d.id === q.definitionId);
                 const isMandatory = def && def.defaultAssignee;
+                const isMe = q.assignedTo === app.currentUser.id;
+                const isNobody = !q.assignedTo;
+                const isStealable = app.isStealable(q);
 
-                            if (isMe || isNobody) actionButtons += `<button class="quest-action-btn btn-complete" onclick="event.stopPropagation(); app.askConfirm('Terminer ?', () => app.completeTask('${q.id}'))" title="Valider">✅</button>`;
-                            
-                            // Bouton de demande d'annulation au Conseil
-                            if (isMe || isNobody) {
-                                actionButtons += `<button class="quest-action-btn btn-abandon" style="background:rgba(233,69,96,0.6); border-left:1px solid rgba(255,255,255,0.1);" onclick="event.stopPropagation(); app.requestQuestCancellation('${q.id}')" title="Demander l'annulation au Conseil">🚫</button>`;
-                            }
-                
-                            if (isMe && !isMandatory) actionButtons += `<button class="quest-action-btn btn-abandon" onclick="event.stopPropagation(); app.askConfirm('Abandonner ?', () => app.unclaimQuest('${q.id}'))" title="Abandonner">❌</button>`;                else if (isNobody) actionButtons += `<button class="quest-action-btn btn-claim" onclick="event.stopPropagation(); app.askConfirm('Prendre ?', () => app.claimQuest('${q.id}'))" title="☝️ Je prends">☝️</button>`;
-                else if (isStealable) actionButtons += `<button class="quest-action-btn btn-steal" onclick="event.stopPropagation(); app.askConfirm('🥷 VOLER ?', () => app.claimQuest('${q.id}'))" title="🥷 Voler">🥷</button>`;
+                // Bouton 1 (1/3) : Prendre / Abandonner / Voler
+                if (isNobody) {
+                    actionButtons += `<button class="quest-action-btn btn-claim" style="flex: 2;" onclick="event.stopPropagation(); app.askConfirm('Prendre ?', () => app.claimQuest('${q.id}'))" title="☝️ Je prends">☝️</button>`;
+                } else if (isMe) {
+                    actionButtons += `<button class="quest-action-btn btn-abandon" style="flex: 2;" onclick="event.stopPropagation(); app.askConfirm('Abandonner ?', () => app.unclaimQuest('${q.id}'))" title="Abandonner">❌</button>`;
+                } else if (isStealable) {
+                    actionButtons += `<button class="quest-action-btn btn-steal" style="flex: 2;" onclick="event.stopPropagation(); app.askConfirm('🥷 VOLER ?', () => app.claimQuest('${q.id}'))" title="🥷 Voler">🥷</button>`;
+                } else {
+                    // Place occupée même si rien à faire (pour garder le layout)
+                    actionButtons += `<div style="flex: 2; opacity: 0.2; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.1);">🔒</div>`;
+                }
+
+                // Bouton 2 (1/3) : Valider
+                const canComplete = isMe || isNobody;
+                actionButtons += `<button class="quest-action-btn btn-complete" style="flex: 2; ${!canComplete ? 'opacity: 0.3; cursor: not-allowed;' : ''}" ${canComplete ? `onclick="event.stopPropagation(); app.askConfirm('Terminer ?', () => app.completeTask('${q.id}'))"` : ''} title="Valider">✅</button>`;
+
+                // Bouton 3 (1/6) : Proposer Modif
+                actionButtons += `<button class="quest-action-btn btn-counter" style="flex: 1; font-size: 1.1rem; background: #f39c12;" onclick="event.stopPropagation(); app.openCounterOfferModal('${q.id}')" title="Proposer une modification (Renégocier)">📝</button>`;
+
+                // Bouton 4 (1/6) : Annuler
+                actionButtons += `<button class="quest-action-btn btn-abandon" style="flex: 1; font-size: 1.1rem; background: #e94560;" onclick="event.stopPropagation(); app.requestQuestCancellation('${q.id}')" title="Demander l'annulation au Conseil">🚫</button>`;
             }
             const canEdit = app.isAdmin();
             return `<div class="quest-card ${rarity} ${up ? 'upcoming' : ''}"><div class="quest-body" ${canEdit ? `onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer"` : ''}>${assigneeHtml}<div class="quest-info"><h4>${freq} ${q.title}${timerHtml}</h4><span>💰 ${q.xp} XP${q.gold ? ' • ' + app.data.currency.symbol + ' ' + q.gold : ''}${time}</span></div></div><div class="quest-actions-container">${actionButtons}</div></div>`;
