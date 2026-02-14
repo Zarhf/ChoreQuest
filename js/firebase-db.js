@@ -6,7 +6,7 @@ const db = {
 
     init() {
         this.firestore = firebase.firestore();
-        this.functions = firebase.functions("us-central1");
+        this.functions = firebase.app().functions("us-central1");
         try {
             this.messaging = firebase.messaging();
         } catch (e) {
