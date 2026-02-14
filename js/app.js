@@ -1474,16 +1474,27 @@ const app = {
                 const todayStr = now.toDateString();
                 
                 // Trouver toutes les quêtes de l'utilisateur pour AUJOURD'HUI
-                const toSkip = app.data.activeQuests.filter(q => {
+                const toReassign = app.data.activeQuests.filter(q => {
                     if (q.assignedTo !== app.currentUser.id || q.status !== 'active') return false;
                     if (!q.dueDate) return true;
                     return new Date(q.dueDate).toDateString() === todayStr;
                 });
 
-                for (const q of toSkip) {
-                    await app.skipTask(q.id);
+                for (const q of toReassign) {
+                    q.assignedTo = null; // Remis dans le pot commun
+                    delete q.stealDeadline; // Au cas où
                 }
-                alert(`🏖️ Repos bien mérité ! ${toSkip.length} quêtes ont été passées.`);
+                
+                app.data.questLog.unshift({ 
+                    id: 'log_dayoff_action_'+Date.now(), 
+                    type: 'system', 
+                    title: `Repos Royal : ${toReassign.length} quêtes remises en jeu`, 
+                    completedBy: app.currentUser.id, 
+                    completedAt: new Date().toISOString(), 
+                    xpEarned: 0 
+                });
+
+                alert(`🏖️ Repos bien mérité ! ${toReassign.length} quêtes ont été remises à disposition de la guilde.`);
             }
 
             app.currentUser.inventory.splice(index, 1);
