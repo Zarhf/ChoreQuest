@@ -1,5 +1,5 @@
 const CONFIG = {
-    BUILD: 154,
+    BUILD: 155,
     VAPID_PUBLIC_KEY: "BAwHLwgG4ub3h0YSQykgiIXVxv9JO_qC18YD_A1cBHhIme9RTimbNJVabc5pqSSfvOVnL1G3FG1axKJ2p6tJZe8",
     firebase: {
         apiKey: "AIzaSyA-utrSA-wu_Hjmxa4a8eox2vJ--b5ccr4",

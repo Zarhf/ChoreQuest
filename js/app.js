@@ -111,6 +111,15 @@ const app = {
             app.updateNotifUI(true);
             // On rafraîchit le token silencieusement
             app.requestNotifPermission(true);
+        } else if (Notification.permission === 'default') {
+            app.updateNotifUI(false);
+            // Demander automatiquement après un court délai si pas encore fait dans cette session
+            if (!sessionStorage.getItem('notif_request_shown')) {
+                setTimeout(() => {
+                    app.showModal('notif-request-modal');
+                    sessionStorage.setItem('notif_request_shown', 'true');
+                }, 3000);
+            }
         } else {
             app.updateNotifUI(false);
         }
@@ -127,16 +136,27 @@ const app = {
         try {
             if (!silent) {
                 const permission = await Notification.requestPermission();
-                if (permission !== 'granted') return;
+                if (permission !== 'granted') {
+                    app.hideModals();
+                    return;
+                }
             }
 
+            // Correction : On enregistre manuellement le Service Worker pour FCM
+            // car GitHub Pages utilise un sous-dossier /ChoreQuest/
+            const registration = await navigator.serviceWorker.register('firebase-messaging-sw.js', {
+                scope: './'
+            });
+
             const token = await db.messaging.getToken({
-                vapidKey: CONFIG.VAPID_PUBLIC_KEY
+                vapidKey: CONFIG.VAPID_PUBLIC_KEY,
+                serviceWorkerRegistration: registration
             });
 
             if (token) {
                 await db.saveUserToken(auth.user.email, token);
                 app.updateNotifUI(true);
+                app.hideModals();
                 if (!silent) console.log("🔔 Notifications activées !");
             }
         } catch (e) {

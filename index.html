@@ -8,11 +8,11 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>ChoreQuest</title>
         <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=154">
+    <link rel="stylesheet" href="css/styles.css?v=155">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
     <script>
-        // --- NUCLEAIRE CACHE KILLER (Build 154) ---
+        // --- NUCLEAIRE CACHE KILLER (Build 155) ---
         (async function() {
             try {
                 const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
@@ -130,6 +130,17 @@
                 </div>
             </section>
         </main>
+
+        <div id="notif-request-modal" class="modal hidden" style="z-index: 6000;">
+            <div class="modal-content" style="text-align: center; border: 2px solid #8e44ad;">
+                <h2 style="color: #8e44ad;">🔔 Alertes du Royaume</h2>
+                <p style="font-size: 0.9rem; margin-bottom: 1.5rem;">Souhaites-tu recevoir un message quand une nouvelle quête est proposée ou quand un membre te vole un contrat ?</p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <button class="action-btn secondary-btn" onclick="app.hideModals()" style="margin:0;">Plus tard</button>
+                    <button class="action-btn" onclick="app.requestNotifPermission()" style="background:#8e44ad; margin:0;">📣 Activer</button>
+                </div>
+            </div>
+        </div>
 
         <!-- Modales Core -->
         <div id="confirm-modal" class="modal hidden" style="z-index: 5000;">
@@ -493,10 +504,10 @@
 
     <div id="activity-toast" class="hidden"><div id="toast-avatar" class="assignee-badge" style="width:30px; height:30px;"></div> <span id="toast-message">...</span></div>
 
-    <script src="js/config.js?v=154"></script>
-    <script src="js/auth.js?v=154"></script>
-    <script src="js/firebase-db.js?v=154"></script>
-    <script src="js/app.js?v=154"></script>
+    <script src="js/config.js?v=155"></script>
+    <script src="js/auth.js?v=155"></script>
+    <script src="js/firebase-db.js?v=155"></script>
+    <script src="js/app.js?v=155"></script>
 
     <script>
         if ('serviceWorker' in navigator) {
