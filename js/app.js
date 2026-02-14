@@ -1234,6 +1234,21 @@ const app = {
     },
 
     // --- Market Item Management ---
+    openRoyalMissionModal() {
+        document.getElementById('royal-quest-title').value = '';
+        document.getElementById('royal-quest-xp').value = 100;
+        document.getElementById('royal-quest-gold').value = 50;
+        
+        const memberOptions = `<option value="">❓ Pour tous</option>` + app.data.users.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+        const select = document.getElementById('royal-quest-assignee');
+        if (select) select.innerHTML = memberOptions;
+        
+        const label = document.querySelector('.currency-name-label');
+        if (label) label.innerText = app.data.currency.name;
+        
+        app.showModal('royal-mission-modal');
+    },
+
     openEditMarketItemModal(itemId) {
         if (!app.isAdmin()) return;
         const item = app.data.market.find(i => i.id === itemId);
