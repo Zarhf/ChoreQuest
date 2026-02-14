@@ -1,10 +1,12 @@
 const db = {
     firestore: null,
     messaging: null,
+    functions: null,
     unsubscribe: null,
 
     init() {
         this.firestore = firebase.firestore();
+        this.functions = firebase.functions("us-central1");
         try {
             this.messaging = firebase.messaging();
         } catch (e) {

@@ -1,56 +1,71 @@
-# Spécifications : ChoreQuest (v2.21)
+# Spécifications : ChoreQuest (v2.28)
 
 ## 1. Concept
 **"Level up your home, one quest at a time."**
 ChoreQuest est une application web progressive (PWA) de management familial transformée en une aventure RPG médiévale. Les corvées deviennent des contrats négociés au Conseil, rapportant XP et Or pour gravir les échelons de la hiérarchie.
 
-## 2. Architecture Technique
+## 2. Architecture Technique & Infrastructure
 
+### 2.1. Stack Technologique
 *   **Frontend :** HTML5 / CSS3 (Thème Médiéval) / Vanilla JS.
-*   **Backend :** Google Firebase (Firestore + Auth).
-*   **Système de Mise à jour "Nucléaire" :**
-    1.  **Cache Killer :** Script inline prioritaire dans le `<head>` comparant le build local au `version.json` distant à chaque chargement.
-    2.  **Force Reload :** Désinscription automatique du Service Worker et vidage des caches navigateurs en cas de montée de version.
-    3.  **Kill Switch Firestore :** Écoute en temps réel de `system/config` pour forcer le rafraîchissement global de toutes les instances actives.
+*   **Backend (Firebase) :** 
+    *   **Firestore :** Base de données temps réel.
+    *   **Auth :** Authentification Google.
+    *   **Cloud Messaging (FCM) :** Notifications Push via Service Worker.
+    *   **Cloud Functions (v2) :** Logique backend (notifications, rappels planifiés).
+    *   **Hosting :** Hébergement principal sur `chorequest-1c5b6.web.app`.
+*   **Miroir Frontend :** Déploiement automatique sur GitHub Pages (`zarhf.github.io/ChoreQuest/`).
 
-## 3. Système Social & Hiérarchie
+### 2.2. Système de Mise à jour "Nucléaire"
+Pour garantir que tous les clients utilisent la dernière version du code :
+1.  **Cache Killer :** Script inline dans le `<head>` comparant le build local au `version.json` distant à chaque chargement.
+2.  **Force Reload :** Si un nouveau build est détecté, désinscription du Service Worker et vidage complet des caches (CacheStorage).
+3.  **Kill Switch Firestore :** Écoute en temps réel de la collection `system/config`. Si `minBuild` > `localBuild`, l'application force un rechargement immédiat.
 
-### 3.1. Rôles et Dashboard
-*   **Le Dashboard des Membres :** Un centre de commandement dans les réglages affichant l'avatar, le rôle, le niveau et l'or de chaque membre.
-*   **👑 Administrateurs :** Le propriétaire de la guilde (et `yohann.gras@gmail.com`) dispose des pleins pouvoirs : édition des quêtes, gestion de l'économie, et exclusion de membres.
-*   **🛡️ Chevaliers :** Membres standards avec un compte email lié. Ils votent au Conseil.
-*   **📜 Écuyers :** Comptes gérés (enfants) sans email. Ils ne votent pas et ne peuvent pas s'auto-incarner sans le compte parent.
+## 3. Sécurité & Gestion des Secrets
 
-### 3.2. Le Conseil (Négociation de Quêtes)
-Toute nouvelle quête ou mission royale passe par **Le Conseil** sous forme de Parchemin avant d'apparaître sur le tableau.
-*   **Vote à la Majorité :** Pour les quêtes "Pour tous", l'approbation de la majorité absolue des membres humains est requise. Les écuyers sont exclus du calcul de la majorité.
-*   **Double Signature :** Pour les quêtes assignées, l'accord conjoint du **Créateur** et de l'**Assigné** est obligatoire.
-*   **Négociation :** Pas de bouton "Rejeter". Le Conseil force le dialogue via des **Contre-offres** permettant de modifier titre, récompenses, assigné ou de justifier les changements par un message.
-*   **Traçabilité :** Historique des révisions (Rév. 1, 2...) affiché sur le parchemin.
+### 3.1. Protection des Clés API
+Le fichier `js/config.js` contenant les clés sensibles est **exclu du dépôt Git** (via `.gitignore`).
+*   **Local :** Utiliser une copie de `js/config.example.js` nommée `js/config.js`.
+*   **CI/CD :** Le fichier est généré dynamiquement lors du déploiement par GitHub Actions à partir des **GitHub Secrets**.
+*   **Restrictions :** Les clés API Google/Firebase sont restreintes par domaine (HTTP Referrer) pour n'autoriser que les URLs officielles du projet.
 
-## 4. Économie & Progression
+### 3.2. Liste des Secrets GitHub
+Les variables suivantes doivent être configurées dans les "Actions Secrets" du dépôt pour permettre le déploiement :
+*   `FIREBASE_API_KEY`, `FIREBASE_PROJECT_ID`, `FIREBASE_APP_ID`, etc.
+*   `VAPID_PUBLIC_KEY` : Clé publique pour les notifications Web Push.
+*   `FIREBASE_SERVICE_ACCOUNT` : Clé JSON (base64) pour les scripts d'administration.
 
-### 4.1. Fortune du Royaume
-*   **Monnaie Custom :** Chaque guilde définit le nom et le symbole de sa monnaie (ex: Écus 🪙, Cookies 🍪).
-*   **Boutique de la Guilde :** Les membres achètent des récompenses définies par l'admin.
-*   **Missions Royales :** Quêtes spéciales créées par les membres contre de l'or (gratuit pour les admins). Remboursement automatique si supprimées.
+## 4. Protocole de Publication (Versioning)
 
-### 4.2. Formule de Récompense
-Le mérite est récompensé par un bonus de niveau :
-`Gain Réel = Gain de Base * (1 + Niveau / 100)`
-(Chaque niveau apporte +1% de bonus permanent sur l'XP et l'Or).
+Chaque mise à jour doit suivre rigoureusement ces étapes pour être prise en compte par tous les clients :
 
-## 5. Système de Quêtes RPG
+### 4.1. Préparation (Locale)
+1.  Incrémenter le numéro de `build` dans `version.json`, `v.json` et `status.json`.
+2.  Mettre à jour les références de version dans `index.html` (ex: `styles.css?v=156`).
+3.  Mettre à jour le build dans `js/config.js` (local).
 
-*   **Affectation & Vol (🥷) :**
-    *   **☝️ Je prends :** S'assigner une quête libre.
-    *   **🥷 Voler :** Si une tâche est en retard, un membre peut la voler. Il dispose alors de **15 minutes** pour la valider, faute de quoi elle retourne au pot commun.
-*   **Rareté Visuelle :** Common, Uncommon, Rare, Epic, Legendary (Missions Royales).
-*   **Gestion du Temps :**
-    *   Héritage des créneaux horaires (Start/End).
-    *   Masquage des tâches futures.
-    *   Projection virtuelle des tâches récurrentes dans la section "Prochainement".
+### 4.2. Déploiement du Frontend (Automatique)
+*   Un `git push` sur la branche `main` déclenche le workflow GitHub Actions.
+*   Le script génère le `config.js` sécurisé et déploie sur GitHub Pages.
 
-## 6. Journal & Audit
-*   **Journal du Royaume :** Historique complet des validations, achats, vols et décisions du Conseil.
-*   **Annulation Royale :** Les admins peuvent annuler n'importe quel log pour retirer l'XP/Or et remettre la quête en jeu en cas d'erreur.
+### 4.3. Déploiement du Backend (Manuel/CLI)
+*   Exécuter `npx firebase deploy` depuis le dossier `ChoreQuest` pour mettre à jour les Cloud Functions et le Firebase Hosting.
+*   **Test de fiabilité :** Utiliser le bouton **"🧪 Tester l'envoi"** dans le profil utilisateur pour valider la chaîne de notification de bout en bout.
+
+## 5. Système Social & Hiérarchie
+
+*   **👑 Administrateurs :** Pouvoir d'édition, gestion de l'économie, exclusion de membres et annulation de l'historique.
+*   **🛡️ Chevaliers :** Membres avec email, droit de vote au Conseil.
+*   **📜 Écuyers :** Comptes enfants gérés par un parent (pas d'email, pas de vote).
+
+## 6. Système de Quêtes & Économie
+
+*   **Le Conseil :** Espace de négociation forçant le dialogue via des contre-offres avant validation d'une quête.
+*   **Vol de Quête (🥷) :** Possibilité de récupérer une tâche en retard. Un timer de 15 minutes protège le voleur avant retour au pot commun.
+*   **Progression :** `Gain = Base * (1 + Niveau / 100)`. Chaque niveau offre +1% de bonus permanent.
+*   **Marché :** Achat de récompenses réelles (ex: Journée de congé) via la monnaie personnalisée de la guilde.
+
+## 7. Journal & Audit
+*   Historique complet de toutes les actions (validations, vols, achats).
+*   Possibilité pour les admins d'annuler une action (Undo) pour restaurer les états précédents.
