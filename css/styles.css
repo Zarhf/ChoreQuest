@@ -1,9 +1,17 @@
 body {
-    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-family: 'Roboto', 'Segoe UI', sans-serif;
     margin: 0;
     padding: 0;
     background-color: #1a1a2e;
     color: #e0e0e0;
+}
+
+h1, h2, h3, h4, .user-stats h3, .guild-header-banner h1 {
+    font-family: 'Cinzel', serif;
+}
+
+.scroll-card h4, .nav-tab {
+    font-family: 'MedievalSharp', cursive;
 }
 
 /* Animations de Butin */
@@ -216,13 +224,24 @@ h2 {
     display: flex;
     justify-content: space-between;
     align-items: stretch;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     border: 1px solid rgba(255,255,255,0.1);
     color: white;
     user-select: none;
     -webkit-user-select: none;
     overflow: hidden;
     animation: fadeIn 0.4s ease-out;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.quest-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.3);
+    border-color: rgba(74, 144, 226, 0.5);
+}
+
+.quest-card:active {
+    transform: scale(0.98);
 }
 
 @keyframes fadeIn {
@@ -310,13 +329,21 @@ h2 {
 .modal {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.85);
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 100;
     padding: 10px;
     box-sizing: border-box;
+    transition: opacity 0.3s ease;
+}
+
+.modal.hidden {
+    display: none !important;
+    opacity: 0;
 }
 
 .modal-content {
@@ -329,6 +356,13 @@ h2 {
     overflow-y: auto;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     position: relative;
+    border: 1px solid rgba(74, 144, 226, 0.3);
+    animation: modalScale 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes modalScale {
+    from { transform: scale(0.8); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
 }
 
 .modal-header {

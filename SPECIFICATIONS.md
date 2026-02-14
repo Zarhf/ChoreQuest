@@ -69,3 +69,28 @@ Chaque mise à jour doit suivre rigoureusement ces étapes pour être prise en c
 ## 7. Journal & Audit
 *   Historique complet de toutes les actions (validations, vols, achats).
 *   Possibilité pour les admins d'annuler une action (Undo) pour restaurer les états précédents.
+
+## 8. Roadmap & Évolutions (2026)
+
+### Phase 1 : Immersion & "Juiciness" (En cours)
+*   **Design Sonore (SFX) :** Bruitages 8-bit pour les validations, level-up et vols.
+*   **Système de Particules :** Explosion de confettis/pièces via `canvas-confetti`.
+*   **Polices Immersives :** Intégration de Google Fonts (Cinzel, MedievalSharp).
+*   **Animations UI :** Transitions fluides des modales et feedbacks haptiques visuels.
+
+### Phase 2 : Dynamisme & Vie
+*   **Boss de Raid :** Tâches collectives avec points de vie (ex: grand ménage).
+*   **Réactions (Emotes) :** Possibilité de réagir aux actions du journal via des stickers.
+*   **Cycle Jour/Nuit :** L'interface change de luminosité selon l'heure réelle.
+
+### Phase 3 : Profondeur RPG
+*   **Équipements & Buffs :** Objets au marché offrant des bonus (ex: +5% d'or).
+*   **Classes de Héros :** Spécialisations au niveau 5 (Guerrier, Mage, Voleur).
+*   **Séries (Streaks) :** Bonus pour la régularité quotidienne.
+
+## 9. Standards UI/UX (Directives)
+
+*   **Identité Visuelle :** Palette sombre (#1a1a2e) contrastée par des accents néons/médiévaux (#4a90e2, #f1c40f).
+*   **Transitions :** Toute ouverture de modale ou changement de vue doit être animé (0.3s).
+*   **Feedback :** Aucune action ne doit rester sans réponse visuelle (vibration, animation, ou son).
+*   **Accessibilité :** Lisibilité prioritaire sur le décorum (contraste élevé pour les textes).
