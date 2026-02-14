@@ -609,6 +609,7 @@ const app = {
         const seed = document.getElementById('squire-avatar-seed').value || name;
         if (!name) return;
         app.data.users.push({ id: 'sq_'+Date.now(), name, avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}`, xp: 0, level: 1, managedBy: app.mainUser.id });
+        app.addLog(`Nouvel Écuyer rejoint la guilde : ${name}`);
         await app.save(); app.hideModals();
     },
 
@@ -642,10 +643,10 @@ const app = {
         
         if (isSteal) {
             quest.stealDeadline = Date.now() + 15 * 60 * 1000;
-            app.data.questLog.unshift({ id: 'log_steal_'+Date.now(), type: 'system', title: `Quête VOLÉE : ${quest.title}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
+            app.addLog(`Quête VOLÉE : ${quest.title}`);
         } else {
             delete quest.stealDeadline;
-            app.data.questLog.unshift({ id: 'log_cl_'+Date.now(), type: 'system', title: `Quête acceptée : ${quest.title}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
+            app.addLog(`Quête acceptée : ${quest.title}`);
         }
         
         await app.save();
@@ -861,6 +862,22 @@ const app = {
         goldEl.value = gold;
     },
 
+    // --- Logs & Audit ---
+    addLog(title, type = 'system', xp = 0, gold = 0, extra = {}) {
+        if (!app.data || !app.data.questLog) return;
+        app.data.questLog.unshift({
+            id: 'log_' + Date.now() + '_' + Math.floor(Math.random()*1000),
+            type,
+            title,
+            completedBy: app.currentUser.id,
+            completedAt: new Date().toISOString(),
+            xpEarned: xp,
+            goldEarned: gold,
+            ...extra
+        });
+        if (app.data.questLog.length > 100) app.data.questLog.pop();
+    },
+
     async addQuest() {
         const titleEl = document.getElementById('quest-title');
         const xpEl = document.getElementById('quest-difficulty');
@@ -926,6 +943,8 @@ const app = {
             // Mais on en crée une pending pour la négociation au Conseil !
             app.data.activeQuests.push({ id: 'inst_'+Date.now(), definitionId: defId, title, xp, gold, dueDate: null, timeSlot, assignedTo: assignee, isRoyal: false, status: 'pending', createdBy: app.currentUser.id });
         }
+
+        app.addLog(`Nouveau contrat proposé : ${title}`);
         await app.save(); app.hideModals();
     },
 
@@ -966,6 +985,7 @@ const app = {
             createdBy: app.currentUser.id
         });
         
+        app.addLog(`Nouvelle Mission Royale proposée : ${title}`);
         await app.save(); 
         app.hideModals();
         app.setView('board');
@@ -1158,7 +1178,7 @@ const app = {
         
         quest.status = 'pending_cancel';
 
-        app.data.questLog.unshift({ id: 'log_cancel_req_'+Date.now(), type: 'system', title: `Demande d'annulation : ${quest.title}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
+        app.addLog(`Demande d'annulation : ${quest.title}`);
 
         await app.save();
         app.renderBoard();
@@ -1183,7 +1203,7 @@ const app = {
                 if (idxDef !== -1) app.data.questDefinitions.splice(idxDef, 1);
                 if (idxInst !== -1) app.data.activeQuests.splice(idxInst, 1);
                 
-                app.data.questLog.unshift({ id: 'log_cancel_done_'+Date.now(), type: 'system', title: `Annulation validée : ${quest.title}`, completedBy: 'Council', completedAt: new Date().toISOString(), xpEarned: 0 });
+                app.addLog(`Annulation validée : ${quest.title}`);
             }
         } else {
             def.status = 'active';
@@ -1192,7 +1212,7 @@ const app = {
             delete def.cancelReason;
             delete def.cancelRequestedBy;
             
-            app.data.questLog.unshift({ id: 'log_cancel_rej_'+Date.now(), type: 'system', title: `Annulation rejetée : ${quest.title}`, completedBy: 'Council', completedAt: new Date().toISOString(), xpEarned: 0 });
+            app.addLog(`Annulation rejetée : ${quest.title}`);
         }
 
         await app.save();
@@ -1344,7 +1364,7 @@ const app = {
             const quest = app.data.activeQuests.find(q => q.definitionId === log.definitionId);
             if (quest) quest.dueDate = new Date(0).toISOString(); else if (log.type === 'completion') app.data.activeQuests.push({ id: log.instanceId, definitionId: log.definitionId, title: log.title, xp: log.xpEarned, dueDate: new Date(0).toISOString() });
             app.data.questLog.splice(idx, 1);
-            app.data.questLog.unshift({ id: 'log_undo_'+Date.now(), type: 'system', title: `Annulation : ${log.title}`, completedBy: app.currentUser.id, completedAt: new Date().toISOString(), xpEarned: 0 });
+            app.addLog(`Annulation : ${log.title}`);
             await app.save();
         });
     },
@@ -1426,6 +1446,7 @@ const app = {
             title, description: desc, cost, icon, stock
         });
         
+        app.addLog(`Nouvel article au Marché : ${title}`);
         await app.save();
         app.hideModals();
         app.renderMarket();
@@ -1433,7 +1454,9 @@ const app = {
 
     async removeMarketItem(id) {
         if (!confirm("Supprimer cet article ?")) return;
+        const item = app.data.market.find(i => i.id === id);
         app.data.market = app.data.market.filter(i => i.id !== id);
+        if (item) app.addLog(`Article retiré du Marché : ${item.title}`);
         await app.save();
         app.renderMarket();
     },
@@ -1450,14 +1473,7 @@ const app = {
             if (!app.currentUser.inventory) app.currentUser.inventory = [];
             app.currentUser.inventory.push({ id: item.id, title: item.title, icon: item.icon, boughtAt: new Date().toISOString() });
             
-            app.data.questLog.unshift({ 
-                id: 'log_buy_'+Date.now(), 
-                type: 'system', 
-                title: `Achat : ${item.title}`, 
-                completedBy: app.currentUser.id, 
-                completedAt: new Date().toISOString(), 
-                xpEarned: 0 
-            });
+            app.addLog(`Achat : ${item.title}`);
             
             await app.save();
             app.render();
@@ -1468,14 +1484,7 @@ const app = {
     async useItem(index) {
         const item = app.currentUser.inventory[index];
         app.askConfirm(`Utiliser ${item.title} ? (Cela préviendra le chef de guilde)`, async () => {
-            app.data.questLog.unshift({ 
-                id: 'log_use_'+Date.now(), 
-                type: 'system', 
-                title: `Objet utilisé : ${item.title}`, 
-                completedBy: app.currentUser.id, 
-                completedAt: new Date().toISOString(), 
-                xpEarned: 0 
-            });
+            app.addLog(`Objet utilisé : ${item.title}`);
 
             // Effet spécial : Journée de congé
             if (item.id === 'day_off') {
@@ -1494,14 +1503,7 @@ const app = {
                     delete q.stealDeadline; // Au cas où
                 }
                 
-                app.data.questLog.unshift({ 
-                    id: 'log_dayoff_action_'+Date.now(), 
-                    type: 'system', 
-                    title: `Repos Royal : ${toReassign.length} quêtes remises en jeu`, 
-                    completedBy: app.currentUser.id, 
-                    completedAt: new Date().toISOString(), 
-                    xpEarned: 0 
-                });
+                app.addLog(`Repos Royal : ${toReassign.length} quêtes remises en jeu`);
 
                 alert(`🏖️ Repos bien mérité ! ${toReassign.length} quêtes ont été remises à disposition de la guilde.`);
             }
@@ -1516,6 +1518,7 @@ const app = {
         if (!app.isAdmin()) return;
         app.data.currency.name = document.getElementById('guild-currency-name').value || "Écus";
         app.data.currency.symbol = document.getElementById('guild-currency-symbol').value;
+        app.addLog(`Économie mise à jour : ${app.data.currency.name} (${app.data.currency.symbol})`);
         await app.save();
         app.render();
     },
@@ -2231,7 +2234,9 @@ const app = {
         if (!app.data) return; 
         const newName = document.getElementById('edit-guild-name').value; 
         if (!newName) return; 
+        const oldName = app.data.meta.guildName;
         app.data.meta.guildName = newName; 
+        app.addLog(`Royaume renommé : ${oldName} -> ${newName}`);
         await app.save(); 
         app.syncSettingsUI(); // Refresh title
     },
