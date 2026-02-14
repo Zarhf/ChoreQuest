@@ -103,6 +103,26 @@ exports.remindvoters = onCall(async (request) => {
     return { success: true };
 });
 
+exports.onsystemupdate = onDocumentUpdated("system/config", async (event) => {
+    const newData = event.data.after.data();
+    const oldData = event.data.before.data();
+
+    if (!newData || !oldData) return null;
+
+    // Si le build a augmenté
+    if (newData.minBuild > oldData.minBuild) {
+        logger.info(`New version detected: Build ${newData.minBuild}. Notifying all users...`);
+        
+        const tokensSnapshot = await db.collection("push_tokens").get();
+        const emails = tokensSnapshot.docs.map(doc => doc.id);
+
+        for (const email of emails) {
+            await sendPushToUser(email, "🛡️ Mise à jour disponible !", "Une nouvelle version de ChoreQuest est prête. Ouvre l'application pour l'installer !");
+        }
+    }
+    return null;
+});
+
 exports.onguildupdate = onDocumentUpdated("guilds/{guildId}", async (event) => {
     const newData = event.data.after.data();
     const oldData = event.data.before.data();
