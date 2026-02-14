@@ -185,6 +185,14 @@ const app = {
         
         console.log("🛠️ SW Controller:", navigator.serviceWorker.controller ? "Actif" : "ABSENT (Rechargement requis)");
 
+        // Écouter les messages directs du Service Worker (pour les clics)
+        navigator.serviceWorker.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'NOTIFICATION_CLICKED') {
+                console.log("🖱️ Clic notif reçu dans l'app:", event.data.data);
+                app.handleNotificationInteraction(event.data.data);
+            }
+        });
+
         db.messaging.onMessage((payload) => {
             console.log("🔔 Notification reçue !", payload);
             
@@ -2466,6 +2474,23 @@ const app = {
         app.data.meta.isOpen = document.getElementById('edit-guild-open').value === 'true'; 
         await app.save(); 
     },
+
+    handleNotificationInteraction(data) {
+        if (!data) return;
+        console.log("🎯 Interaction avec la notification :", data);
+        
+        // Par défaut, on va sur le tableau des quêtes
+        app.setView('board');
+
+        // Si on a un ID spécifique (ex: une quête), on pourrait scroller vers elle
+        if (data.questId) {
+            setTimeout(() => {
+                const el = document.querySelector(`[onclick*="${data.questId}"]`);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 500);
+        }
+    },
+
     getQuestRarity(xp) { const maxXP = Math.max(...app.data.questDefinitions.map(d => d.baseXp), 10); const r = xp / maxXP; if (r >= 0.9) return 'rarity-legendary'; if (r >= 0.7) return 'rarity-epic'; if (r >= 0.4) return 'rarity-rare'; if (r >= 0.2) return 'rarity-uncommon'; return 'rarity-common'; }
 };
 app.init();

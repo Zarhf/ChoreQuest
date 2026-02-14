@@ -31,6 +31,36 @@ messaging.onBackgroundMessage((payload) => {
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
+// Gérer le clic sur la notification
+self.addEventListener('notificationclick', (event) => {
+    console.log('[SW] Clic sur notification reçu', event.notification.data);
+    event.notification.close();
+
+    const targetUrl = self.location.origin + '/'; // URL de base de l'app
+
+    // Chercher un onglet déjà ouvert
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+            for (const client of clientList) {
+                if (client.url.includes(self.location.origin) && 'focus' in client) {
+                    // Envoyer l'info du focus à l'app si besoin
+                    if (event.notification.data) {
+                        client.postMessage({
+                            type: 'NOTIFICATION_CLICKED',
+                            data: event.notification.data
+                        });
+                    }
+                    return client.focus();
+                }
+            }
+            // Si aucun onglet n'est ouvert, on en ouvre un nouveau
+            if (clients.openWindow) {
+                return clients.openWindow(targetUrl);
+            }
+        })
+    );
+});
+
 // Événement d'installation
 self.addEventListener('install', (event) => {
     console.log('[SW] Installé');

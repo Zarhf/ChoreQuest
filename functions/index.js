@@ -30,7 +30,7 @@ async function sendPushToUser(email, title, body, data = {}) {
             ...data,
             title: title,
             body: body,
-            click_action: "FLUTTER_NOTIFICATION_CLICK"
+            click_action: "https://chorequest-1c5b6.web.app/"
         },
         token: token,
         webpush: {
