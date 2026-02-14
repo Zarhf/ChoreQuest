@@ -199,9 +199,20 @@
                 </div>
                 <input type="text" id="quest-title" placeholder="Titre">
                 <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
-                    <div><label style="font-size:0.7rem;">Durée (min) :</label><input type="number" id="quest-duration" value="15" oninput="app.updateXpPreview('quest')"></div>
-                    <div><label style="font-size:0.7rem;">XP (Calculé) :</label><input type="number" id="quest-difficulty" value="30" readonly style="background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.1); color:#4a90e2; font-weight:bold;"></div>
-                    <div><label style="font-size:0.7rem;">Récompense :</label><input type="number" id="quest-gold" value="10"></div>
+                    <div><label style="font-size:0.7rem;">Durée (min) :</label><input type="number" id="quest-duration" value="15" oninput="app.updateQuestRewardsPreview('quest')"></div>
+                    <div>
+                        <label style="font-size:0.7rem;">Pénibilité :</label>
+                        <select id="quest-difficulty-level" onchange="app.updateQuestRewardsPreview('quest')">
+                            <option value="1">☕ Simple (x1)</option>
+                            <option value="2" selected>⚒️ Normale (x2)</option>
+                            <option value="3">🐉 Épique (x3)</option>
+                        </select>
+                    </div>
+                    <div><label style="font-size:0.7rem;">Récompense (Calculée) :</label><input type="number" id="quest-gold" value="30" readonly style="background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.1); color:#f1c40f; font-weight:bold;"></div>
+                </div>
+                <div style="margin-top:10px;">
+                    <label style="font-size:0.7rem;">XP (Calculé) :</label>
+                    <input type="number" id="quest-difficulty" value="30" readonly style="width:100%; background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.1); color:#4a90e2; font-weight:bold;">
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-top:10px;">
                     <div><label style="font-size:0.7rem;">Récurrence :</label><select id="quest-frequency" onchange="app.toggleRecurrenceUI('quest')"><option value="none">Une seule fois</option><option value="daily">Jours</option><option value="weekly">Semaines</option><option value="monthly">Mois</option><option value="linked">🔗 Suite d'une autre quête</option></select></div>
@@ -236,9 +247,20 @@
                 <input type="hidden" id="edit-quest-id">
                 <input type="text" id="edit-quest-title">
                 <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
-                    <div><label style="font-size:0.7rem;">Durée (min) :</label><input type="number" id="edit-quest-duration" oninput="app.updateXpPreview('edit-quest')"></div>
-                    <div><label style="font-size:0.7rem;">XP (Calculé) :</label><input type="number" id="edit-quest-difficulty" readonly style="background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.1); color:#4a90e2; font-weight:bold;"></div>
-                    <div><label style="font-size:0.7rem;">Récompense :</label><input type="number" id="edit-quest-gold"></div>
+                    <div><label style="font-size:0.7rem;">Durée (min) :</label><input type="number" id="edit-quest-duration" oninput="app.updateQuestRewardsPreview('edit-quest')"></div>
+                    <div>
+                        <label style="font-size:0.7rem;">Pénibilité :</label>
+                        <select id="edit-quest-difficulty-level" onchange="app.updateQuestRewardsPreview('edit-quest')">
+                            <option value="1">☕ Simple (x1)</option>
+                            <option value="2">⚒️ Normale (x2)</option>
+                            <option value="3">🐉 Épique (x3)</option>
+                        </select>
+                    </div>
+                    <div><label style="font-size:0.7rem;">Récompense (Calculée) :</label><input type="number" id="edit-quest-gold" readonly style="background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.1); color:#f1c40f; font-weight:bold;"></div>
+                </div>
+                <div style="margin-top:10px;">
+                    <label style="font-size:0.7rem;">XP (Calculé) :</label>
+                    <input type="number" id="edit-quest-difficulty" readonly style="width:100%; background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.1); color:#4a90e2; font-weight:bold;">
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
                     <div><label style="font-size:0.7rem;">Horaires :</label><div style="display:flex; gap:2px;"><input type="time" id="edit-quest-time-start"><input type="time" id="edit-quest-time-end"></div></div>
@@ -403,9 +425,20 @@
                 <input type="hidden" id="counter-quest-id">
                 <div><label style="font-size:0.7rem;">Titre de la quête :</label><input type="text" id="counter-title"></div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
-                    <div><label style="font-size:0.7rem;">Durée (min) :</label><input type="number" id="counter-duration" oninput="app.updateXpPreview('counter')"></div>
-                    <div><label style="font-size:0.7rem;">XP (Calculé) :</label><input type="number" id="counter-xp" readonly style="background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.1); color:#4a90e2; font-weight:bold;"></div>
-                    <div><label style="font-size:0.7rem;">Or :</label><input type="number" id="counter-gold"></div>
+                    <div><label style="font-size:0.7rem;">Durée (min) :</label><input type="number" id="counter-duration" oninput="app.updateQuestRewardsPreview('counter')"></div>
+                    <div>
+                        <label style="font-size:0.7rem;">Pénibilité :</label>
+                        <select id="counter-difficulty-level" onchange="app.updateQuestRewardsPreview('counter')">
+                            <option value="1">☕ Simple (x1)</option>
+                            <option value="2">⚒️ Normale (x2)</option>
+                            <option value="3">🐉 Épique (x3)</option>
+                        </select>
+                    </div>
+                    <div><label style="font-size:0.7rem;">Or (Calculé) :</label><input type="number" id="counter-gold" readonly style="background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.1); color:#f1c40f; font-weight:bold;"></div>
+                </div>
+                <div style="margin-top:10px;">
+                    <label style="font-size:0.7rem;">XP (Calculé) :</label>
+                    <input type="number" id="counter-xp" readonly style="width:100%; background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.1); color:#4a90e2; font-weight:bold;">
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-top:10px;">
                     <div><label style="font-size:0.7rem;">Récurrence :</label><select id="counter-frequency" onchange="app.toggleRecurrenceUI('counter')"><option value="none">Une seule fois</option><option value="daily">Jours</option><option value="weekly">Semaines</option><option value="monthly">Mois</option><option value="linked">🔗 Suite d'une autre quête</option></select></div>

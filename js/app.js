@@ -214,7 +214,8 @@ const app = {
             { minLevel: 10, title: "Chevalier" }, { minLevel: 20, title: "Héros" }, { minLevel: 50, title: "Légende" }
         ];
         if (!app.data.market) app.data.market = [
-            { id: 'royal_bounty', title: 'Mission Royale', cost: 0, description: 'Quête spéciale créée par le chef de guilde.', icon: '👑', isSpecial: true }
+            { id: 'royal_bounty', title: 'Mission Royale', cost: 0, description: 'Quête spéciale créée par le chef de guilde.', icon: '👑', isSpecial: true },
+            { id: 'day_off', title: 'Une journée de congé', cost: 1000, description: 'Fait sauter toutes vos quêtes de la journée !', icon: '🏖️', isSpecial: true }
         ];
         app.data.users.forEach(u => {
             if (u.gold === undefined) u.gold = 0;
@@ -751,6 +752,36 @@ const app = {
         await app.save();
     },
 
+    async skipTask(instanceId) {
+        const index = app.data.activeQuests.findIndex(q => q.id === instanceId);
+        if (index === -1) return;
+        const quest = app.data.activeQuests[index];
+        const def = app.data.questDefinitions.find(d => d.id === quest.definitionId);
+
+        app.data.questLog.unshift({ 
+            id: 'log_skip_'+Date.now(), 
+            type: 'system', 
+            title: `Quête passée (Bonus) : ${quest.title}`, 
+            completedBy: app.currentUser.id, 
+            completedAt: new Date().toISOString(), 
+            xpEarned: 0,
+            goldEarned: 0,
+            instanceId: instanceId, 
+            definitionId: quest.definitionId 
+        });
+        
+        if (app.data.questLog.length > 50) app.data.questLog.pop();
+
+        if (def && def.frequency && def.frequency !== 'none' && def.frequency !== 'linked') {
+            const isWeeklyWithDays = def.frequency === 'weekly' && def.days && def.days.length > 0;
+            const fromDate = isWeeklyWithDays ? new Date(quest.dueDate) : new Date();
+            quest.dueDate = app.calculateNextDueDate(def, fromDate).toISOString();
+            quest.assignedTo = def.defaultAssignee || null;
+            delete quest.stealDeadline;
+        } else app.data.activeQuests.splice(index, 1);
+        // Note: app.save() est géré par l'appelant pour éviter les écritures multiples en boucle
+    },
+
     showLootPopup(text, x, y, className) {
         const el = document.createElement('div');
         el.className = `loot-popup ${className}`;
@@ -801,15 +832,24 @@ const app = {
         }
     },
 
-    updateXpPreview(prefix) {
+    updateQuestRewardsPreview(prefix) {
         const durationEl = document.getElementById(`${prefix}-duration`);
+        const effortEl = document.getElementById(`${prefix}-difficulty-level`);
         const xpEl = document.getElementById(`${prefix}-difficulty`);
-        if (!durationEl || !xpEl) return;
+        const goldEl = document.getElementById(`${prefix}-gold`);
+        
+        if (!durationEl || !xpEl || !goldEl) return;
         
         const duration = parseInt(durationEl.value) || 0;
-        // Formule : 2 XP par minute
+        const effort = parseInt(effortEl ? effortEl.value : 2);
+        
+        // Formule XP : 2 XP par minute
         const xp = duration * 2;
+        // Formule Or : Durée * Pénibilité
+        const gold = duration * effort;
+        
         xpEl.value = xp;
+        goldEl.value = gold;
     },
 
     async addQuest() {
@@ -817,6 +857,7 @@ const app = {
         const xpEl = document.getElementById('quest-difficulty');
         const goldEl = document.getElementById('quest-gold');
         const durationEl = document.getElementById('quest-duration');
+        const effortEl = document.getElementById('quest-difficulty-level');
         const freqEl = document.getElementById('quest-frequency');
         const intervalEl = document.getElementById('quest-interval');
         const dateEl = document.getElementById('quest-date');
@@ -826,9 +867,12 @@ const app = {
 
         const title = titleEl.value;
         const duration = parseInt(durationEl ? durationEl.value : 15) || 15;
-        // L'XP est maintenant calculée auto : 2 XP par minute
+        const effort = parseInt(effortEl ? effortEl.value : 2) || 2;
+        // XP : 2 XP par minute
         const xp = duration * 2;
-        const gold = parseInt(goldEl ? goldEl.value : 0) || 0;
+        // Or : Durée * Effort
+        const gold = duration * effort;
+        
         const freq = freqEl ? freqEl.value : 'none';
         const interval = parseInt(intervalEl ? intervalEl.value : 1) || 1;
         const assignee = assigneeEl ? assigneeEl.value : null;
@@ -856,7 +900,7 @@ const app = {
             dueDate = app.calculateFirstDueDate(tempDef).toISOString();
         }
 
-        const def = { id: defId, title, baseXp: xp, baseGold: gold, estimatedTime: duration, frequency: freq, interval: interval, days, timeSlot, defaultAssignee: assignee, isRoyal: false, status: 'pending', votes: { [app.currentUser.id]: true }, createdBy: app.currentUser.id, linkedQuestId: linkedId, linkedQuestDelay: linkedDelay };
+        const def = { id: defId, title, baseXp: xp, baseGold: gold, effort, estimatedTime: duration, frequency: freq, interval: interval, days, timeSlot, defaultAssignee: assignee, isRoyal: false, status: 'pending', votes: { [app.currentUser.id]: true }, createdBy: app.currentUser.id, linkedQuestId: linkedId, linkedQuestDelay: linkedDelay };
         
         const totalMembers = app.data.users.length;
         const majority = Math.floor(totalMembers / 2) + 1;
@@ -930,6 +974,9 @@ const app = {
         document.getElementById('counter-xp').value = quest.xp;
         document.getElementById('counter-gold').value = quest.gold;
         document.getElementById('counter-duration').value = def.estimatedTime || 15;
+        const elEffort = document.getElementById('counter-difficulty-level');
+        if (elEffort) elEffort.value = def.effort || 2;
+
         document.getElementById('counter-frequency').value = def.frequency || 'none';
         document.getElementById('counter-interval').value = def.interval || 1;
         
@@ -942,6 +989,8 @@ const app = {
         };
         document.getElementById('counter-linked-id').value = def.linkedQuestId || '';
         document.getElementById('counter-linked-delay').value = formatDelay(def.linkedQuestDelay);
+
+        app.updateQuestRewardsPreview('counter');
 
         document.getElementById('counter-time-start').value = (def.timeSlot && def.timeSlot.start) ? def.timeSlot.start : '';
         document.getElementById('counter-time-end').value = (def.timeSlot && def.timeSlot.end) ? def.timeSlot.end : '';
@@ -966,9 +1015,12 @@ const app = {
         const instanceId = document.getElementById('counter-quest-id').value;
         const title = document.getElementById('counter-title').value;
         const duration = parseInt(document.getElementById('counter-duration').value);
+        const effort = parseInt(document.getElementById('counter-difficulty-level').value || 2);
         // XP liée à la durée
         const xp = duration * 2;
-        const gold = parseInt(document.getElementById('counter-gold').value);
+        // Or liée à la durée et pénibilité
+        const gold = duration * effort;
+        
         const frequency = document.getElementById('counter-frequency').value;
         const interval = parseInt(document.getElementById('counter-interval').value || 1) || 1;
         const linkedId = document.getElementById('counter-linked-id').value || null;
@@ -986,11 +1038,12 @@ const app = {
 
         if (!title) return alert("Le contrat doit avoir un titre !");
 
-        const changed = def.frequency !== frequency || JSON.stringify(def.days) !== JSON.stringify(days) || def.interval !== interval || def.linkedQuestId !== linkedId || def.linkedQuestDelay !== linkedDelay;
+        const changed = def.frequency !== frequency || JSON.stringify(def.days) !== JSON.stringify(days) || def.interval !== interval || def.linkedQuestId !== linkedId || def.linkedQuestDelay !== linkedDelay || def.effort !== effort;
 
         def.title = title;
         def.baseXp = xp;
         def.baseGold = gold;
+        def.effort = effort;
         def.estimatedTime = duration;
         def.frequency = frequency;
         def.interval = interval;
@@ -1045,13 +1098,13 @@ const app = {
                 highlight: `#${prefix}-title`
             },
             {
-                title: "⏳ Durée & XP",
-                body: "Estime le temps nécessaire. <b>L'XP est calculée automatiquement (2 XP par minute)</b>. Plus c'est long, plus tu gagnes de mérite !",
+                title: "⏳ Durée & Pénibilité",
+                body: "Estime le temps nécessaire et la difficulté de la tâche. <b>Les gains en XP et en Or sont calculés automatiquement</b> selon ces deux critères.",
                 highlight: `#${prefix}-duration`
             },
             {
-                title: "💰 Récompense en Or",
-                body: "Détermine la prime en monnaie du royaume. Elle servira à acheter des lots au Marché.",
+                title: "💰 Butin automatique",
+                body: "L'XP dépend de la durée (2 XP/min). La monnaie dépend de la durée multipliée par la pénibilité. Plus c'est dur et long, plus le butin est gros !",
                 highlight: `#${prefix}-gold`
             },
             {
@@ -1198,9 +1251,12 @@ const app = {
         
         document.getElementById('edit-quest-id').value = def.id; 
         document.getElementById('edit-quest-title').value = def.title;
+        document.getElementById('edit-quest-duration').value = def.estimatedTime || 15;
+        const elEffort = document.getElementById('edit-quest-difficulty-level');
+        if (elEffort) elEffort.value = def.effort || 2;
+        
         document.getElementById('edit-quest-difficulty').value = def.baseXp;
         document.getElementById('edit-quest-gold').value = def.baseGold || 0;
-        document.getElementById('edit-quest-duration').value = def.estimatedTime || 15;
         document.getElementById('edit-quest-frequency').value = def.frequency || 'none';
         
         // Linked Quest fields
@@ -1212,6 +1268,8 @@ const app = {
         };
         document.getElementById('edit-quest-linked-id').value = def.linkedQuestId || '';
         document.getElementById('edit-quest-linked-delay').value = formatDelay(def.linkedQuestDelay);
+
+        app.updateQuestRewardsPreview('edit-quest');
 
         const elAssignee = document.getElementById('edit-quest-assignee'); if (elAssignee) elAssignee.value = def.defaultAssignee || '';
         if (def.timeSlot) { document.getElementById('edit-quest-time-start').value = def.timeSlot.start; document.getElementById('edit-quest-time-end').value = def.timeSlot.end; }
@@ -1230,9 +1288,12 @@ const app = {
             const defId = document.getElementById('edit-quest-id').value;
             const title = document.getElementById('edit-quest-title').value;
             const duration = parseInt(document.getElementById('edit-quest-duration').value || 15);
+            const effort = parseInt(document.getElementById('edit-quest-difficulty-level').value || 2);
             // XP liée à la durée
             const xp = duration * 2;
-            const gold = parseInt(document.getElementById('edit-quest-gold').value || 0);
+            // Or liée à la durée et pénibilité
+            const gold = duration * effort;
+            
             const freq = document.getElementById('edit-quest-frequency').value;
             const interval = parseInt(document.getElementById('edit-quest-interval').value || 1);
             const linkedId = document.getElementById('edit-quest-linked-id').value || null;
@@ -1245,8 +1306,8 @@ const app = {
             const defIdx = app.data.questDefinitions.findIndex(d => d.id === defId); if (defIdx === -1) return;
             const oldDef = app.data.questDefinitions[defIdx];
             const timeSlot = (tStart && tEnd) ? { start: tStart, end: tEnd } : null;
-            const changed = oldDef.frequency !== freq || JSON.stringify(oldDef.days) !== JSON.stringify(days) || oldDef.interval !== interval || oldDef.linkedQuestId !== linkedId || oldDef.linkedQuestDelay !== linkedDelay;
-            app.data.questDefinitions[defIdx] = { ...oldDef, title, baseXp: xp, baseGold: gold, estimatedTime: duration, frequency: freq, interval, days, timeSlot, defaultAssignee: assignee, linkedQuestId: linkedId, linkedQuestDelay: linkedDelay };
+            const changed = oldDef.frequency !== freq || JSON.stringify(oldDef.days) !== JSON.stringify(days) || oldDef.interval !== interval || oldDef.linkedQuestId !== linkedId || oldDef.linkedQuestDelay !== linkedDelay || oldDef.effort !== effort;
+            app.data.questDefinitions[defIdx] = { ...oldDef, title, baseXp: xp, baseGold: gold, effort, estimatedTime: duration, frequency: freq, interval, days, timeSlot, defaultAssignee: assignee, linkedQuestId: linkedId, linkedQuestDelay: linkedDelay };
             app.data.activeQuests.forEach(q => { if (q.definitionId === defId) { q.title = title; q.xp = xp; q.gold = gold; q.timeSlot = timeSlot; if (changed && freq !== 'linked') q.dueDate = app.calculateFirstDueDate(app.data.questDefinitions[defIdx]).toISOString(); if (!q.assignedTo || q.assignedTo === oldDef.defaultAssignee) q.assignedTo = assignee; } });
             await app.save(); app.hideModals();
         });
@@ -1406,6 +1467,25 @@ const app = {
                 completedAt: new Date().toISOString(), 
                 xpEarned: 0 
             });
+
+            // Effet spécial : Journée de congé
+            if (item.id === 'day_off') {
+                const now = new Date();
+                const todayStr = now.toDateString();
+                
+                // Trouver toutes les quêtes de l'utilisateur pour AUJOURD'HUI
+                const toSkip = app.data.activeQuests.filter(q => {
+                    if (q.assignedTo !== app.currentUser.id || q.status !== 'active') return false;
+                    if (!q.dueDate) return true;
+                    return new Date(q.dueDate).toDateString() === todayStr;
+                });
+
+                for (const q of toSkip) {
+                    await app.skipTask(q.id);
+                }
+                alert(`🏖️ Repos bien mérité ! ${toSkip.length} quêtes ont été passées.`);
+            }
+
             app.currentUser.inventory.splice(index, 1);
             await app.save();
             app.render();
