@@ -715,7 +715,31 @@ const app = {
         });
         
         if (app.data.questLog.length > 50) app.data.questLog.pop();
-        if (def && def.frequency && def.frequency !== 'none') {
+
+        // Déclenchement de la quête liée s'il y en a une
+        if (def && def.linkedQuestId) {
+            const linkedDef = app.data.questDefinitions.find(d => d.id === def.linkedQuestId);
+            if (linkedDef && !linkedDef.archived) {
+                const delayMs = (def.linkedQuestDelay || 0) * 60 * 1000;
+                const linkedDueDate = new Date(Date.now() + delayMs).toISOString();
+                
+                app.data.activeQuests.push({ 
+                    id: 'inst_'+Date.now()+'_link', 
+                    definitionId: linkedDef.id, 
+                    title: linkedDef.title, 
+                    xp: linkedDef.baseXp, 
+                    gold: linkedDef.baseGold, 
+                    dueDate: linkedDueDate, 
+                    timeSlot: linkedDef.timeSlot, 
+                    assignedTo: linkedDef.defaultAssignee || null, 
+                    isRoyal: linkedDef.isRoyal || false, 
+                    status: 'active', // Directement active car c'est un déclenchement auto d'une def validée
+                    createdBy: app.currentUser.id 
+                });
+            }
+        }
+
+        if (def && def.frequency && def.frequency !== 'none' && def.frequency !== 'linked') {
             // Si c'est un hebdo à jours fixes, on garde le calcul par rapport à la dueDate initiale pour ne pas décaler le planning
             const isWeeklyWithDays = def.frequency === 'weekly' && def.days && def.days.length > 0;
             const fromDate = isWeeklyWithDays ? new Date(quest.dueDate) : new Date();
@@ -809,6 +833,10 @@ const app = {
         const interval = parseInt(intervalEl ? intervalEl.value : 1) || 1;
         const assignee = assigneeEl ? assigneeEl.value : null;
         
+        const linkedId = document.getElementById('quest-linked-id').value || null;
+        const linkedDelayRaw = document.getElementById('quest-linked-delay').value || '0';
+        const linkedDelay = app.parseDuration(linkedDelayRaw);
+        
         const tStart = document.getElementById('quest-time-start').value;
         const tEnd = document.getElementById('quest-time-end').value;
         const days = Array.from(document.querySelectorAll('input[name="quest-day"]:checked')).map(cb => cb.value);
@@ -821,12 +849,14 @@ const app = {
         let dueDate = null;
         if (freq === 'none') {
             dueDate = dateEl.value ? new Date(dateEl.value).toISOString() : null;
+        } else if (freq === 'linked') {
+            dueDate = null; // Sera créée au moment de la complétion du parent
         } else {
             const tempDef = { frequency: freq, days, interval: interval };
             dueDate = app.calculateFirstDueDate(tempDef).toISOString();
         }
 
-        const def = { id: defId, title, baseXp: xp, baseGold: gold, estimatedTime: duration, frequency: freq, interval: interval, days, timeSlot, defaultAssignee: assignee, isRoyal: false, status: 'pending', votes: { [app.currentUser.id]: true }, createdBy: app.currentUser.id };
+        const def = { id: defId, title, baseXp: xp, baseGold: gold, estimatedTime: duration, frequency: freq, interval: interval, days, timeSlot, defaultAssignee: assignee, isRoyal: false, status: 'pending', votes: { [app.currentUser.id]: true }, createdBy: app.currentUser.id, linkedQuestId: linkedId, linkedQuestDelay: linkedDelay };
         
         const totalMembers = app.data.users.length;
         const majority = Math.floor(totalMembers / 2) + 1;
@@ -835,7 +865,14 @@ const app = {
         }
 
         app.data.questDefinitions.push(def);
-        app.data.activeQuests.push({ id: 'inst_'+Date.now(), definitionId: defId, title, xp, gold, dueDate, timeSlot, assignedTo: assignee, isRoyal: false, status: def.status, createdBy: app.currentUser.id });
+        
+        // On ne crée une instance initiale que si ce n'est pas une quête purement liée (qui attend un déclencheur)
+        if (freq !== 'linked') {
+            app.data.activeQuests.push({ id: 'inst_'+Date.now(), definitionId: defId, title, xp, gold, dueDate, timeSlot, assignedTo: assignee, isRoyal: false, status: def.status, createdBy: app.currentUser.id });
+        } else if (def.status === 'pending') {
+            // Mais on en crée une pending pour la négociation au Conseil !
+            app.data.activeQuests.push({ id: 'inst_'+Date.now(), definitionId: defId, title, xp, gold, dueDate: null, timeSlot, assignedTo: assignee, isRoyal: false, status: 'pending', createdBy: app.currentUser.id });
+        }
         await app.save(); app.hideModals();
     },
 
@@ -895,6 +932,17 @@ const app = {
         document.getElementById('counter-duration').value = def.estimatedTime || 15;
         document.getElementById('counter-frequency').value = def.frequency || 'none';
         document.getElementById('counter-interval').value = def.interval || 1;
+        
+        // Linked Quest fields
+        const formatDelay = (mins) => {
+            if (!mins) return "0";
+            if (mins % 1440 === 0) return (mins/1440) + "d";
+            if (mins % 60 === 0) return (mins/60) + "h";
+            return mins + "m";
+        };
+        document.getElementById('counter-linked-id').value = def.linkedQuestId || '';
+        document.getElementById('counter-linked-delay').value = formatDelay(def.linkedQuestDelay);
+
         document.getElementById('counter-time-start').value = (def.timeSlot && def.timeSlot.start) ? def.timeSlot.start : '';
         document.getElementById('counter-time-end').value = (def.timeSlot && def.timeSlot.end) ? def.timeSlot.end : '';
         
@@ -923,6 +971,8 @@ const app = {
         const gold = parseInt(document.getElementById('counter-gold').value);
         const frequency = document.getElementById('counter-frequency').value;
         const interval = parseInt(document.getElementById('counter-interval').value || 1) || 1;
+        const linkedId = document.getElementById('counter-linked-id').value || null;
+        const linkedDelay = app.parseDuration(document.getElementById('counter-linked-delay').value);
         const tStart = document.getElementById('counter-time-start').value;
         const tEnd = document.getElementById('counter-time-end').value;
         const days = Array.from(document.querySelectorAll('input[name="counter-day"]:checked')).map(cb => cb.value);
@@ -936,7 +986,7 @@ const app = {
 
         if (!title) return alert("Le contrat doit avoir un titre !");
 
-        const changed = def.frequency !== frequency || JSON.stringify(def.days) !== JSON.stringify(days) || def.interval !== interval;
+        const changed = def.frequency !== frequency || JSON.stringify(def.days) !== JSON.stringify(days) || def.interval !== interval || def.linkedQuestId !== linkedId || def.linkedQuestDelay !== linkedDelay;
 
         def.title = title;
         def.baseXp = xp;
@@ -944,6 +994,8 @@ const app = {
         def.estimatedTime = duration;
         def.frequency = frequency;
         def.interval = interval;
+        def.linkedQuestId = linkedId;
+        def.linkedQuestDelay = linkedDelay;
         def.days = days;
         def.timeSlot = (tStart || tEnd) ? { start: tStart, end: tEnd } : null;
         def.defaultAssignee = assignee;
@@ -958,7 +1010,7 @@ const app = {
         quest.timeSlot = def.timeSlot;
 
         // Recalculer la dueDate si la fréquence ou l'intervalle a changé
-        if (frequency !== 'none' && changed) {
+        if (frequency !== 'none' && frequency !== 'linked' && changed) {
             quest.dueDate = app.calculateFirstDueDate(def).toISOString();
         }
 
@@ -1004,8 +1056,13 @@ const app = {
             },
             {
                 title: "🔄 Récurrence",
-                body: "Choisis si la quête revient (tous les jours, semaines...) ou si elle est unique. Tu peux aussi définir un intervalle (ex: tous les 2 jours).",
+                body: "Choisis si la quête revient (tous les jours, semaines...) ou si elle est unique. <b>🔗 Suite auto</b> signifie qu'elle attend d'être déclenchée par une autre quête.",
                 highlight: `#${prefix}-frequency`
+            },
+            {
+                title: "🔗 Quêtes Liées",
+                body: "Tu peux lier une autre quête qui se créera automatiquement une fois celle-ci terminée (ex: 'Etendre le linge' après 'Lave-linge'). Définis un délai (ex: 2h) avant qu'elle n'apparaisse.",
+                highlight: `#${prefix}-link-container`
             },
             {
                 title: "👤 Assignation",
@@ -1145,6 +1202,17 @@ const app = {
         document.getElementById('edit-quest-gold').value = def.baseGold || 0;
         document.getElementById('edit-quest-duration').value = def.estimatedTime || 15;
         document.getElementById('edit-quest-frequency').value = def.frequency || 'none';
+        
+        // Linked Quest fields
+        const formatDelay = (mins) => {
+            if (!mins) return "0";
+            if (mins % 1440 === 0) return (mins/1440) + "d";
+            if (mins % 60 === 0) return (mins/60) + "h";
+            return mins + "m";
+        };
+        document.getElementById('edit-quest-linked-id').value = def.linkedQuestId || '';
+        document.getElementById('edit-quest-linked-delay').value = formatDelay(def.linkedQuestDelay);
+
         const elAssignee = document.getElementById('edit-quest-assignee'); if (elAssignee) elAssignee.value = def.defaultAssignee || '';
         if (def.timeSlot) { document.getElementById('edit-quest-time-start').value = def.timeSlot.start; document.getElementById('edit-quest-time-end').value = def.timeSlot.end; }
         else { document.getElementById('edit-quest-time-start').value = ''; document.getElementById('edit-quest-time-end').value = ''; }
@@ -1167,6 +1235,8 @@ const app = {
             const gold = parseInt(document.getElementById('edit-quest-gold').value || 0);
             const freq = document.getElementById('edit-quest-frequency').value;
             const interval = parseInt(document.getElementById('edit-quest-interval').value || 1);
+            const linkedId = document.getElementById('edit-quest-linked-id').value || null;
+            const linkedDelay = app.parseDuration(document.getElementById('edit-quest-linked-delay').value);
             const assignee = document.getElementById('edit-quest-assignee').value || null;
             const tStart = document.getElementById('edit-quest-time-start').value;
             const tEnd = document.getElementById('edit-quest-time-end').value;
@@ -1175,9 +1245,9 @@ const app = {
             const defIdx = app.data.questDefinitions.findIndex(d => d.id === defId); if (defIdx === -1) return;
             const oldDef = app.data.questDefinitions[defIdx];
             const timeSlot = (tStart && tEnd) ? { start: tStart, end: tEnd } : null;
-            const changed = oldDef.frequency !== freq || JSON.stringify(oldDef.days) !== JSON.stringify(days) || oldDef.interval !== interval;
-            app.data.questDefinitions[defIdx] = { ...oldDef, title, baseXp: xp, baseGold: gold, estimatedTime: duration, frequency: freq, interval, days, timeSlot, defaultAssignee: assignee };
-            app.data.activeQuests.forEach(q => { if (q.definitionId === defId) { q.title = title; q.xp = xp; q.gold = gold; q.timeSlot = timeSlot; if (changed) q.dueDate = app.calculateFirstDueDate(app.data.questDefinitions[defIdx]).toISOString(); if (!q.assignedTo || q.assignedTo === oldDef.defaultAssignee) q.assignedTo = assignee; } });
+            const changed = oldDef.frequency !== freq || JSON.stringify(oldDef.days) !== JSON.stringify(days) || oldDef.interval !== interval || oldDef.linkedQuestId !== linkedId || oldDef.linkedQuestDelay !== linkedDelay;
+            app.data.questDefinitions[defIdx] = { ...oldDef, title, baseXp: xp, baseGold: gold, estimatedTime: duration, frequency: freq, interval, days, timeSlot, defaultAssignee: assignee, linkedQuestId: linkedId, linkedQuestDelay: linkedDelay };
+            app.data.activeQuests.forEach(q => { if (q.definitionId === defId) { q.title = title; q.xp = xp; q.gold = gold; q.timeSlot = timeSlot; if (changed && freq !== 'linked') q.dueDate = app.calculateFirstDueDate(app.data.questDefinitions[defIdx]).toISOString(); if (!q.assignedTo || q.assignedTo === oldDef.defaultAssignee) q.assignedTo = assignee; } });
             await app.save(); app.hideModals();
         });
     },
@@ -1555,13 +1625,15 @@ const app = {
                     return `<div class="assignee-badge" style="width:20px; height:20px; border:1px solid #27ae60;">${app.getAvatarHtml(u ? u.avatar : '?', "20px")}</div>`;
                 }).join('') : '';
 
-                const freqMap = { none: 'Unique', daily: 'Quotidien', weekly: 'Hebdo', monthly: 'Mensuel' };
+                const freqMap = { none: 'Unique', daily: 'Quotidien', weekly: 'Hebdo', monthly: 'Mensuel', linked: 'Suite auto' };
                 const dayMap = { '1': 'L', '2': 'M', '3': 'M', '4': 'J', '5': 'V', '6': 'S', '0': 'D' };
                 
                 let freqText = '';
                 if (def) {
                     const int = parseInt(def.interval || 1);
-                    if (int > 1) {
+                    if (def.frequency === 'linked') {
+                        freqText = '🔗 Suite auto';
+                    } else if (int > 1) {
                         const freqLabel = { daily: 'jours', weekly: 'semaines', monthly: 'mois' }[def.frequency];
                         freqText = `Tous les ${int} ${freqLabel || ''}`;
                     } else {
@@ -1576,6 +1648,12 @@ const app = {
                     }
                 } else {
                     freqText = 'Unique';
+                }
+
+                let linkedQuestHtml = "";
+                if (def && def.linkedQuestId) {
+                    const lDef = app.data.questDefinitions.find(ld => ld.id === def.linkedQuestId);
+                    if (lDef) linkedQuestHtml = `<div style="font-size:0.65rem; opacity:0.7; margin-top:3px;">➡️ Déclenche ensuite : <b>${lDef.title}</b></div>`;
                 }
 
                 const durationText = (def && def.estimatedTime) ? ` • ⏳ ${def.estimatedTime}m` : '';
@@ -1609,6 +1687,7 @@ const app = {
                             <span style="color: #f1c40f;">💰 ${q.xp} XP • ${app.data.currency.symbol} ${q.gold}</span>
                             <span style="opacity: 0.8;">🔄 ${freqText}${durationText}${timeText}</span>
                         </div>
+                        ${linkedQuestHtml}
                         <div style="display:flex; align-items:center; gap:5px; margin-top:5px;">
                             <div class="assignee-badge ${!assignee ? 'empty' : ''}" style="width:20px; height:20px;">${app.getAvatarHtml(assignee ? assignee.avatar : '?', "20px")}</div>
                             <span style="font-size:0.75rem; opacity: 0.9;">Assigné : <strong>${assigneeName}</strong></span>
@@ -1855,7 +1934,52 @@ const app = {
     },
 
     // --- Utils ---
-    toggleRecurrenceUI(prefix) { const elFreq = document.getElementById(`${prefix}-frequency`); if (!elFreq) return; const val = elFreq.value; const intervalContainer = document.getElementById(`${prefix}-interval-container`); const daysSelector = document.getElementById(`${prefix}-days-selector`); if (intervalContainer) intervalContainer.classList.toggle('hidden', val === 'none'); if (daysSelector) daysSelector.classList.toggle('hidden', val !== 'weekly'); },
+    parseDuration(str) {
+        if (!str) return 0;
+        const match = str.toLowerCase().match(/^(\d+)([dhms])?$/);
+        if (!match) return parseInt(str) || 0;
+        const val = parseInt(match[1]);
+        const unit = match[2] || 'm';
+        if (unit === 'd') return val * 24 * 60;
+        if (unit === 'h') return val * 60;
+        if (unit === 's') return Math.ceil(val / 60);
+        return val;
+    },
+
+    toggleRecurrenceUI(prefix) { 
+        const elFreq = document.getElementById(`${prefix}-frequency`); 
+        if (!elFreq) return; 
+        const val = elFreq.value; 
+        const intervalContainer = document.getElementById(`${prefix}-interval-container`); 
+        const daysSelector = document.getElementById(`${prefix}-days-selector`); 
+        const linkContainer = document.getElementById(`${prefix}-link-container`);
+        const dateContainer = document.getElementById(`${prefix}-date-container`);
+
+        if (intervalContainer) intervalContainer.classList.toggle('hidden', val === 'none' || val === 'linked'); 
+        if (daysSelector) daysSelector.classList.toggle('hidden', val !== 'weekly'); 
+        if (linkContainer) {
+            linkContainer.classList.toggle('hidden', val === 'linked'); // On ne peut pas lier une quête à une quête qui est elle-même juste une suite ? Si, pourquoi pas.
+            // En fait l'utilisateur veut pouvoir ajouter une quête liée à N'IMPORTE QUELLE quête (initiale ou déjà liée).
+            // Mais le champ "Quête liée" doit toujours être visible sauf si on considère que c'est trop complexe.
+            // L'utilisateur a dit : "il peut ajouter la quête liée dans le formulaire de création/négociation"
+            linkContainer.classList.remove('hidden'); 
+        }
+        if (dateContainer) {
+            dateContainer.classList.toggle('hidden', val === 'linked');
+        }
+
+        // Peupler la liste des quêtes définies pour le lien si c'est la première fois ou si ça a changé
+        const linkSelect = document.getElementById(`${prefix}-linked-id`);
+        if (linkSelect && app.data) {
+            const currentVal = linkSelect.value;
+            let options = `<option value="">(Aucune)</option>`;
+            app.data.questDefinitions.filter(d => !d.archived).forEach(d => {
+                options += `<option value="${d.id}">${d.title}</option>`;
+            });
+            linkSelect.innerHTML = options;
+            linkSelect.value = currentVal;
+        }
+    },
     renderGuildMembers() {
         const elList = document.getElementById('guild-members-list');
         if (!elList) return;

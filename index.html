@@ -104,7 +104,7 @@
                     <div id="task-list"></div>
                     <h2 style="margin-top:2rem; opacity:0.7;">Prochainement</h2>
                     <div id="upcoming-task-list"></div>
-                    <button class="action-btn" style="margin-top:2rem;" onclick="app.showModal('quest-modal')">+ Nouvelle Quête</button>
+                    <button class="action-btn" style="margin-top:2rem;" onclick="app.toggleRecurrenceUI('quest'); app.showModal('quest-modal')">+ Nouvelle Quête</button>
                 </div>
 
                 <div id="stats-board" class="hidden">
@@ -204,12 +204,18 @@
                     <div><label style="font-size:0.7rem;">Récompense :</label><input type="number" id="quest-gold" value="10"></div>
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-top:10px;">
-                    <div><label style="font-size:0.7rem;">Récurrence :</label><select id="quest-frequency" onchange="app.toggleRecurrenceUI('quest')"><option value="none">Une seule fois</option><option value="daily">Jours</option><option value="weekly">Semaines</option><option value="monthly">Mois</option></select></div>
+                    <div><label style="font-size:0.7rem;">Récurrence :</label><select id="quest-frequency" onchange="app.toggleRecurrenceUI('quest')"><option value="none">Une seule fois</option><option value="daily">Jours</option><option value="weekly">Semaines</option><option value="monthly">Mois</option><option value="linked">🔗 Suite d'une autre quête</option></select></div>
                     <div id="quest-interval-container" class="hidden"><label style="font-size:0.7rem;">Tous les :</label><input type="number" id="quest-interval" value="1" min="1"></div>
                     <div id="quest-date-container">
                         <label style="font-size:0.7rem;">Date :</label>
                         <input type="date" id="quest-date" onchange="app.updateTimeEnablement('quest')">
                     </div>
+                </div>
+                <div id="quest-link-container" class="hidden" style="margin-top:10px; background:rgba(74, 144, 226, 0.1); padding:10px; border-radius:8px; border:1px dashed #4a90e2;">
+                    <label style="font-size:0.7rem; color:#4a90e2; font-weight:bold;">🔗 Quête à déclencher après celle-ci :</label>
+                    <select id="quest-linked-id" style="margin-bottom:10px;"><option value="">(Aucune)</option></select>
+                    <label style="font-size:0.7rem;">Délai avant activation (ex: 2h ou 30m) :</label>
+                    <input type="text" id="quest-linked-delay" placeholder="2h, 30m, 1d..." value="0">
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
                     <div><label style="font-size:0.7rem;">Horaires :</label><div style="display:flex; gap:2px;"><input type="time" id="quest-time-start"><input type="time" id="quest-time-end"></div></div>
@@ -238,9 +244,15 @@
                     <div><label style="font-size:0.7rem;">Horaires :</label><div style="display:flex; gap:2px;"><input type="time" id="edit-quest-time-start"><input type="time" id="edit-quest-time-end"></div></div>
                     <div><label style="font-size:0.7rem;">Assigné à :</label><select id="edit-quest-assignee"></select></div>
                 </div>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
-                    <div><label style="font-size:0.7rem;">Récurrence :</label><select id="edit-quest-frequency" onchange="app.toggleRecurrenceUI('edit-quest')"><option value="none">Une seule fois</option><option value="daily">Jours</option><option value="weekly">Semaines</option><option value="monthly">Mois</option></select></div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-top:10px;">
+                    <div><label style="font-size:0.7rem;">Récurrence :</label><select id="edit-quest-frequency" onchange="app.toggleRecurrenceUI('edit-quest')"><option value="none">Une seule fois</option><option value="daily">Jours</option><option value="weekly">Semaines</option><option value="monthly">Mois</option><option value="linked">🔗 Suite d'une autre quête</option></select></div>
                     <div id="edit-quest-interval-container" class="hidden"><label style="font-size:0.7rem;">Tous les :</label><input type="number" id="edit-quest-interval" value="1" min="1"></div>
+                </div>
+                <div id="edit-quest-link-container" class="hidden" style="margin-top:10px; background:rgba(74, 144, 226, 0.1); padding:10px; border-radius:8px; border:1px dashed #4a90e2;">
+                    <label style="font-size:0.7rem; color:#4a90e2; font-weight:bold;">🔗 Quête à déclencher après celle-ci :</label>
+                    <select id="edit-quest-linked-id" style="margin-bottom:10px;"><option value="">(Aucune)</option></select>
+                    <label style="font-size:0.7rem;">Délai avant activation (ex: 2h ou 30m) :</label>
+                    <input type="text" id="edit-quest-linked-delay" placeholder="2h, 30m, 1d..." value="0">
                 </div>
                 <div id="edit-quest-days-selector" class="hidden" style="margin-top:10px;"><div style="display:flex; justify-content:space-between;"><label><input type="checkbox" name="edit-quest-day" value="1"> L</label><label><input type="checkbox" name="edit-quest-day" value="2"> M</label><label><input type="checkbox" name="edit-quest-day" value="3"> M</label><label><input type="checkbox" name="edit-quest-day" value="4"> J</label><label><input type="checkbox" name="edit-quest-day" value="5"> V</label><label><input type="checkbox" name="edit-quest-day" value="6"> S</label><label><input type="checkbox" name="edit-quest-day" value="0"> D</label></div></div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:20px;">
@@ -396,9 +408,15 @@
                     <div><label style="font-size:0.7rem;">Or :</label><input type="number" id="counter-gold"></div>
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-top:10px;">
-                    <div><label style="font-size:0.7rem;">Récurrence :</label><select id="counter-frequency" onchange="app.toggleRecurrenceUI('counter')"><option value="none">Une seule fois</option><option value="daily">Jours</option><option value="weekly">Semaines</option><option value="monthly">Mois</option></select></div>
+                    <div><label style="font-size:0.7rem;">Récurrence :</label><select id="counter-frequency" onchange="app.toggleRecurrenceUI('counter')"><option value="none">Une seule fois</option><option value="daily">Jours</option><option value="weekly">Semaines</option><option value="monthly">Mois</option><option value="linked">🔗 Suite d'une autre quête</option></select></div>
                     <div id="counter-interval-container" class="hidden"><label style="font-size:0.7rem;">Tous les :</label><input type="number" id="counter-interval" value="1" min="1"></div>
                     <div><label style="font-size:0.7rem;">Horaires :</label><div style="display:flex; gap:2px;"><input type="time" id="counter-time-start"><input type="time" id="counter-time-end"></div></div>
+                </div>
+                <div id="counter-link-container" class="hidden" style="margin-top:10px; background:rgba(74, 144, 226, 0.1); padding:10px; border-radius:8px; border:1px dashed #4a90e2;">
+                    <label style="font-size:0.7rem; color:#4a90e2; font-weight:bold;">🔗 Quête à déclencher après celle-ci :</label>
+                    <select id="counter-linked-id" style="margin-bottom:10px;"><option value="">(Aucune)</option></select>
+                    <label style="font-size:0.7rem;">Délai avant activation (ex: 2h ou 30m) :</label>
+                    <input type="text" id="counter-linked-delay" placeholder="2h, 30m, 1d..." value="0">
                 </div>
                 <div id="counter-days-selector" class="hidden" style="margin-top:10px;"><div style="display:flex; justify-content:space-between;"><label><input type="checkbox" name="counter-day" value="1"> L</label><label><input type="checkbox" name="counter-day" value="2"> M</label><label><input type="checkbox" name="counter-day" value="3"> M</label><label><input type="checkbox" name="counter-day" value="4"> J</label><label><input type="checkbox" name="counter-day" value="5"> V</label><label><input type="checkbox" name="counter-day" value="6"> S</label><label><input type="checkbox" name="counter-day" value="0"> D</label></div></div>
                 <div>
