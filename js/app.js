@@ -183,16 +183,29 @@ const app = {
     attachMessageListener() {
         if (!db.messaging) return;
         
-        // Supprimer l'ancien écouteur s'il existe (FCM ne permet pas facilement de vérifier, on le réattache)
+        console.log("🛠️ SW Controller:", navigator.serviceWorker.controller ? "Actif" : "ABSENT (Rechargement requis)");
+
         db.messaging.onMessage((payload) => {
-            console.log("🔔 Notification reçue au premier plan:", payload);
-            const { title, body } = payload.notification;
+            console.log("🔔 Notification reçue !", payload);
+            
+            // Extraire les infos (depuis notification ou data)
+            const title = payload.notification?.title || payload.data?.title || "ChoreQuest";
+            const body = payload.notification?.body || payload.data?.body || "";
             
             if (Notification.permission === 'granted') {
-                new Notification(title, {
-                    body: body,
-                    icon: 'icons/icon.svg'
-                });
+                try {
+                    // Tenter via l'enregistrement SW (plus robuste)
+                    navigator.serviceWorker.ready.then(reg => {
+                        reg.showNotification(title, {
+                            body: body,
+                            icon: 'icons/icon.svg',
+                            badge: 'icons/icon.svg',
+                            tag: 'chorequest-notif'
+                        });
+                    });
+                } catch(e) {
+                    new Notification(title, { body, icon: 'icons/icon.svg' });
+                }
             }
             
             app.showActivityToast({
@@ -201,7 +214,7 @@ const app = {
                 completedBy: 'Système'
             });
         });
-        console.log("📡 Écouteur de notifications actif.");
+        console.log("📡 Écouteur de notifications prêt.");
     },
 
     async handleJoinLink(id) {

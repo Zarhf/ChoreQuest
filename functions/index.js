@@ -26,8 +26,19 @@ async function sendPushToUser(email, title, body, data = {}) {
 
     const message = {
         notification: { title, body },
-        data: data,
-        token: token
+        data: {
+            ...data,
+            title: title,
+            body: body,
+            click_action: "FLUTTER_NOTIFICATION_CLICK"
+        },
+        token: token,
+        webpush: {
+            notification: {
+                icon: "icons/icon.svg",
+                badge: "icons/icon.svg"
+            }
+        }
     };
 
     try {
