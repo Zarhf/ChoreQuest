@@ -24,13 +24,25 @@ Ce tutoriel est conçu pour être intégré étape par étape dans l'application
 
 ---
 
-### Étape 4 : L'Art du Vol (Steal) 🥷
-**Texte :** "Attention au chrono ! Si un membre est en retard sur sa tâche, elle devient **'Volable'**. Tu peux alors cliquer sur l'icône **'🥷'** pour faire la tâche à sa place et gagner toute la récompense !"
-**Action :** Mettre en évidence une quête avec une icône de sablier ou de voleur (si présente).
+### Étape 4 : L'Art du Vol & Chasse aux Primes 🔥
+**Texte :** "Attention au chrono ! Si un membre est en retard, sa tâche devient **'Volable'**. Mieux encore, elle passe **'En Feu'** : sa valeur en Or augmente de **1% par minute** de retard. Une vraie mine d'or pour les plus rapides !"
+**Action :** Pointer vers une quête avec l'animation 'on-fire' ou le badge de retard.
 
 ---
 
-### Étape 5 : Le Marché de la Guilde 💰
+### Étape 5 : Rapport de Mission ⚔️
+**Texte :** "Tu as fini ta tâche il y a 1h mais tu as oublié de cocher ? Pas de souci. En validant, tu peux indiquer ton **heure réelle de fin**. Le système recalculera ton butin et la suite de la chaîne pour être juste !"
+**Action :** Pointer vers le bouton de validation ✅.
+
+---
+
+### Étape 6 : Sessions de Quête ⛓️
+**Texte :** "Les tâches liées (ex: Lave-linge -> Étendre) apparaissent groupées dans une **Session**. Tu peux voir tout l'historique de ce qui a été fait avant, pour ne jamais perdre le fil !"
+**Action :** Pointer vers un conteneur de chaîne.
+
+---
+
+### Étape 7 : Le Marché de la Guilde 💰
 **Texte :** "Amassé assez d'or ? Va au Marché ! Tu y trouveras des récompenses réelles (ex: Pizza, temps d'écran). Tes achats vont dans ton **Inventaire**."
 **Action :** Pointer vers l'onglet 'Marché'.
 

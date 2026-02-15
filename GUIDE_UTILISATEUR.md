@@ -37,11 +37,20 @@ C'est le cœur du jeu. Vous y voyez les tâches disponibles.
 *   **Quêtes Assignées :** Elles portent l'avatar du responsable.
 *   **Validation :** Une fois la tâche finie, cochez la case. Vous recevez instantanément l'**XP** et l'**Or**.
 
-### La Mécanique de "Vol" (Steal) 🥷
-Attention ! Si une quête n'est pas faite à temps (après l'heure de fin ou la date limite), elle devient **"Volable"**.
-*   N'importe quel autre membre peut alors la réaliser à votre place.
-*   Il gagne l'XP et l'Or prévus pour vous !
-*   C'est le meilleur moyen de motiver les troupes à respecter les délais.
+### La Mécanique de "Vol" & Bonus "On Fire" 🔥
+Attention ! Si une quête n'est pas faite à temps, elle devient **"Volable"** par n'importe quel autre membre.
+*   **Prime de retard :** Plus une quête attend, plus elle prend de la valeur ! Elle gagne **+1% d'Or par minute** de retard.
+*   **En Feu :** Après 30 min de retard, la carte s'enflamme visuellement pour attirer les chasseurs de prime.
+
+### Rapport de Mission & Heure Réelle ⚔️
+Vous avez fini votre tâche à l'heure mais vous avez oublié votre téléphone ? 
+*   En cliquant sur valider (✅), vous pouvez saisir l'**heure réelle** de fin. 
+*   Le système ajustera automatiquement votre récompense (retirant le bonus de retard si vous étiez à l'heure) et recalculera le délai des quêtes suivantes dans la chaîne.
+
+### Sessions de Quête ⛓️
+Les tâches qui se suivent (ex: Lancer la machine -> Étendre le linge -> Ranger) sont regroupées dans un bloc **"Session de Quête"**.
+*   Vous y voyez l'historique complet : qui a fait quoi et à quelle heure.
+*   Cela permet de distinguer plusieurs sessions identiques (ex: la vaisselle de midi vs celle du soir).
 
 ### Le Marché de Guilde 💰
 Dépensez votre or durement gagné dans l'onglet **Marché**.

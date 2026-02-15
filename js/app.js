@@ -28,9 +28,21 @@ const app = {
             action: () => app.setView('board')
         },
         {
-            title: "🥷 L'Art du Vol",
-            body: "Attention ! Si un membre est en retard, sa tâche devient <b>'Volable'</b>. Clique sur l'icône <b>'🥷'</b> pour la faire à sa place et gagner sa récompense !",
-            highlight: ".btn-steal",
+            title: "⚔️ Rapport de Mission",
+            body: "Quand tu valides une tâche, tu peux indiquer l'<b>heure réelle</b> de fin. Pratique si tu as oublié de cocher ton téléphone tout de suite !",
+            highlight: ".btn-complete",
+            action: () => app.setView('board')
+        },
+        {
+            title: "🔥 Chasse aux Primes",
+            body: "Si une tâche est en retard, elle passe <b>'En Feu'</b> ! Sa valeur en Or augmente de <b>1% par minute</b>. Une aubaine pour les mercenaires en quête de richesse !",
+            highlight: ".on-fire, .overdue-halo",
+            action: () => app.setView('board')
+        },
+        {
+            title: "⛓️ Sessions de Quête",
+            body: "Certaines tâches en déclenchent d'autres. Elles apparaissent groupées dans une <b>Session</b> pour que tu saches toujours d'où vient chaque mission.",
+            highlight: ".quest-chain-container",
             action: () => app.setView('board')
         },
         {
@@ -1388,7 +1400,7 @@ const app = {
             },
             {
                 title: "🔗 Quêtes Liées",
-                body: "Tu peux lier une autre quête qui se créera automatiquement une fois celle-ci terminée (ex: 'Etendre le linge' après 'Lave-linge'). Définis un délai (ex: 2h) avant qu'elle n'apparaisse.",
+                body: "Tu peux lier une suite (ex: 'Étendre' après 'Lave-linge'). Définis un <b>délai avant activation</b> (ex: 2h) et surtout le <b>temps alloué</b> pour la faire avant qu'elle ne passe 'en feu' !",
                 highlight: `#${prefix}-link-container`
             },
             {
