@@ -2051,7 +2051,9 @@ const app = {
                 const isStartMidnight = sd.getHours() === 0 && sd.getMinutes() === 0;
                 const isEndMidnight = ed && ed.getHours() === 23 && ed.getMinutes() === 59;
 
-                if (isStartMidnight && isEndMidnight) {
+                if (mode === 'upcoming' && isStartMidnight && isEndMidnight) {
+                    timeInfo = ''; // Pas besoin de "Aujourd'hui" dans la section "Prochainement"
+                } else if (isStartMidnight && isEndMidnight) {
                     timeInfo = '🕒 Aujourd\'hui';
                 } else if (isEndMidnight) {
                     timeInfo = `🕒 À partir de ${sStr}`;
@@ -2059,6 +2061,12 @@ const app = {
                     timeInfo = `🕒 Jusqu'à ${eStr}`;
                 } else {
                     timeInfo = `🕒 ${sStr}${eStr ? '-' + eStr : ''}`;
+                }
+
+                // Cas spécial : Quête virtuelle dont l'heure de début est passée
+                // (Signifie qu'elle attend que la version "en retard" soit finie)
+                if (q.isVirtual && new Date(q.startDate).getTime() < nowTime) {
+                    timeInfo = '⏳ Attente du précédent';
                 }
             }
 
@@ -2114,7 +2122,7 @@ const app = {
 
             const canEdit = app.isAdmin();
             const haloClass = isOverdue ? 'overdue-halo' : '';
-            return `<div class="quest-card ${rarity} ${haloClass} ${mode === 'upcoming' ? 'upcoming' : ''}"><div class="quest-body" ${canEdit ? `onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer"` : ''}>${assigneeHtml}<div class="quest-info"><h4>${freq} ${q.title}${timerHtml}</h4><span>💰 ${q.xp} XP${q.gold ? ' • ' + app.data.currency.symbol + ' ' + q.gold : ''}${timeStr}</span></div></div><div class="quest-actions-container">${actionButtons}</div></div>`;
+            return `<div class="quest-card ${rarity} ${haloClass} ${mode === 'upcoming' ? 'upcoming' : ''}"><div class="quest-body" ${canEdit ? `onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer"` : ''}>${assigneeHtml}<div class="quest-info"><h4>${freq} ${q.title}${timerHtml}</h4><span>💰 ${q.xp} XP${q.gold ? ' • ' + app.data.currency.symbol + ' ' + q.gold : ''}${timeStr}${delayInfo}</span></div></div><div class="quest-actions-container">${actionButtons}</div></div>`;
         };
 
         let finalHtml = "";
