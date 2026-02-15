@@ -1080,6 +1080,40 @@ const app = {
         // Note: app.save() est géré par l'appelant pour éviter les écritures multiples en boucle
     },
 
+    async activateQuestEarly(instanceId) {
+        let quest = null;
+        let isVirtual = instanceId.startsWith('virtual_');
+        
+        if (isVirtual) {
+            const realId = instanceId.replace('virtual_', '');
+            const sourceQuest = app.data.activeQuests.find(q => q.id === realId);
+            if (!sourceQuest) return;
+            const def = app.data.questDefinitions.find(d => d.id === sourceQuest.definitionId);
+            if (!def) return;
+            
+            // Créer une nouvelle instance réelle basée sur la projection virtuelle
+            // mais forcée à "Maintenant"
+            quest = app.createQuestInstance(def, new Date());
+            app.data.activeQuests.push(quest);
+        } else {
+            quest = app.data.activeQuests.find(q => q.id === instanceId);
+            if (!quest) return;
+            const def = app.data.questDefinitions.find(d => d.id === quest.definitionId);
+            if (!def) return;
+            
+            // Recalculer les dates pour forcer l'activation immédiate
+            const nextInstance = app.createQuestInstance(def, new Date());
+            quest.startDate = nextInstance.startDate;
+            quest.dueDate = nextInstance.dueDate;
+        }
+
+        app.addLog(`Anticipation : ${quest.title} lancée en avance !`, 'system', 5, 0);
+        app.currentUser.xp += 5; // Bonus de proactivité
+        
+        await app.save();
+        app.renderBoard();
+    },
+
     showLootPopup(text, x, y, className) {
         const el = document.createElement('div');
         el.className = `loot-popup ${className}`;
@@ -2229,8 +2263,9 @@ const app = {
                 actionButtons += `<button class="quest-action-btn btn-counter" style="flex: 1; font-size: 1.1rem;" onclick="event.stopPropagation(); app.openCounterOfferModal('${q.id}')" title="Proposer une modification">📝</button>`;
                 actionButtons += `<button class="quest-action-btn btn-cancel-req" style="flex: 1; font-size: 1.1rem;" onclick="event.stopPropagation(); app.requestQuestCancellation('${q.id}')" title="Demander l'annulation">🚫</button>`;
             } else {
+                // Mode Prochainement : Ajout du bouton "⚔️ Devancer"
                 const dateStr = q.startDate ? new Date(q.startDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '';
-                actionButtons += `<div style="flex: 2; opacity: 0.4; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold; background: rgba(0,0,0,0.05); color: white; border-right: 1px solid rgba(255,255,255,0.05);">${dateStr}</div>`;
+                actionButtons += `<button class="quest-action-btn btn-claim" style="flex: 2; font-size: 1rem; background: var(--bg-dark); border-right: 1px solid rgba(255,255,255,0.05);" onclick="event.stopPropagation(); app.askConfirm('Lancer cette quête maintenant ?', () => app.activateQuestEarly('${q.id}'))" title="Lancer en avance">⚔️ Lancer</button>`;
                 actionButtons += `<button class="quest-action-btn btn-counter" style="flex: 2; font-size: 1.1rem;" onclick="event.stopPropagation(); app.openEditQuestModal('${q.id}')" title="Modifier la définition">📝</button>`;
                 actionButtons += `<button class="quest-action-btn btn-cancel-req" style="flex: 2; font-size: 1.1rem;" onclick="event.stopPropagation(); app.requestQuestCancellation('${q.id}')" title="Annuler définitivement">🚫</button>`;
             }
