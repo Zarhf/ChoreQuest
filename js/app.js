@@ -906,6 +906,10 @@ const app = {
 
         document.getElementById('completion-quest-title').innerText = quest.title;
         
+        // Peupler la liste des héros
+        const select = document.getElementById('completion-hero-select');
+        select.innerHTML = app.data.users.map(u => `<option value="${u.id}" ${u.id === app.currentUser.id ? 'selected' : ''}>${u.name}</option>`).join('');
+
         // Formater l'heure actuelle pour l'input datetime-local (YYYY-MM-DDTHH:mm)
         const now = new Date();
         const tzOffset = now.getTimezoneOffset() * 60000;
@@ -919,21 +923,27 @@ const app = {
         
         document.getElementById('completion-submit-btn').onclick = () => {
             const actualTime = new Date(input.value);
+            const selectedHeroId = select.value;
             if (isNaN(actualTime.getTime())) return alert("Heure invalide !");
-            app.completeTask(instanceId, actualTime);
+            app.completeTask(instanceId, actualTime, selectedHeroId);
             app.hideModals();
         };
     },
 
-    async completeTask(instanceId, actualDate = new Date()) {
+    async completeTask(instanceId, actualDate = new Date(), performedByHeroId = null) {
         const index = app.data.activeQuests.findIndex(q => q.id === instanceId);
         if (index === -1) return;
         const quest = app.data.activeQuests[index];
         const def = app.data.questDefinitions.find(d => d.id === quest.definitionId);
         
+        // Le héros qui reçoit la récompense (par défaut l'utilisateur courant s'il n'est pas spécifié)
+        const targetHeroId = performedByHeroId || app.currentUser.id;
+        const hero = app.data.users.find(u => u.id === targetHeroId);
+        if (!hero) return;
+
         const actualTime = actualDate.getTime();
 
-        const userLevel = app.currentUser.level || 1;
+        const userLevel = hero.level || 1;
         const bonusMultiplier = 1 + (userLevel / 100);
         
         const baseEarnedXp = Math.ceil(parseInt(quest.xp || 0) * bonusMultiplier);
@@ -947,25 +957,26 @@ const app = {
             earnedGold = Math.ceil(earnedGold * timeBonusMultiplier);
         }
 
-        app.currentUser.xp += baseEarnedXp;
-        app.currentUser.gold = (app.currentUser.gold || 0) + earnedGold;
+        hero.xp += baseEarnedXp;
+        hero.gold = (hero.gold || 0) + earnedGold;
 
         // Déclencher les animations
         app.showLootPopup(`+${baseEarnedXp} XP`, window.innerWidth/2, window.innerHeight/2, 'xp-gain');
         setTimeout(() => app.showLootPopup(`+${earnedGold} ${app.data.currency.symbol}`, window.innerWidth/2, window.innerHeight/2, 'gold-gain'), 200);
 
-        const xpNeeded = (app.currentUser.level || 1) * 100;
-        if (app.currentUser.xp >= xpNeeded) {
-            app.currentUser.level = (app.currentUser.level || 1) + 1;
-            app.currentUser.xp -= (app.currentUser.level - 1) * 100;
-            alert(`🎊 LEVEL UP! ${app.currentUser.name} est Niveau ${app.currentUser.level} !`);
+        const xpNeeded = (hero.level || 1) * 100;
+        if (hero.xp >= xpNeeded) {
+            hero.level = (hero.level || 1) + 1;
+            hero.xp -= (hero.level - 1) * 100;
+            alert(`🎊 LEVEL UP! ${hero.name} est Niveau ${hero.level} !`);
         }
         
         app.data.questLog.unshift({ 
             id: 'log_'+Date.now(), 
             type: 'completion', 
             title: quest.title, 
-            completedBy: app.currentUser.id, 
+            completedBy: hero.id, 
+            validatedBy: app.currentUser.id, // On trace qui a validé
             completedAt: new Date().toISOString(), 
             actualCompletionDate: actualDate.toISOString(),
             xpEarned: baseEarnedXp,
@@ -990,7 +1001,7 @@ const app = {
                 const history = quest.chainHistory ? [...quest.chainHistory] : [];
                 history.push({
                     title: quest.title,
-                    completedBy: app.currentUser.name,
+                    completedBy: hero.name, // Le nom du héros qui a réellement fait la tâche
                     completedAt: actualDate.toISOString()
                 });
 
