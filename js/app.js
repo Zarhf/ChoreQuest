@@ -888,40 +888,59 @@ const app = {
         await app.save();
     },
 
-    async completeTask(instanceId) {
+    openCompletionModal(instanceId) {
+        const quest = app.data.activeQuests.find(q => q.id === instanceId);
+        if (!quest) return;
+
+        document.getElementById('completion-quest-title').innerText = quest.title;
+        
+        // Formater l'heure actuelle pour l'input datetime-local (YYYY-MM-DDTHH:mm)
+        const now = new Date();
+        const tzOffset = now.getTimezoneOffset() * 60000;
+        const localISOTime = new Date(Date.now() - tzOffset).toISOString().slice(0, 16);
+        
+        const input = document.getElementById('actual-completion-time');
+        input.value = localISOTime;
+        input.max = localISOTime; // On ne peut pas avoir fini dans le futur
+
+        app.showModal('completion-modal');
+        
+        document.getElementById('completion-submit-btn').onclick = () => {
+            const actualTime = new Date(input.value);
+            if (isNaN(actualTime.getTime())) return alert("Heure invalide !");
+            app.completeTask(instanceId, actualTime);
+            app.hideModals();
+        };
+    },
+
+    async completeTask(instanceId, actualDate = new Date()) {
         const index = app.data.activeQuests.findIndex(q => q.id === instanceId);
         if (index === -1) return;
         const quest = app.data.activeQuests[index];
         const def = app.data.questDefinitions.find(d => d.id === quest.definitionId);
         
-        // Position du clic pour l'animation
-        const rect = event.target.getBoundingClientRect();
-        const x = rect.left + rect.width / 2;
-        const y = rect.top;
+        const actualTime = actualDate.getTime();
 
         const userLevel = app.currentUser.level || 1;
         const bonusMultiplier = 1 + (userLevel / 100);
         
-        const earnedXp = Math.ceil(parseInt(quest.xp || 0) * bonusMultiplier);
+        const baseEarnedXp = Math.ceil(parseInt(quest.xp || 0) * bonusMultiplier);
         let earnedGold = Math.ceil(parseInt(quest.gold || 0) * bonusMultiplier);
 
-        // BONUS DE RETARD : +1% par minute de retard
-        if (quest.dueDate && Date.now() > new Date(quest.dueDate).getTime()) {
-            const diffMs = Date.now() - new Date(quest.dueDate).getTime();
+        // BONUS DE RETARD basé sur l'heure réelle de fin
+        if (quest.dueDate && actualTime > new Date(quest.dueDate).getTime()) {
+            const diffMs = actualTime - new Date(quest.dueDate).getTime();
             const diffMins = Math.floor(diffMs / 60000);
             const timeBonusMultiplier = 1 + (diffMins / 100);
-            const initialGold = earnedGold;
             earnedGold = Math.ceil(earnedGold * timeBonusMultiplier);
-            const bonusOnly = earnedGold - initialGold;
-            if (bonusOnly > 0) console.log(`🔥 Prime de retard appliquée : +${bonusOnly} ${app.data.currency.symbol}`);
         }
 
-        app.currentUser.xp += earnedXp;
+        app.currentUser.xp += baseEarnedXp;
         app.currentUser.gold = (app.currentUser.gold || 0) + earnedGold;
 
         // Déclencher les animations
-        app.showLootPopup(`+${earnedXp} XP`, x - 20, y, 'xp-gain');
-        setTimeout(() => app.showLootPopup(`+${earnedGold} ${app.data.currency.symbol}`, x + 20, y, 'gold-gain'), 200);
+        app.showLootPopup(`+${baseEarnedXp} XP`, window.innerWidth/2, window.innerHeight/2, 'xp-gain');
+        setTimeout(() => app.showLootPopup(`+${earnedGold} ${app.data.currency.symbol}`, window.innerWidth/2, window.innerHeight/2, 'gold-gain'), 200);
 
         const xpNeeded = (app.currentUser.level || 1) * 100;
         if (app.currentUser.xp >= xpNeeded) {
@@ -936,7 +955,8 @@ const app = {
             title: quest.title, 
             completedBy: app.currentUser.id, 
             completedAt: new Date().toISOString(), 
-            xpEarned: earnedXp,
+            actualCompletionDate: actualDate.toISOString(),
+            xpEarned: baseEarnedXp,
             goldEarned: earnedGold,
             instanceId: instanceId, 
             definitionId: quest.definitionId 
@@ -949,17 +969,16 @@ const app = {
             const linkedDef = app.data.questDefinitions.find(d => d.id === def.linkedQuestId);
             if (linkedDef && !linkedDef.archived) {
                 const delayMs = (def.linkedQuestDelay || 0) * 60 * 1000;
-                const now = Date.now();
-                const startDate = new Date(now + delayMs);
+                // ON UTILISE L'HEURE RÉELLE COMME BASE
+                const startDate = new Date(actualTime + delayMs);
                 const dueDate = new Date(startDate.getTime() + 15 * 60 * 1000); 
                 
-                // Gestion de la chaîne (Session)
                 const chainId = quest.chainId || ('chain_' + Date.now());
                 const history = quest.chainHistory ? [...quest.chainHistory] : [];
                 history.push({
                     title: quest.title,
                     completedBy: app.currentUser.name,
-                    completedAt: new Date().toISOString()
+                    completedAt: actualDate.toISOString() // Heure réelle dans l'historique de chaîne
                 });
 
                 app.data.activeQuests.push({ 
@@ -985,7 +1004,6 @@ const app = {
             const nextScheduledDate = app.calculateNextDueDate(def, fromDate);
             const nextInstance = app.createQuestInstance(def, nextScheduledDate);
             
-            // On met à jour l'instance existante au lieu d'en recréer une pour garder le même objet si possible
             quest.startDate = nextInstance.startDate;
             quest.dueDate = nextInstance.dueDate;
             quest.assignedTo = nextInstance.assignedTo;
@@ -2165,7 +2183,7 @@ const app = {
                 }
 
                 const canComplete = isMe || isNobody;
-                actionButtons += `<button class="quest-action-btn btn-complete" style="flex: 2; ${!canComplete ? 'opacity: 0.3; cursor: not-allowed;' : ''}" ${canComplete ? `onclick="event.stopPropagation(); app.askConfirm('Terminer ?', () => app.completeTask('${q.id}'))"` : ''} title="Valider">✅</button>`;
+                actionButtons += `<button class="quest-action-btn btn-complete" style="flex: 2; ${!canComplete ? 'opacity: 0.3; cursor: not-allowed;' : ''}" ${canComplete ? `onclick="event.stopPropagation(); app.openCompletionModal('${q.id}')"` : ''} title="Valider">✅</button>`;
                 actionButtons += `<button class="quest-action-btn btn-counter" style="flex: 1; font-size: 1.1rem;" onclick="event.stopPropagation(); app.openCounterOfferModal('${q.id}')" title="Proposer une modification">📝</button>`;
                 actionButtons += `<button class="quest-action-btn btn-cancel-req" style="flex: 1; font-size: 1.1rem;" onclick="event.stopPropagation(); app.requestQuestCancellation('${q.id}')" title="Demander l'annulation">🚫</button>`;
             } else {
