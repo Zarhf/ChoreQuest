@@ -62,21 +62,27 @@ Consultez le fichier **[DEPLOY.md](DEPLOY.md)** pour les instructions détaillé
 
 ## 8. Roadmap & Évolutions (2026)
 
-### Phase 1 : Immersion & "Juiciness" (En cours)
-*   **Design Sonore (SFX) :** Bruitages 8-bit pour les validations, level-up et vols.
-*   **Système de Particules :** Explosion de confettis/pièces via `canvas-confetti`.
-*   **Polices Immersives :** Intégration de Google Fonts (Cinzel, MedievalSharp).
-*   **Animations UI :** Transitions fluides des modales et feedbacks haptiques visuels.
+### ✅ Phase 1 : Fondations RPG & Moteur Temporel (Terminé)
+*   **Moteur V5/V6** : Séparation startDate/dueDate et gestion des sessions de chaînes.
+*   **Chasse aux Primes** : Implémentation des bonus "On Fire" (+1% or/min).
+*   **Rapport de Mission** : Saisie de l'heure réelle et validation pour autrui.
+*   **Administration Partagée** : Gestion des écuyers par tous les admins.
+*   **Automatisation** : Script de release unique et Cache Killer nucléaire.
 
-### Phase 2 : Dynamisme & Vie
-*   **Boss de Raid :** Tâches collectives avec points de vie (ex: grand ménage).
-*   **Réactions (Emotes) :** Possibilité de réagir aux actions du journal via des stickers.
-*   **Cycle Jour/Nuit :** L'interface change de luminosité selon l'heure réelle.
+### Phase 2 : Immersion & "Juiciness" (En cours)
+*   **Design Sonore (SFX)** : Bruitages 8-bit pour les validations (Cha-ching!), level-up et flammes.
+*   **Système de Particules** : Explosion de confettis/pièces via `canvas-confetti` lors des succès.
+*   **Animations UI** : Transitions fluides des modales et feedbacks haptiques visuels renforcés.
+*   **Séries (Streaks)** : Bonus pour la régularité sur les tâches récurrentes.
 
-### Phase 3 : Profondeur RPG
-*   **Équipements & Buffs :** Objets au marché offrant des bonus (ex: +5% d'or).
-*   **Classes de Héros :** Spécialisations au niveau 5 (Guerrier, Mage, Voleur).
-*   **Séries (Streaks) :** Bonus pour la régularité quotidienne.
+### Phase 3 : Dynamisme & Vie
+*   **Boss de Raid** : Tâches collectives avec points de vie (ex: grand ménage) et butin partagé.
+*   **Réactions (Emotes)** : Possibilité de réagir aux actions du journal via des stickers/émojis.
+*   **Cycle Jour/Nuit** : L'interface change de luminosité et de thème selon l'heure réelle.
+
+### Phase 4 : Profondeur RPG
+*   **Équipements & Buffs** : Objets au marché offrant des bonus passifs (ex: "Bottes de hâte" : réduit le délai des quêtes liées).
+*   **Classes de Héros** : Spécialisations au niveau 10 (Guerrier : bonus XP, Voleur : bonus sur les vols, Mage : réduit les délais).
 
 ## 9. Standards UI/UX (Directives)
 
