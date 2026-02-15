@@ -1,0 +1,22 @@
+{
+  "name": "chorequest",
+  "version": "1.0.0",
+  "description": "",
+  "main": "firebase-messaging-sw.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "release": "node scripts/release.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Zarhf/ChoreQuest.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Zarhf/ChoreQuest/issues"
+  },
+  "homepage": "https://github.com/Zarhf/ChoreQuest#readme"
+}

@@ -38,20 +38,10 @@ Les variables suivantes doivent être configurées dans les "Actions Secrets" du
 
 ## 4. Protocole de Publication (Versioning)
 
-Chaque mise à jour doit suivre rigoureusement ces étapes pour être prise en compte par tous les clients :
+Le déploiement et la gestion des versions sont désormais automatisés via un script unique.
 
-### 4.1. Préparation (Locale)
-1.  Incrémenter le numéro de `build` dans `version.json`, `v.json` et `status.json`.
-2.  Mettre à jour les références de version dans `index.html` (ex: `styles.css?v=156`).
-3.  Mettre à jour le build dans `js/config.js` (local).
-
-### 4.2. Déploiement du Frontend (Automatique)
-*   Un `git push` sur la branche `main` déclenche le workflow GitHub Actions.
-*   Le script génère le `config.js` sécurisé et déploie sur GitHub Pages.
-
-### 4.3. Déploiement du Backend (Manuel/CLI)
-*   Exécuter `npx firebase deploy` depuis le dossier `ChoreQuest` pour mettre à jour les Cloud Functions et le Firebase Hosting.
-*   **Test de fiabilité :** Utiliser le bouton **"🧪 Tester l'envoi"** dans le profil utilisateur pour valider la chaîne de notification de bout en bout.
+Consultez le fichier **[DEPLOY.md](DEPLOY.md)** pour les instructions détaillées sur la publication d'une nouvelle version via la commande :
+`npm run release -- "message"`
 
 ## 5. Système Social & Hiérarchie
 
