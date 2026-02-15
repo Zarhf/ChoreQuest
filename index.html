@@ -8,14 +8,14 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>ChoreQuest</title>
         <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=195">
+    <link rel="stylesheet" href="css/styles.css?v=196">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=MedievalSharp&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <script>
-        // --- NUCLEAIRE CACHE KILLER (Build 195) ---
+        // --- NUCLEAIRE CACHE KILLER (Build 196) ---
         (async function() {
             try {
                 const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
@@ -26,16 +26,17 @@
                     // Protection contre les boucles de refresh
                     let retries = parseInt(sessionStorage.getItem('update_retries') || '0');
                     
-                    if (retries > 3) {
+                    if (retries > 5) {
                         document.body.innerHTML = `
                             <div style="background:#1a1a2e; color:white; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:20px; font-family:sans-serif;">
                                 <h1 style="color:#e94560; font-size:4rem;">⚠️</h1>
-                                <h2>Conflit de Version</h2>
-                                <p style="opacity:0.7; max-width:400px;">L'application n'arrive pas à charger la dernière version (Build ${remote.build}) à cause du cache de votre navigateur.</p>
-                                <button onclick="sessionStorage.setItem('update_retries', '0'); location.reload(true);" 
+                                <h2>Mise à jour requise</h2>
+                                <p style="opacity:0.7; max-width:400px;">Une nouvelle version (Build ${remote.build}) est disponible mais votre navigateur refuse de lâcher l'ancienne.</p>
+                                <button onclick="sessionStorage.setItem('update_retries', '0'); location.href=location.origin+location.pathname+'?upd='+Date.now();" 
                                         style="background:#4a90e2; color:white; border:none; padding:15px 30px; border-radius:8px; font-weight:bold; cursor:pointer; margin-top:20px;">
-                                    Forcer la mise à jour ⚔️
+                                    Forcer le nettoyage ⚔️
                                 </button>
+                                <p style="font-size:0.7rem; margin-top:20px; opacity:0.4;">Build local: ${localBuild} | Build distant: ${remote.build}</p>
                             </div>
                         `;
                         return;
@@ -44,9 +45,10 @@
                     sessionStorage.setItem('update_retries', (retries + 1).toString());
                     const waitTime = retries > 0 ? Math.pow(2, retries - 1) * 1000 : 0;
                     
-                    console.log(`🚀 Mise à jour détectée (${remote.build} > ${localBuild}). Attente de ${waitTime}ms...`);
+                    console.log(`🚀 Mise à jour détectée (${remote.build} > ${localBuild}). Tentative ${retries + 1}. Attente de ${waitTime}ms...`);
                     
                     setTimeout(async () => {
+                        // Purge agressive des caches
                         if ('serviceWorker' in navigator) {
                             const regs = await navigator.serviceWorker.getRegistrations();
                             for (let r of regs) await r.unregister();
@@ -55,6 +57,9 @@
                             const keys = await caches.keys();
                             for (let k of keys) await caches.delete(k);
                         }
+                        // On ne met à jour app_build QUE si le reload a des chances de fonctionner
+                        // Mais attention, si on ne le met pas à jour ici, index.html bouclera
+                        // Le vrai fix est dans app.js qui ne doit pas écraser une valeur plus haute
                         localStorage.setItem('app_build', remote.build);
                         window.location.reload(true);
                     }, waitTime);
@@ -555,10 +560,10 @@
 
     <div id="activity-toast" class="hidden"><div id="toast-avatar" class="assignee-badge" style="width:30px; height:30px;"></div> <span id="toast-message">...</span></div>
 
-    <script src="js/config.js?v=195"></script>
-    <script src="js/auth.js?v=195"></script>
-    <script src="js/firebase-db.js?v=195"></script>
-    <script src="js/app.js?v=195"></script>
+    <script src="js/config.js?v=196"></script>
+    <script src="js/auth.js?v=196"></script>
+    <script src="js/firebase-db.js?v=196"></script>
+    <script src="js/app.js?v=196"></script>
 
     <script>
         if ('serviceWorker' in navigator) {

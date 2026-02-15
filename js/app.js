@@ -55,7 +55,11 @@ const app = {
     ],
 
     async init() {
-        localStorage.setItem('app_build', CONFIG.BUILD);
+        const localBuild = parseInt(localStorage.getItem('app_build') || '0');
+        // Ne mettre à jour le build local que si cette version est plus récente ou égale
+        if (CONFIG.BUILD >= localBuild) {
+            localStorage.setItem('app_build', CONFIG.BUILD);
+        }
         console.log(`🛡️ ChoreQuest Build ${CONFIG.BUILD} starting...`);
         fetch('version.json?t='+Date.now()).then(r => r.json()).then(v => {
             const el = document.getElementById('app-version');
@@ -2345,8 +2349,12 @@ const app = {
         const memberOptions = `<option value="">❓ Pour tous</option>` + app.data.users.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
         document.getElementById('quest-assignee').innerHTML = memberOptions;
         document.getElementById('edit-quest-assignee').innerHTML = memberOptions;
-        document.getElementById('edit-user-name').value = app.currentUser.name;
-        app.updateAvatarPreview('edit');
+        
+        if (app.currentUser) {
+            document.getElementById('edit-user-name').value = app.currentUser.name;
+            app.updateAvatarPreview('edit');
+        }
+        
         const squires = app.data.users.filter(u => u.managedBy === app.mainUser.id);
         const impersonatedId = localStorage.getItem('impersonatedHeroId');
         document.getElementById('squire-list').innerHTML = squires.map(s => `<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; margin-bottom:5px;"><span>${app.getAvatarHtml(s.avatar, "20px")} <b>${s.name}</b></span>${impersonatedId === s.id ? `<button class="action-btn danger-btn" onclick="app.stopImpersonating()" style="width:auto; padding:2px 8px; font-size:0.7rem;">Quitter</button>` : `<button class="action-btn" onclick="app.impersonate('${s.id}')" style="width:auto; padding:2px 8px; font-size:0.7rem;">Incarner</button>`}</div>`).join('') || '<p style="font-size:0.7rem; opacity:0.5;">Aucun écuyer.</p>';
