@@ -160,6 +160,9 @@ const app = {
                 scope: './'
             });
 
+            // Attendre que le SW soit actif pour éviter l'erreur de permission
+            await navigator.serviceWorker.ready;
+
             const token = await db.messaging.getToken({
                 vapidKey: CONFIG.VAPID_PUBLIC_KEY,
                 serviceWorkerRegistration: registration
@@ -343,20 +346,39 @@ const app = {
                 if (q.startDate === undefined && q.dueDate) {
                     const def = app.data.questDefinitions.find(d => d.id === q.definitionId);
                     if (def) {
-                        // On considère l'ancienne dueDate comme le jour prévu
                         const baseDate = new Date(q.dueDate);
                         const instance = app.createQuestInstance(def, baseDate);
                         q.startDate = instance.startDate;
                         q.dueDate = instance.dueDate;
                     } else {
-                        // Si pas de def (ex: Mission Royale ancienne), on duplique
                         q.startDate = q.dueDate;
                     }
                     migrated = true;
                 }
             });
+            
+            // Migration V6: Chains reconstruction
+            app.data.activeQuests.forEach(q => {
+                if (!q.chainId && q.id.includes('_link')) {
+                    const parentDef = app.data.questDefinitions.find(d => d.linkedQuestId === q.definitionId);
+                    if (parentDef) {
+                        const log = app.data.questLog.find(l => l.definitionId === parentDef.id);
+                        if (log) {
+                            q.chainId = 'chain_migrated_' + log.id;
+                            const userName = app.data.users.find(u => u.id === log.completedBy)?.name || 'Héros';
+                            q.chainHistory = [{
+                                title: log.title,
+                                completedBy: userName,
+                                completedAt: log.completedAt
+                            }];
+                            migrated = true;
+                        }
+                    }
+                }
+            });
+
             if (migrated) {
-                console.log("🛠️ Migration V5 appliquée aux quêtes actives.");
+                console.log("🛠️ Migration V5/V6 appliquée aux quêtes actives.");
                 app.save();
             }
         }
