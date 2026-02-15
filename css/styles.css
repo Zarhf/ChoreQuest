@@ -141,6 +141,19 @@ main {
     #task-list { grid-template-columns: 1fr; }
 }
 
+/* --- ANIMATIONS SPÉCIALES --- */
+.overdue-halo {
+    box-shadow: 0 0 15px var(--danger);
+    border-color: var(--danger) !important;
+    animation: pulse-red 2s infinite;
+}
+
+@keyframes pulse-red {
+    0% { box-shadow: 0 0 5px var(--danger); }
+    50% { box-shadow: 0 0 20px var(--danger), inset 0 0 10px rgba(233, 69, 96, 0.2); }
+    100% { box-shadow: 0 0 5px var(--danger); }
+}
+
 .quest-card {
     background: #2c3e50; border-radius: 14px;
     display: flex; flex-direction: column; /* Toujours en colonne pour libérer la description */

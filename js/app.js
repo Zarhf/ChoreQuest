@@ -336,6 +336,31 @@ const app = {
             });
         }
 
+        // Migration V5: startDate / dueDate separation
+        if (app.data.activeQuests) {
+            let migrated = false;
+            app.data.activeQuests.forEach(q => {
+                if (q.startDate === undefined && q.dueDate) {
+                    const def = app.data.questDefinitions.find(d => d.id === q.definitionId);
+                    if (def) {
+                        // On considère l'ancienne dueDate comme le jour prévu
+                        const baseDate = new Date(q.dueDate);
+                        const instance = app.createQuestInstance(def, baseDate);
+                        q.startDate = instance.startDate;
+                        q.dueDate = instance.dueDate;
+                    } else {
+                        // Si pas de def (ex: Mission Royale ancienne), on duplique
+                        q.startDate = q.dueDate;
+                    }
+                    migrated = true;
+                }
+            });
+            if (migrated) {
+                console.log("🛠️ Migration V5 appliquée aux quêtes actives.");
+                app.save();
+            }
+        }
+
         if (!app.data.currency) app.data.currency = { name: "Écus", symbol: "🪙" };
         if (!app.data.ranks) app.data.ranks = [
             { minLevel: 1, title: "Roturier" }, { minLevel: 5, title: "Écuyer" },
@@ -686,14 +711,10 @@ const app = {
             else if (def.frequency === 'weekly') {
                 if (isWeeklyWithDays) {
                     let found = false;
-                    // Pour le hebdo avec jours, on cherche le prochain jour valide
-                    // On commence à chercher à partir du lendemain du fromDate
                     for (let i = 1; i <= 7 * int; i++) {
                         let check = new Date(d); check.setDate(d.getDate() + i);
                         if (def.days.includes(check.getDay().toString())) { 
-                            // Si on a un intervalle > 1, on ne valide que si on est dans la bonne semaine
                             if (int > 1) {
-                                // Calcul simplifié des semaines d'écart
                                 const weeksDiff = Math.floor((check.getTime() - new Date(fromDate).getTime()) / (7 * 24 * 3600 * 1000));
                                 if (weeksDiff % int !== 0) continue;
                             }
@@ -709,27 +730,57 @@ const app = {
 
         add(next); 
         
-        // Sécurité : si la date calculée est encore dans le passé par rapport à AUJOURD'HUI
-        // (sauf pour hebdo avec jours où on veut peut-être rattraper le retard de la semaine en cours si on vient juste de finir)
-        // Mais la demande dit : "la prochaine exécution doit être calculée par rapport à la date de la dernière exécution"
-        // Donc si c'est tous les 2 jours, et que je le fais avec 4 jours de retard, la suivante est dans 2 jours.
-        // C'est ce que fait `add(next)` une seule fois.
-        
-        // Pour les hebdomadaires à jours fixes, si on a fini une tâche en retard, on veut quand même que la prochaine respecte le planning.
         if (isWeeklyWithDays) {
             let safety = 0;
             while (next < now && safety < 100) { safety++; add(next); }
         }
 
-        next.setHours(4, 0, 0, 0); 
+        next.setHours(0, 0, 0, 0); 
         return next;
     },
 
     calculateFirstDueDate(def) {
         const now = new Date(); now.setHours(0,0,0,0);
-        if (def.frequency === 'weekly' && def.days && def.days.length > 0) { if (def.days.includes(now.getDay().toString())) { const today = new Date(now); today.setHours(4,0,0,0); return today; } }
+        if (def.frequency === 'weekly' && def.days && def.days.length > 0) { 
+            if (def.days.includes(now.getDay().toString())) { 
+                return new Date(now); 
+            } 
+        }
         const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
         return app.calculateNextDueDate(def, yesterday);
+    },
+
+    createQuestInstance(def, scheduledDate, idPrefix = 'inst_') {
+        const startDate = new Date(scheduledDate);
+        const dueDate = new Date(scheduledDate);
+        
+        if (def.timeSlot && def.timeSlot.start) {
+            const [h, m] = def.timeSlot.start.split(':');
+            startDate.setHours(parseInt(h), parseInt(m), 0, 0);
+        } else {
+            startDate.setHours(0, 0, 0, 0);
+        }
+
+        if (def.timeSlot && def.timeSlot.end) {
+            const [h, m] = def.timeSlot.end.split(':');
+            dueDate.setHours(parseInt(h), parseInt(m), 0, 0);
+        } else {
+            dueDate.setHours(23, 59, 59, 999);
+        }
+
+        return {
+            id: idPrefix + Date.now() + '_' + Math.floor(Math.random() * 1000),
+            definitionId: def.id,
+            title: def.title,
+            xp: def.baseXp,
+            gold: def.baseGold,
+            startDate: startDate.toISOString(),
+            dueDate: dueDate.toISOString(),
+            assignedTo: def.defaultAssignee || null,
+            isRoyal: def.isRoyal || false,
+            status: def.status || 'active',
+            createdBy: def.createdBy || app.currentUser.id
+        };
     },
 
     // --- Hero Management ---
@@ -861,7 +912,9 @@ const app = {
             const linkedDef = app.data.questDefinitions.find(d => d.id === def.linkedQuestId);
             if (linkedDef && !linkedDef.archived) {
                 const delayMs = (def.linkedQuestDelay || 0) * 60 * 1000;
-                const linkedDueDate = new Date(Date.now() + delayMs).toISOString();
+                const now = Date.now();
+                const startDate = new Date(now + delayMs);
+                const dueDate = new Date(startDate.getTime() + 15 * 60 * 1000); // Règle des 15min pour les liées
                 
                 app.data.activeQuests.push({ 
                     id: 'inst_'+Date.now()+'_link', 
@@ -869,23 +922,27 @@ const app = {
                     title: linkedDef.title, 
                     xp: linkedDef.baseXp, 
                     gold: linkedDef.baseGold, 
-                    dueDate: linkedDueDate, 
-                    timeSlot: linkedDef.timeSlot, 
+                    startDate: startDate.toISOString(),
+                    dueDate: dueDate.toISOString(), 
                     assignedTo: linkedDef.defaultAssignee || null, 
                     isRoyal: linkedDef.isRoyal || false, 
-                    status: 'active', // Directement active car c'est un déclenchement auto d'une def validée
+                    status: 'active',
                     createdBy: app.currentUser.id 
                 });
             }
         }
 
         if (def && def.frequency && def.frequency !== 'none' && def.frequency !== 'linked') {
-            // Si c'est un hebdo à jours fixes, on garde le calcul par rapport à la dueDate initiale pour ne pas décaler le planning
             const isWeeklyWithDays = def.frequency === 'weekly' && def.days && def.days.length > 0;
-            const fromDate = isWeeklyWithDays ? new Date(quest.dueDate) : new Date();
+            const fromDate = isWeeklyWithDays ? new Date(quest.startDate || quest.dueDate) : new Date();
             
-            quest.dueDate = app.calculateNextDueDate(def, fromDate).toISOString();
-            quest.assignedTo = def.defaultAssignee || null;
+            const nextScheduledDate = app.calculateNextDueDate(def, fromDate);
+            const nextInstance = app.createQuestInstance(def, nextScheduledDate);
+            
+            // On met à jour l'instance existante au lieu d'en recréer une pour garder le même objet si possible
+            quest.startDate = nextInstance.startDate;
+            quest.dueDate = nextInstance.dueDate;
+            quest.assignedTo = nextInstance.assignedTo;
             delete quest.stealDeadline;
         } else app.data.activeQuests.splice(index, 1);
         await app.save();
@@ -913,9 +970,13 @@ const app = {
 
         if (def && def.frequency && def.frequency !== 'none' && def.frequency !== 'linked') {
             const isWeeklyWithDays = def.frequency === 'weekly' && def.days && def.days.length > 0;
-            const fromDate = isWeeklyWithDays ? new Date(quest.dueDate) : new Date();
-            quest.dueDate = app.calculateNextDueDate(def, fromDate).toISOString();
-            quest.assignedTo = def.defaultAssignee || null;
+            const fromDate = isWeeklyWithDays ? new Date(quest.startDate || quest.dueDate) : new Date();
+            const nextScheduledDate = app.calculateNextDueDate(def, fromDate);
+            const nextInstance = app.createQuestInstance(def, nextScheduledDate);
+            
+            quest.startDate = nextInstance.startDate;
+            quest.dueDate = nextInstance.dueDate;
+            quest.assignedTo = nextInstance.assignedTo;
             delete quest.stealDeadline;
         } else app.data.activeQuests.splice(index, 1);
         // Note: app.save() est géré par l'appelant pour éviter les écritures multiples en boucle
@@ -934,22 +995,11 @@ const app = {
     isStealable(q) {
         if (!q.assignedTo || q.assignedTo === app.currentUser.id) return false;
         
-        // Protection du voleur pendant 15min
+        // Protection du voleur pendant 15min s'il a déjà été volé
         if (q.stealDeadline && Date.now() < q.stealDeadline) return false;
 
-        const now = new Date();
-        const due = new Date(q.dueDate);
-        const def = app.data.questDefinitions.find(d => d.id === q.definitionId);
-        const isOneTime = !def || def.frequency === 'none';
-
-        if (isOneTime && !q.dueDate && (!q.timeSlot || !q.timeSlot.end)) return false;
-
-        if (q.timeSlot && q.timeSlot.end) {
-            const [h, m] = q.timeSlot.end.split(':');
-            due.setHours(parseInt(h), parseInt(m), 0, 0);
-        } else {
-            due.setHours(23, 59, 59, 999);
-        }
+        const now = Date.now();
+        const due = new Date(q.dueDate).getTime();
 
         return now > due;
     },
@@ -1067,10 +1117,17 @@ const app = {
         
         // On ne crée une instance initiale que si ce n'est pas une quête purement liée (qui attend un déclencheur)
         if (freq !== 'linked') {
-            app.data.activeQuests.push({ id: 'inst_'+Date.now(), definitionId: defId, title, xp, gold, dueDate, timeSlot, assignedTo: assignee, isRoyal: false, status: def.status, createdBy: app.currentUser.id });
+            let scheduledDate = new Date();
+            if (freq === 'none' && dateEl.value) scheduledDate = new Date(dateEl.value);
+            else if (freq !== 'none') scheduledDate = app.calculateFirstDueDate(def);
+            
+            app.data.activeQuests.push(app.createQuestInstance(def, scheduledDate));
         } else if (def.status === 'pending') {
-            // Mais on en crée une pending pour la négociation au Conseil !
-            app.data.activeQuests.push({ id: 'inst_'+Date.now(), definitionId: defId, title, xp, gold, dueDate: null, timeSlot, assignedTo: assignee, isRoyal: false, status: 'pending', createdBy: app.currentUser.id });
+            // Pour la négociation au Conseil !
+            const inst = app.createQuestInstance(def, new Date());
+            inst.startDate = null; // Pas encore de date pour une liée en attente
+            inst.dueDate = null;
+            app.data.activeQuests.push(inst);
         }
 
         app.addLog(`Nouveau contrat proposé : ${title}`);
@@ -1101,18 +1158,7 @@ const app = {
         }
 
         app.data.questDefinitions.push(def);
-        app.data.activeQuests.push({ 
-            id: 'inst_royal_'+Date.now(), 
-            definitionId: defId, 
-            title, 
-            xp, 
-            gold, 
-            dueDate: new Date().toISOString(), 
-            assignedTo: assignee, 
-            isRoyal: true,
-            status: def.status,
-            createdBy: app.currentUser.id
-        });
+        app.data.activeQuests.push(app.createQuestInstance(def, new Date()));
         
         app.addLog(`Nouvelle Mission Royale proposée : ${title}`);
         await app.save(); 
@@ -1812,7 +1858,8 @@ const app = {
     renderBoard() {
         if (!app.data || !app.data.activeQuests) return;
         const now = new Date(); 
-        const endOfToday = new Date(now); endOfToday.setHours(23,59,59,999);
+        const nowTime = now.getTime();
+        const todayStr = now.toDateString();
         
         // Séparer les quêtes en attente (Conseil)
         const pending = app.data.activeQuests.filter(q => q.status === 'pending' || q.status === 'pending_cancel');
@@ -1873,8 +1920,8 @@ const app = {
 
                     if (def.frequency === 'weekly' && def.days && def.days.length > 0) {
                         freqText += ` (${def.days.map(d => dayMap[d]).join(',')})`;
-                    } else if (def.frequency === 'none' && q.dueDate) {
-                        const d = new Date(q.dueDate);
+                    } else if (def.frequency === 'none' && q.startDate) {
+                        const d = new Date(q.startDate);
                         freqText += ` (${d.toLocaleDateString()})`;
                     }
                 } else {
@@ -1888,7 +1935,14 @@ const app = {
                 }
 
                 const durationText = (def && def.estimatedTime) ? ` • ⏳ ${def.estimatedTime}m` : '';
-                const timeText = q.timeSlot ? ` • 🕒 ${q.timeSlot.start}${q.timeSlot.end ? '-' + q.timeSlot.end : ''}` : '';
+                
+                let timeText = '';
+                if (q.startDate) {
+                    const sd = new Date(q.startDate);
+                    const ed = q.dueDate ? new Date(q.dueDate) : null;
+                    const format = (d) => d.getHours() + 'h' + d.getMinutes().toString().padStart(2, '0');
+                    timeText = ` • 🕒 ${format(sd)}${ed ? '-' + format(ed) : ''}`;
+                }
 
                 let actionsHtml = "";
                 if (isCancelReq) {
@@ -1939,48 +1993,69 @@ const app = {
 
         const nonPending = app.data.activeQuests.filter(q => q.status !== 'pending' && q.status !== 'pending_cancel');
         
-        const active = nonPending.filter(q => {
-            if (!q.dueDate) return true;
-            const due = new Date(q.dueDate);
-            
-            // Une quête est active seulement si son échéance/activation est passée
-            if (due <= now) return true;
+        // Groupement par état temporel
+        const overdue = [];
+        const active = [];
+        const laterToday = [];
+        const upcoming = [];
 
-            // Sinon, elle reste dans "Prochainement"
-            return false;
+        nonPending.forEach(q => {
+            if (!q.startDate || !q.dueDate) { active.push(q); return; }
+            
+            const start = new Date(q.startDate);
+            const due = new Date(q.dueDate);
+            const startTime = start.getTime();
+            const dueTime = due.getTime();
+
+            if (nowTime > dueTime) {
+                overdue.push(q);
+            } else if (nowTime >= startTime) {
+                active.push(q);
+            } else if (start.toDateString() === todayStr) {
+                laterToday.push(q);
+            } else {
+                upcoming.push(q);
+            }
         });
 
-        let upcoming = nonPending.filter(q => !active.includes(q));
-        
-        active.forEach(q => { 
+        // Projection virtuelle pour Prochainement (Récurrences)
+        active.concat(overdue).concat(laterToday).forEach(q => { 
             const def = app.data.questDefinitions.find(d => d.id === q.definitionId); 
             if (def && def.frequency && def.frequency !== 'none' && def.frequency !== 'linked') {
-                // Pour la projection virtuelle, on base sur la dueDate de l'instance active
-                upcoming.push({ ...q, id: 'virtual_' + q.id, dueDate: app.calculateNextDueDate(def, new Date(q.dueDate)).toISOString(), isVirtual: true }); 
+                const nextDay = app.calculateNextDueDate(def, new Date(q.startDate || q.dueDate));
+                const nextInst = app.createQuestInstance(def, nextDay, 'virtual_');
+                nextInst.isVirtual = true;
+                upcoming.push(nextInst);
             }
         });
         
-        upcoming.sort((a,b) => (a.dueDate || '').localeCompare(b.dueDate || ''));
+        upcoming.sort((a,b) => (a.startDate || '').localeCompare(b.startDate || ''));
         
         const html = (q, mode) => {
             const isRoyal = q.isRoyal;
+            const isOverdue = mode === 'overdue';
             const rarity = isRoyal ? 'rarity-legendary royal-quest' : app.getQuestRarity(q.xp);
             const def = app.data.questDefinitions.find(d => d.id === q.definitionId);
             const freq = (def && def.frequency !== 'none') ? '🔄' : '';
             
             let timeInfo = '';
-            if (q.timeSlot) {
-                timeInfo = `🕒 ${q.timeSlot.start || ''}${q.timeSlot.end ? '-' + q.timeSlot.end : ''}`;
-            } else if (mode === 'upcoming' && q.dueDate) {
-                const d = new Date(q.dueDate);
-                timeInfo = `⏰ ${d.getHours()}h${d.getMinutes().toString().padStart(2, '0')}`;
+            const format = (iso) => {
+                if (!iso) return '';
+                const d = new Date(iso);
+                return d.getHours() + 'h' + d.getMinutes().toString().padStart(2, '0');
+            };
+
+            if (q.startDate) {
+                const startStr = format(q.startDate);
+                const dueStr = format(q.dueDate);
+                timeInfo = `🕒 ${startStr}${dueStr ? '-' + dueStr : ''}`;
             }
             
             const timeStr = timeInfo ? ` • ${timeInfo}` : '';
             
             let timerHtml = '';
             if (q.stealDeadline) {
-                const mins = Math.ceil((q.stealDeadline - Date.now()) / 60000);
+                const mins = Math.ceil((q.stealDeadline - nowTime) / 60000);
                 timerHtml = mins > 0 ? ` <span style="color:#e94560; font-weight:bold; font-size:0.7rem; background:rgba(233,69,96,0.1); padding:2px 5px; border-radius:4px; margin-left:5px;">⏳ ${mins}m</span>` : '';
             }
 
@@ -1988,12 +2063,11 @@ const app = {
             const assigneeHtml = `<div class="assignee-badge ${!assignee ? 'empty' : ''}">${app.getAvatarHtml(assignee ? assignee.avatar : '?', "36px")}</div>`;
             
             let actionButtons = '';
-            if (mode === 'active') {
+            if (mode === 'active' || mode === 'overdue' || mode === 'later') {
                 const isMe = q.assignedTo === app.currentUser.id;
                 const isNobody = !q.assignedTo;
                 const isStealable = app.isStealable(q);
 
-                // Bouton 1 (1/3) : Prendre / Abandonner / Voler
                 if (isNobody) {
                     actionButtons += `<button class="quest-action-btn btn-claim" style="flex: 2;" onclick="event.stopPropagation(); app.askConfirm('Prendre ?', () => app.claimQuest('${q.id}'))" title="☝️ Je prends">☝️</button>`;
                 } else if (isMe) {
@@ -2004,31 +2078,42 @@ const app = {
                     actionButtons += `<div style="flex: 2; opacity: 0.2; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.1);">🔒</div>`;
                 }
 
-                // Bouton 2 (1/3) : Valider
                 const canComplete = isMe || isNobody;
                 actionButtons += `<button class="quest-action-btn btn-complete" style="flex: 2; ${!canComplete ? 'opacity: 0.3; cursor: not-allowed;' : ''}" ${canComplete ? `onclick="event.stopPropagation(); app.askConfirm('Terminer ?', () => app.completeTask('${q.id}'))"` : ''} title="Valider">✅</button>`;
-
-                // Bouton 3 (1/6) : Proposer Modif
                 actionButtons += `<button class="quest-action-btn btn-counter" style="flex: 1; font-size: 1.1rem;" onclick="event.stopPropagation(); app.openCounterOfferModal('${q.id}')" title="Proposer une modification">📝</button>`;
-
-                // Bouton 4 (1/6) : Annuler
                 actionButtons += `<button class="quest-action-btn btn-cancel-req" style="flex: 1; font-size: 1.1rem;" onclick="event.stopPropagation(); app.requestQuestCancellation('${q.id}')" title="Demander l'annulation">🚫</button>`;
             } else {
-                // Mode Inactif (Prochainement ou Lié) : On ne montre que les actions de modification/annulation
                 actionButtons += `<div style="flex: 4; opacity: 0.3; display: flex; align-items: center; padding-left: 15px; font-size: 0.7rem; font-style: italic; background: rgba(0,0,0,0.05); color: white;">En attente...</div>`;
                 actionButtons += `<button class="quest-action-btn btn-counter" style="flex: 1; font-size: 1.1rem;" onclick="event.stopPropagation(); app.openCounterOfferModal('${q.id}')" title="Modifier la définition">📝</button>`;
                 actionButtons += `<button class="quest-action-btn btn-cancel-req" style="flex: 1; font-size: 1.1rem;" onclick="event.stopPropagation(); app.requestQuestCancellation('${q.id}')" title="Annuler définitivement">🚫</button>`;
             }
 
             const canEdit = app.isAdmin();
-            return `<div class="quest-card ${rarity} ${mode !== 'active' ? 'upcoming' : ''}"><div class="quest-body" ${canEdit ? `onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer"` : ''}>${assigneeHtml}<div class="quest-info"><h4>${freq} ${q.title}${timerHtml}</h4><span>💰 ${q.xp} XP${q.gold ? ' • ' + app.data.currency.symbol + ' ' + q.gold : ''}${timeStr}</span></div></div><div class="quest-actions-container">${actionButtons}</div></div>`;
+            const haloClass = isOverdue ? 'overdue-halo' : '';
+            return `<div class="quest-card ${rarity} ${haloClass} ${mode === 'upcoming' ? 'upcoming' : ''}"><div class="quest-body" ${canEdit ? `onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer"` : ''}>${assigneeHtml}<div class="quest-info"><h4>${freq} ${q.title}${timerHtml}</h4><span>💰 ${q.xp} XP${q.gold ? ' • ' + app.data.currency.symbol + ' ' + q.gold : ''}${timeStr}</span></div></div><div class="quest-actions-container">${actionButtons}</div></div>`;
         };
 
-        document.getElementById('task-list').innerHTML = active.map(q => html(q, 'active')).join('') || '<p style="text-align:center; opacity:0.5;">Tout est fait !</p>';
+        let finalHtml = "";
+        
+        if (overdue.length > 0) {
+            finalHtml += `<div class="upcoming-day-group"><div class="upcoming-day-title" style="color:var(--danger)">⚠️ EN RETARD</div>${overdue.map(q => html(q, 'overdue')).join('')}</div>`;
+        }
+        
+        if (active.length > 0) {
+            finalHtml += `<div class="upcoming-day-group"><div class="upcoming-day-title">⚔️ MAINTENANT</div>${active.map(q => html(q, 'active')).join('')}</div>`;
+        } else if (overdue.length === 0) {
+            finalHtml += '<p style="text-align:center; opacity:0.5; margin: 20px 0;">Tout est fait pour le moment !</p>';
+        }
+
+        if (laterToday.length > 0) {
+            finalHtml += `<div class="upcoming-day-group"><div class="upcoming-day-title">⏳ PLUS TARD AUJOURD'HUI</div>${laterToday.map(q => html(q, 'later')).join('')}</div>`;
+        }
+
+        document.getElementById('task-list').innerHTML = finalHtml;
         
         // Groupes Prochainement
         const groups = {}; upcoming.forEach(q => { 
-            const d = q.dueDate ? new Date(q.dueDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) : 'Plus tard'; 
+            const d = q.startDate ? new Date(q.startDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) : 'Plus tard'; 
             if (!groups[d]) groups[d] = []; groups[d].push(q); 
         });
         document.getElementById('upcoming-task-list').innerHTML = Object.keys(groups).map(day => `<div class="upcoming-day-group"><div class="upcoming-day-title">${day}</div>${groups[day].map(q => html(q, 'upcoming')).join('')}</div>`).join('') || '<p style="text-align:center; opacity:0.2;">Rien de prévu.</p>';
