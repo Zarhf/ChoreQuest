@@ -25,18 +25,17 @@ async function sendPushToUser(email, title, body, data = {}) {
     logger.info(`Token found for ${email}: ${token.substring(0, 10)}...${token.substring(token.length - 5)}`);
 
     const message = {
-        notification: { title, body },
         data: {
             ...data,
             title: title,
             body: body,
+            tag: Date.now().toString(),
             click_action: "https://zarhf.github.io/ChoreQuest/"
         },
         token: token,
         webpush: {
-            notification: {
-                icon: "icons/icon.svg",
-                badge: "icons/icon.svg"
+            fcm_options: {
+                link: "https://zarhf.github.io/ChoreQuest/"
             }
         }
     };

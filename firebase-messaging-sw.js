@@ -20,14 +20,15 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   console.log('[SW] Message en arrière-plan reçu :', payload);
   
-  const notificationTitle = payload.notification?.title || payload.data?.title || "ChoreQuest";
+  // Tout est dans data
+  const notificationTitle = payload.data?.title || "ChoreQuest";
   const notificationOptions = {
-    body: payload.notification?.body || payload.data?.body || "",
+    body: payload.data?.body || "",
     icon: 'icons/icon.svg',
     badge: 'icons/icon.svg',
     data: payload.data,
-    tag: payload.data?.tag || Date.now().toString(), // Tag unique par défaut pour empiler
-    requireInteraction: true // Reste affiché jusqu'au clic/fermeture
+    tag: payload.data?.tag || Date.now().toString(),
+    requireInteraction: true
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);

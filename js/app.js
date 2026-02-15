@@ -196,9 +196,9 @@ const app = {
         db.messaging.onMessage((payload) => {
             console.log("🔔 Notification reçue !", payload);
             
-            // Extraire les infos (depuis notification ou data)
-            const title = payload.notification?.title || payload.data?.title || "ChoreQuest";
-            const body = payload.notification?.body || payload.data?.body || "";
+            // Tout est maintenant dans payload.data (Data-only messages)
+            const title = payload.data?.title || "ChoreQuest";
+            const body = payload.data?.body || "";
             
             if (Notification.permission === 'granted') {
                 try {
