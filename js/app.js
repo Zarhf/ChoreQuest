@@ -315,6 +315,17 @@ const app = {
         return u.email === app.data.meta.owner || u.id === app.data.meta.createdBy;
     },
 
+    getManageableSquires() {
+        if (!app.data || !app.mainUser) return [];
+        if (app.isAdmin()) {
+            // Admins can manage all squires (users with a managedBy field)
+            return app.data.users.filter(u => !!u.managedBy);
+        } else {
+            // Regular users only manage their own squires
+            return app.data.users.filter(u => u.managedBy === app.mainUser.id);
+        }
+    },
+
     handleDataUpdate() {
         app.watchForToasts();
         if (!app.data || !app.data.users) {
@@ -835,7 +846,7 @@ const app = {
     stopImpersonating() { localStorage.removeItem('impersonatedHeroId'); window.location.reload(); },
     rotateUser() {
         if (!app.data || !app.mainUser) return;
-        const squires = app.data.users.filter(u => u.managedBy === app.mainUser.id);
+        const squires = app.getManageableSquires();
         const rotationList = [app.mainUser, ...squires];
         const currentIndex = rotationList.findIndex(u => u.id === app.currentUser.id);
         const nextUser = rotationList[(currentIndex + 1) % rotationList.length];
@@ -1914,7 +1925,7 @@ const app = {
         document.getElementById('next-level-xp').innerText = xpNeeded;
         document.getElementById('xp-progress').style.width = `${(app.currentUser.xp / xpNeeded) * 100}%`;
         const profBtn = document.getElementById('profile-btn'); if (profBtn) profBtn.innerHTML = app.getAvatarHtml(app.currentUser.avatar, "40px");
-        const squires = app.data.users.filter(u => u.managedBy === app.mainUser.id);
+        const squires = app.getManageableSquires();
         const switchBtn = document.getElementById('quick-switch-btn');
         if (switchBtn) {
             if (squires.length > 0) {
@@ -2404,7 +2415,7 @@ const app = {
             app.updateAvatarPreview('edit');
         }
         
-        const squires = app.data.users.filter(u => u.managedBy === app.mainUser.id);
+        const squires = app.getManageableSquires();
         const impersonatedId = localStorage.getItem('impersonatedHeroId');
         document.getElementById('squire-list').innerHTML = squires.map(s => `<div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; margin-bottom:5px;"><span>${app.getAvatarHtml(s.avatar, "20px")} <b>${s.name}</b></span>${impersonatedId === s.id ? `<button class="action-btn danger-btn" onclick="app.stopImpersonating()" style="width:auto; padding:2px 8px; font-size:0.7rem;">Quitter</button>` : `<button class="action-btn" onclick="app.impersonate('${s.id}')" style="width:auto; padding:2px 8px; font-size:0.7rem;">Incarner</button>`}</div>`).join('') || '<p style="font-size:0.7rem; opacity:0.5;">Aucun écuyer.</p>';
         
