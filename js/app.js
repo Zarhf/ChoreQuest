@@ -969,16 +969,17 @@ const app = {
             const linkedDef = app.data.questDefinitions.find(d => d.id === def.linkedQuestId);
             if (linkedDef && !linkedDef.archived) {
                 const delayMs = (def.linkedQuestDelay || 0) * 60 * 1000;
-                // ON UTILISE L'HEURE RÉELLE COMME BASE
+                const windowMs = (def.linkedQuestDuration || 240) * 60 * 1000; // 4h par défaut
+                
                 const startDate = new Date(actualTime + delayMs);
-                const dueDate = new Date(startDate.getTime() + 15 * 60 * 1000); 
+                const dueDate = new Date(startDate.getTime() + windowMs); 
                 
                 const chainId = quest.chainId || ('chain_' + Date.now());
                 const history = quest.chainHistory ? [...quest.chainHistory] : [];
                 history.push({
                     title: quest.title,
                     completedBy: app.currentUser.name,
-                    completedAt: actualDate.toISOString() // Heure réelle dans l'historique de chaîne
+                    completedAt: actualDate.toISOString()
                 });
 
                 app.data.activeQuests.push({ 
@@ -1148,6 +1149,8 @@ const app = {
         const linkedId = document.getElementById('quest-linked-id').value || null;
         const linkedDelayRaw = document.getElementById('quest-linked-delay').value || '0';
         const linkedDelay = app.parseDuration(linkedDelayRaw);
+        const linkedDurationRaw = document.getElementById('quest-linked-duration').value || '4h';
+        const linkedDuration = app.parseDuration(linkedDurationRaw);
         
         const tStart = document.getElementById('quest-time-start').value;
         const tEnd = document.getElementById('quest-time-end').value;
@@ -1168,7 +1171,7 @@ const app = {
             dueDate = app.calculateFirstDueDate(tempDef).toISOString();
         }
 
-        const def = { id: defId, title, baseXp: xp, baseGold: gold, effort, estimatedTime: duration, frequency: freq, interval: interval, days, timeSlot, defaultAssignee: assignee, isRoyal: false, status: 'pending', votes: { [app.currentUser.id]: true }, createdBy: app.currentUser.id, linkedQuestId: linkedId, linkedQuestDelay: linkedDelay };
+        const def = { id: defId, title, baseXp: xp, baseGold: gold, effort, estimatedTime: duration, frequency: freq, interval: interval, days, timeSlot, defaultAssignee: assignee, isRoyal: false, status: 'pending', votes: { [app.currentUser.id]: true }, createdBy: app.currentUser.id, linkedQuestId: linkedId, linkedQuestDelay: linkedDelay, linkedQuestDuration: linkedDuration };
         
         const totalMembers = app.data.users.filter(u => !u.managedBy).length;
         const majority = Math.floor(totalMembers / 2) + 1;
@@ -1256,6 +1259,7 @@ const app = {
         };
         document.getElementById('counter-linked-id').value = def.linkedQuestId || '';
         document.getElementById('counter-linked-delay').value = formatDelay(def.linkedQuestDelay);
+        document.getElementById('counter-linked-duration').value = formatDelay(def.linkedQuestDuration || 240);
 
         app.updateQuestRewardsPreview('counter');
 
@@ -1292,6 +1296,7 @@ const app = {
         const interval = parseInt(document.getElementById('counter-interval').value || 1) || 1;
         const linkedId = document.getElementById('counter-linked-id').value || null;
         const linkedDelay = app.parseDuration(document.getElementById('counter-linked-delay').value);
+        const linkedDuration = app.parseDuration(document.getElementById('counter-linked-duration').value || '4h');
         const tStart = document.getElementById('counter-time-start').value;
         const tEnd = document.getElementById('counter-time-end').value;
         const days = Array.from(document.querySelectorAll('input[name="counter-day"]:checked')).map(cb => cb.value);
@@ -1305,7 +1310,7 @@ const app = {
 
         if (!title) return alert("Le contrat doit avoir un titre !");
 
-        const changed = def.frequency !== frequency || JSON.stringify(def.days) !== JSON.stringify(days) || def.interval !== interval || def.linkedQuestId !== linkedId || def.linkedQuestDelay !== linkedDelay || def.effort !== effort;
+        const changed = def.frequency !== frequency || JSON.stringify(def.days) !== JSON.stringify(days) || def.interval !== interval || def.linkedQuestId !== linkedId || def.linkedQuestDelay !== linkedDelay || def.linkedQuestDuration !== linkedDuration || def.effort !== effort;
 
         def.title = title;
         def.baseXp = xp;
@@ -1316,6 +1321,7 @@ const app = {
         def.interval = interval;
         def.linkedQuestId = linkedId;
         def.linkedQuestDelay = linkedDelay;
+        def.linkedQuestDuration = linkedDuration;
         def.days = days;
         def.timeSlot = (tStart || tEnd) ? { start: tStart, end: tEnd } : null;
         def.defaultAssignee = assignee;
@@ -1534,6 +1540,7 @@ const app = {
         };
         document.getElementById('edit-quest-linked-id').value = def.linkedQuestId || '';
         document.getElementById('edit-quest-linked-delay').value = formatDelay(def.linkedQuestDelay);
+        document.getElementById('edit-quest-linked-duration').value = formatDelay(def.linkedQuestDuration || 240);
 
         app.updateQuestRewardsPreview('edit-quest');
 
@@ -1564,6 +1571,7 @@ const app = {
             const interval = parseInt(document.getElementById('edit-quest-interval').value || 1);
             const linkedId = document.getElementById('edit-quest-linked-id').value || null;
             const linkedDelay = app.parseDuration(document.getElementById('edit-quest-linked-delay').value);
+            const linkedDuration = app.parseDuration(document.getElementById('edit-quest-linked-duration').value || '4h');
             const assignee = document.getElementById('edit-quest-assignee').value || null;
             const tStart = document.getElementById('edit-quest-time-start').value;
             const tEnd = document.getElementById('edit-quest-time-end').value;
@@ -1572,8 +1580,8 @@ const app = {
             const defIdx = app.data.questDefinitions.findIndex(d => d.id === defId); if (defIdx === -1) return;
             const oldDef = app.data.questDefinitions[defIdx];
             const timeSlot = (tStart && tEnd) ? { start: tStart, end: tEnd } : null;
-            const changed = oldDef.frequency !== freq || JSON.stringify(oldDef.days) !== JSON.stringify(days) || oldDef.interval !== interval || oldDef.linkedQuestId !== linkedId || oldDef.linkedQuestDelay !== linkedDelay || oldDef.effort !== effort;
-            app.data.questDefinitions[defIdx] = { ...oldDef, title, baseXp: xp, baseGold: gold, effort, estimatedTime: duration, frequency: freq, interval, days, timeSlot, defaultAssignee: assignee, linkedQuestId: linkedId, linkedQuestDelay: linkedDelay };
+            const changed = oldDef.frequency !== freq || JSON.stringify(oldDef.days) !== JSON.stringify(days) || oldDef.interval !== interval || oldDef.linkedQuestId !== linkedId || oldDef.linkedQuestDelay !== linkedDelay || oldDef.linkedQuestDuration !== linkedDuration || oldDef.effort !== effort;
+            app.data.questDefinitions[defIdx] = { ...oldDef, title, baseXp: xp, baseGold: gold, effort, estimatedTime: duration, frequency: freq, interval, days, timeSlot, defaultAssignee: assignee, linkedQuestId: linkedId, linkedQuestDelay: linkedDelay, linkedQuestDuration: linkedDuration };
             app.data.activeQuests.forEach(q => { if (q.definitionId === defId) { q.title = title; q.xp = xp; q.gold = gold; q.timeSlot = timeSlot; if (changed && freq !== 'linked') q.dueDate = app.calculateFirstDueDate(app.data.questDefinitions[defIdx]).toISOString(); if (!q.assignedTo || q.assignedTo === oldDef.defaultAssignee) q.assignedTo = assignee; } });
             await app.save(); app.hideModals();
         });

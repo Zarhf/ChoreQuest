@@ -8,14 +8,14 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>ChoreQuest</title>
         <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="css/styles.css?v=197">
+    <link rel="stylesheet" href="css/styles.css?v=198">
     <link rel="icon" href="icons/icon.svg">
     <meta name="theme-color" content="#1a1a2e">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=MedievalSharp&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <script>
-        // --- NUCLEAIRE CACHE KILLER (Build 197) ---
+        // --- NUCLEAIRE CACHE KILLER (Build 198) ---
         (async function() {
             try {
                 const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
@@ -317,8 +317,16 @@
                 <div id="quest-link-container" class="hidden" style="margin-top:10px; background:rgba(74, 144, 226, 0.1); padding:10px; border-radius:8px; border:1px dashed #4a90e2;">
                     <label style="font-size:0.7rem; color:#4a90e2; font-weight:bold;">🔗 Quête à déclencher après celle-ci :</label>
                     <select id="quest-linked-id" style="margin-bottom:10px;"><option value="">(Aucune)</option></select>
-                    <label style="font-size:0.7rem;">Délai avant activation (ex: 2h ou 30m) :</label>
-                    <input type="text" id="quest-linked-delay" placeholder="2h, 30m, 1d..." value="0">
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                        <div>
+                            <label style="font-size:0.7rem;">Délai avant activation :</label>
+                            <input type="text" id="quest-linked-delay" placeholder="2h, 30m..." value="0">
+                        </div>
+                        <div>
+                            <label style="font-size:0.7rem;">Temps alloué pour la faire :</label>
+                            <input type="text" id="quest-linked-duration" placeholder="4h, 1d..." value="4h">
+                        </div>
+                    </div>
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px;">
                     <div><label style="font-size:0.7rem;">Horaires :</label><div style="display:flex; gap:2px;"><input type="time" id="quest-time-start"><input type="time" id="quest-time-end"></div></div>
@@ -365,8 +373,16 @@
                 <div id="edit-quest-link-container" class="hidden" style="margin-top:10px; background:rgba(74, 144, 226, 0.1); padding:10px; border-radius:8px; border:1px dashed #4a90e2;">
                     <label style="font-size:0.7rem; color:#4a90e2; font-weight:bold;">🔗 Quête à déclencher après celle-ci :</label>
                     <select id="edit-quest-linked-id" style="margin-bottom:10px;"><option value="">(Aucune)</option></select>
-                    <label style="font-size:0.7rem;">Délai avant activation (ex: 2h ou 30m) :</label>
-                    <input type="text" id="edit-quest-linked-delay" placeholder="2h, 30m, 1d..." value="0">
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                        <div>
+                            <label style="font-size:0.7rem;">Délai avant activation :</label>
+                            <input type="text" id="edit-quest-linked-delay" placeholder="2h, 30m..." value="0">
+                        </div>
+                        <div>
+                            <label style="font-size:0.7rem;">Temps alloué pour la faire :</label>
+                            <input type="text" id="edit-quest-linked-duration" placeholder="4h, 1d..." value="4h">
+                        </div>
+                    </div>
                 </div>
                 <div id="edit-quest-days-selector" class="hidden" style="margin-top:10px;"><div style="display:flex; justify-content:space-between;"><label><input type="checkbox" name="edit-quest-day" value="1"> L</label><label><input type="checkbox" name="edit-quest-day" value="2"> M</label><label><input type="checkbox" name="edit-quest-day" value="3"> M</label><label><input type="checkbox" name="edit-quest-day" value="4"> J</label><label><input type="checkbox" name="edit-quest-day" value="5"> V</label><label><input type="checkbox" name="edit-quest-day" value="6"> S</label><label><input type="checkbox" name="edit-quest-day" value="0"> D</label></div></div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:20px;">
@@ -540,8 +556,16 @@
                 <div id="counter-link-container" class="hidden" style="margin-top:10px; background:rgba(74, 144, 226, 0.1); padding:10px; border-radius:8px; border:1px dashed #4a90e2;">
                     <label style="font-size:0.7rem; color:#4a90e2; font-weight:bold;">🔗 Quête à déclencher après celle-ci :</label>
                     <select id="counter-linked-id" style="margin-bottom:10px;"><option value="">(Aucune)</option></select>
-                    <label style="font-size:0.7rem;">Délai avant activation (ex: 2h ou 30m) :</label>
-                    <input type="text" id="counter-linked-delay" placeholder="2h, 30m, 1d..." value="0">
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                        <div>
+                            <label style="font-size:0.7rem;">Délai avant activation :</label>
+                            <input type="text" id="counter-linked-delay" placeholder="2h, 30m..." value="0">
+                        </div>
+                        <div>
+                            <label style="font-size:0.7rem;">Temps alloué pour la faire :</label>
+                            <input type="text" id="counter-linked-duration" placeholder="4h, 1d..." value="4h">
+                        </div>
+                    </div>
                 </div>
                 <div id="counter-days-selector" class="hidden" style="margin-top:10px;"><div style="display:flex; justify-content:space-between;"><label><input type="checkbox" name="counter-day" value="1"> L</label><label><input type="checkbox" name="counter-day" value="2"> M</label><label><input type="checkbox" name="counter-day" value="3"> M</label><label><input type="checkbox" name="counter-day" value="4"> J</label><label><input type="checkbox" name="counter-day" value="5"> V</label><label><input type="checkbox" name="counter-day" value="6"> S</label><label><input type="checkbox" name="counter-day" value="0"> D</label></div></div>
                 <div>
@@ -578,10 +602,10 @@
 
     <div id="activity-toast" class="hidden"><div id="toast-avatar" class="assignee-badge" style="width:30px; height:30px;"></div> <span id="toast-message">...</span></div>
 
-    <script src="js/config.js?v=197"></script>
-    <script src="js/auth.js?v=197"></script>
-    <script src="js/firebase-db.js?v=197"></script>
-    <script src="js/app.js?v=197"></script>
+    <script src="js/config.js?v=198"></script>
+    <script src="js/auth.js?v=198"></script>
+    <script src="js/firebase-db.js?v=198"></script>
+    <script src="js/app.js?v=198"></script>
 
     <script>
         if ('serviceWorker' in navigator) {
