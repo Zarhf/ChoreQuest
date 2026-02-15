@@ -933,9 +933,7 @@ const app = {
         }
 
         if (def && def.frequency && def.frequency !== 'none' && def.frequency !== 'linked') {
-            const isWeeklyWithDays = def.frequency === 'weekly' && def.days && def.days.length > 0;
-            const fromDate = isWeeklyWithDays ? new Date(quest.startDate || quest.dueDate) : new Date();
-            
+            const fromDate = new Date(quest.startDate || quest.dueDate);
             const nextScheduledDate = app.calculateNextDueDate(def, fromDate);
             const nextInstance = app.createQuestInstance(def, nextScheduledDate);
             
@@ -969,8 +967,7 @@ const app = {
         if (app.data.questLog.length > 50) app.data.questLog.pop();
 
         if (def && def.frequency && def.frequency !== 'none' && def.frequency !== 'linked') {
-            const isWeeklyWithDays = def.frequency === 'weekly' && def.days && def.days.length > 0;
-            const fromDate = isWeeklyWithDays ? new Date(quest.startDate || quest.dueDate) : new Date();
+            const fromDate = new Date(quest.startDate || quest.dueDate);
             const nextScheduledDate = app.calculateNextDueDate(def, fromDate);
             const nextInstance = app.createQuestInstance(def, nextScheduledDate);
             
@@ -2046,9 +2043,35 @@ const app = {
             };
 
             if (q.startDate) {
-                const startStr = format(q.startDate);
-                const dueStr = format(q.dueDate);
-                timeInfo = `🕒 ${startStr}${dueStr ? '-' + dueStr : ''}`;
+                const sd = new Date(q.startDate);
+                const ed = q.dueDate ? new Date(q.dueDate) : null;
+                const sStr = format(q.startDate);
+                const eStr = format(q.dueDate);
+
+                const isStartMidnight = sd.getHours() === 0 && sd.getMinutes() === 0;
+                const isEndMidnight = ed && ed.getHours() === 23 && ed.getMinutes() === 59;
+
+                if (isStartMidnight && isEndMidnight) {
+                    timeInfo = '🕒 Aujourd\'hui';
+                } else if (isEndMidnight) {
+                    timeInfo = `🕒 À partir de ${sStr}`;
+                } else if (isStartMidnight) {
+                    timeInfo = `🕒 Jusqu'à ${eStr}`;
+                } else {
+                    timeInfo = `🕒 ${sStr}${eStr ? '-' + eStr : ''}`;
+                }
+            }
+
+            // Gestion du libellé de retard
+            let delayInfo = '';
+            if (isOverdue && q.dueDate) {
+                const diffMs = nowTime - new Date(q.dueDate).getTime();
+                const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                if (diffDays >= 1) {
+                    delayInfo = ` • <b style="color:var(--danger)">${diffDays} j. de retard</b>`;
+                } else {
+                    delayInfo = ` • <b style="color:var(--danger)">En retard</b>`;
+                }
             }
             
             const timeStr = timeInfo ? ` • ${timeInfo}` : '';
@@ -2083,9 +2106,10 @@ const app = {
                 actionButtons += `<button class="quest-action-btn btn-counter" style="flex: 1; font-size: 1.1rem;" onclick="event.stopPropagation(); app.openCounterOfferModal('${q.id}')" title="Proposer une modification">📝</button>`;
                 actionButtons += `<button class="quest-action-btn btn-cancel-req" style="flex: 1; font-size: 1.1rem;" onclick="event.stopPropagation(); app.requestQuestCancellation('${q.id}')" title="Demander l'annulation">🚫</button>`;
             } else {
-                actionButtons += `<div style="flex: 4; opacity: 0.3; display: flex; align-items: center; padding-left: 15px; font-size: 0.7rem; font-style: italic; background: rgba(0,0,0,0.05); color: white;">En attente...</div>`;
-                actionButtons += `<button class="quest-action-btn btn-counter" style="flex: 1; font-size: 1.1rem;" onclick="event.stopPropagation(); app.openCounterOfferModal('${q.id}')" title="Modifier la définition">📝</button>`;
-                actionButtons += `<button class="quest-action-btn btn-cancel-req" style="flex: 1; font-size: 1.1rem;" onclick="event.stopPropagation(); app.requestQuestCancellation('${q.id}')" title="Annuler définitivement">🚫</button>`;
+                const dateStr = q.startDate ? new Date(q.startDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '';
+                actionButtons += `<div style="flex: 2; opacity: 0.4; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold; background: rgba(0,0,0,0.05); color: white; border-right: 1px solid rgba(255,255,255,0.05);">${dateStr}</div>`;
+                actionButtons += `<button class="quest-action-btn btn-counter" style="flex: 2; font-size: 1.1rem;" onclick="event.stopPropagation(); app.openEditQuestModal('${q.id}')" title="Modifier la définition">📝</button>`;
+                actionButtons += `<button class="quest-action-btn btn-cancel-req" style="flex: 2; font-size: 1.1rem;" onclick="event.stopPropagation(); app.requestQuestCancellation('${q.id}')" title="Annuler définitivement">🚫</button>`;
             }
 
             const canEdit = app.isAdmin();

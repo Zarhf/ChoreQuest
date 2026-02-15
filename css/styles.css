@@ -132,13 +132,27 @@ main {
 .nav-tab.active { background: var(--primary); color: #fff; }
 
 /* --- QUEST BOARD --- */
-#task-list {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+#task-list, #upcoming-task-list {
+    display: flex;
+    flex-direction: column;
     gap: 1.5rem;
 }
 
-@media (max-width: 800px) {
-    #task-list { grid-template-columns: 1fr; }
+.upcoming-day-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.upcoming-day-title {
+    font-family: 'Cinzel', serif;
+    font-size: 0.8rem;
+    opacity: 0.6;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 5px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    padding-bottom: 5px;
 }
 
 /* --- ANIMATIONS SPÉCIALES --- */

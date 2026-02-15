@@ -53,8 +53,7 @@ try {
     }
 
     // 5. Déploiement Firebase (Backend)
-    console.log("
-🔥 Déploiement sur Firebase Hosting & Functions...");
+    console.log("\n🔥 Déploiement sur Firebase Hosting & Functions...");
     try {
         execSync('npx firebase-tools deploy --project chorequest-1c5b6', { stdio: 'inherit', cwd: PROJECT_DIR });
     } catch (e) {
@@ -63,8 +62,7 @@ try {
     }
 
     // 6. Git Commit & Push (Frontend + Déclencheur GH Pages)
-    console.log("
-📦 Envoi vers GitHub...");
+    console.log("\n📦 Envoi vers GitHub...");
     execSync('git add .', { cwd: PROJECT_DIR });
     
     const gitMsg = `${commitMessage} (build ${newBuild})`;
@@ -73,13 +71,11 @@ try {
     
     execSync('git push origin main', { stdio: 'inherit', cwd: PROJECT_DIR });
 
-    console.log("
-✨ SUCCÈS ! Déploiement terminé.");
+    console.log("\n✨ SUCCÈS ! Déploiement terminé.");
     console.log(`   👉 Version : v${versionData.version} (Build ${newBuild})`);
     console.log(`   👉 Frontend en cours de build sur GitHub...`);
 
 } catch (error) {
-    console.error("
-❌ Une erreur fatale est survenue :", error);
+    console.error("\n❌ Une erreur fatale est survenue :", error);
     process.exit(1);
 }
