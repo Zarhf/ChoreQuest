@@ -2073,12 +2073,19 @@ const app = {
             // Gestion du libellé de retard
             let delayInfo = '';
             if (isOverdue && q.dueDate) {
-                const diffMs = nowTime - new Date(q.dueDate).getTime();
+                const dueTime = new Date(q.dueDate).getTime();
+                const diffMs = nowTime - dueTime;
+                
+                const diffMins = Math.floor(diffMs / 60000);
+                const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
                 const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
                 if (diffDays >= 1) {
                     delayInfo = ` • <b style="color:var(--danger)">${diffDays} j. de retard</b>`;
+                } else if (diffHours >= 1) {
+                    delayInfo = ` • <b style="color:var(--danger)">${diffHours} h. de retard</b>`;
                 } else {
-                    delayInfo = ` • <b style="color:var(--danger)">En retard</b>`;
+                    delayInfo = ` • <b style="color:var(--danger)">${diffMins} min. de retard</b>`;
                 }
             }
             
