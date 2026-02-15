@@ -162,6 +162,32 @@ main {
     animation: pulse-red 2s infinite;
 }
 
+.on-fire {
+    animation: fire-pulse 1.5s infinite alternate !important;
+    border-color: #ff4500 !important;
+    background: linear-gradient(160deg, #2c3e50 0%, #4a1a1a 100%) !important;
+}
+
+@keyframes fire-pulse {
+    0% { box-shadow: 0 0 10px #ff4500, inset 0 0 5px #ff4500; }
+    100% { box-shadow: 0 0 25px #ff8c00, inset 0 0 15px #ff4500; border-color: #ff8c00; }
+}
+
+.currency-bonus {
+    color: #ffcc00;
+    font-weight: bold;
+    text-shadow: 0 0 8px #ff4500;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    animation: flicker 0.2s infinite;
+}
+
+@keyframes flicker {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+}
+
 @keyframes pulse-red {
     0% { box-shadow: 0 0 5px var(--danger); }
     50% { box-shadow: 0 0 20px var(--danger), inset 0 0 10px rgba(233, 69, 96, 0.2); }

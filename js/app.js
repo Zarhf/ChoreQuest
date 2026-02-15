@@ -899,7 +899,18 @@ const app = {
         const bonusMultiplier = 1 + (userLevel / 100);
         
         const earnedXp = Math.ceil(parseInt(quest.xp || 0) * bonusMultiplier);
-        const earnedGold = Math.ceil(parseInt(quest.gold || 0) * bonusMultiplier);
+        let earnedGold = Math.ceil(parseInt(quest.gold || 0) * bonusMultiplier);
+
+        // BONUS DE RETARD : +1% par minute de retard
+        if (quest.dueDate && Date.now() > new Date(quest.dueDate).getTime()) {
+            const diffMs = Date.now() - new Date(quest.dueDate).getTime();
+            const diffMins = Math.floor(diffMs / 60000);
+            const timeBonusMultiplier = 1 + (diffMins / 100);
+            const initialGold = earnedGold;
+            earnedGold = Math.ceil(earnedGold * timeBonusMultiplier);
+            const bonusOnly = earnedGold - initialGold;
+            if (bonusOnly > 0) console.log(`🔥 Prime de retard appliquée : +${bonusOnly} ${app.data.currency.symbol}`);
+        }
 
         app.currentUser.xp += earnedXp;
         app.currentUser.gold = (app.currentUser.gold || 0) + earnedGold;
@@ -2161,8 +2172,24 @@ const app = {
             }
 
             const canEdit = app.isAdmin();
-            const haloClass = isOverdue ? 'overdue-halo' : '';
-            return `<div class="quest-card ${rarity} ${haloClass} ${mode === 'upcoming' ? 'upcoming' : ''}"><div class="quest-body" ${canEdit ? `onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer"` : ''}>${assigneeHtml}<div class="quest-info"><h4>${freq} ${q.title}${timerHtml}</h4><span>💰 ${q.xp} XP${q.gold ? ' • ' + app.data.currency.symbol + ' ' + q.gold : ''}${timeStr}${delayInfo}</span></div></div><div class="quest-actions-container">${actionButtons}</div></div>`;
+            
+            // Calcul du bonus visuel en temps réel
+            let goldDisplay = `💰 ${q.xp} XP${q.gold ? ' • ' + app.data.currency.symbol + ' ' + q.gold : ''}`;
+            let fireClass = '';
+            
+            if (isOverdue && q.dueDate && q.gold > 0) {
+                const diffMs = nowTime - new Date(q.dueDate).getTime();
+                const diffMins = Math.floor(diffMs / 60000);
+                if (diffMins > 0) {
+                    const bonusMult = 1 + (diffMins / 100);
+                    const currentGold = Math.ceil(q.gold * bonusMult);
+                    goldDisplay = `💰 ${q.xp} XP • <span class="currency-bonus">🔥 ${app.data.currency.symbol} ${currentGold}</span>`;
+                    if (diffMins > 30) fireClass = 'on-fire';
+                }
+            }
+
+            const haloClass = isOverdue ? (fireClass || 'overdue-halo') : '';
+            return `<div class="quest-card ${rarity} ${haloClass} ${mode === 'upcoming' ? 'upcoming' : ''}"><div class="quest-body" ${canEdit ? `onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer"` : ''}>${assigneeHtml}<div class="quest-info"><h4>${freq} ${q.title}${timerHtml}</h4><span>${goldDisplay}${timeStr}${delayInfo}</span></div></div><div class="quest-actions-container">${actionButtons}</div></div>`;
         };
 
         // Nouveau tri et groupement incluant les chaînes
