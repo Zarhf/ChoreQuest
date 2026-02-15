@@ -914,8 +914,17 @@ const app = {
                 const delayMs = (def.linkedQuestDelay || 0) * 60 * 1000;
                 const now = Date.now();
                 const startDate = new Date(now + delayMs);
-                const dueDate = new Date(startDate.getTime() + 15 * 60 * 1000); // Règle des 15min pour les liées
+                const dueDate = new Date(startDate.getTime() + 15 * 60 * 1000); 
                 
+                // Gestion de la chaîne (Session)
+                const chainId = quest.chainId || ('chain_' + Date.now());
+                const history = quest.chainHistory ? [...quest.chainHistory] : [];
+                history.push({
+                    title: quest.title,
+                    completedBy: app.currentUser.name,
+                    completedAt: new Date().toISOString()
+                });
+
                 app.data.activeQuests.push({ 
                     id: 'inst_'+Date.now()+'_link', 
                     definitionId: linkedDef.id, 
@@ -927,7 +936,9 @@ const app = {
                     assignedTo: linkedDef.defaultAssignee || null, 
                     isRoyal: linkedDef.isRoyal || false, 
                     status: 'active',
-                    createdBy: app.currentUser.id 
+                    createdBy: app.currentUser.id,
+                    chainId: chainId,
+                    chainHistory: history
                 });
             }
         }
@@ -2132,20 +2143,59 @@ const app = {
             return `<div class="quest-card ${rarity} ${haloClass} ${mode === 'upcoming' ? 'upcoming' : ''}"><div class="quest-body" ${canEdit ? `onclick="app.openEditQuestModal('${q.id}')" style="cursor:pointer"` : ''}>${assigneeHtml}<div class="quest-info"><h4>${freq} ${q.title}${timerHtml}</h4><span>💰 ${q.xp} XP${q.gold ? ' • ' + app.data.currency.symbol + ' ' + q.gold : ''}${timeStr}${delayInfo}</span></div></div><div class="quest-actions-container">${actionButtons}</div></div>`;
         };
 
+        // Nouveau tri et groupement incluant les chaînes
+        const renderList = (quests, mode) => {
+            const groups = [];
+            const processedChainIds = new Set();
+
+            quests.forEach(q => {
+                if (q.chainId && !processedChainIds.has(q.chainId)) {
+                    // C'est une chaîne, on récupère tous ses membres (même ceux qui seraient dans un autre groupe ?)
+                    // Pour simplifier, on ne groupe que les quêtes du même groupe temporel ayant le même chainId
+                    const chainMembers = quests.filter(cq => cq.chainId === q.chainId);
+                    groups.push({ type: 'chain', chainId: q.chainId, members: chainMembers });
+                    processedChainIds.add(q.chainId);
+                } else if (!q.chainId) {
+                    groups.push({ type: 'single', quest: q });
+                }
+            });
+
+            return groups.map(g => {
+                if (g.type === 'single') return html(g.quest, mode);
+                
+                // Rendu d'une chaîne
+                const root = g.members[0];
+                const historyHtml = root.chainHistory ? root.chainHistory.map(h => `
+                    <div class="history-step">
+                        <span>✅</span>
+                        <span><b>${h.title}</b> par ${h.completedBy} à ${new Date(h.completedAt).getHours()}h${new Date(h.completedAt).getMinutes().toString().padStart(2, '0')}</span>
+                    </div>
+                `).join('') : '';
+
+                return `
+                    <div class="quest-chain-container">
+                        <div class="chain-header">🛡️ Session de Quête</div>
+                        <div class="chain-history">${historyHtml}</div>
+                        ${g.members.map(mq => html(mq, mode)).join('')}
+                    </div>
+                `;
+            }).join('');
+        };
+
         let finalHtml = "";
         
         if (overdue.length > 0) {
-            finalHtml += `<div class="upcoming-day-group"><div class="upcoming-day-title" style="color:var(--danger)">⚠️ EN RETARD</div>${overdue.map(q => html(q, 'overdue')).join('')}</div>`;
+            finalHtml += `<div class="upcoming-day-group"><div class="upcoming-day-title" style="color:var(--danger)">⚠️ EN RETARD</div>${renderList(overdue, 'overdue')}</div>`;
         }
         
         if (active.length > 0) {
-            finalHtml += `<div class="upcoming-day-group"><div class="upcoming-day-title">⚔️ MAINTENANT</div>${active.map(q => html(q, 'active')).join('')}</div>`;
+            finalHtml += `<div class="upcoming-day-group"><div class="upcoming-day-title">⚔️ MAINTENANT</div>${renderList(active, 'active')}</div>`;
         } else if (overdue.length === 0) {
             finalHtml += '<p style="text-align:center; opacity:0.5; margin: 20px 0;">Tout est fait pour le moment !</p>';
         }
 
         if (laterToday.length > 0) {
-            finalHtml += `<div class="upcoming-day-group"><div class="upcoming-day-title">⏳ PLUS TARD AUJOURD'HUI</div>${laterToday.map(q => html(q, 'later')).join('')}</div>`;
+            finalHtml += `<div class="upcoming-day-group"><div class="upcoming-day-title">⏳ PLUS TARD AUJOURD'HUI</div>${renderList(laterToday, 'later')}</div>`;
         }
 
         document.getElementById('task-list').innerHTML = finalHtml;
